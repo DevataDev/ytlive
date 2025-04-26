@@ -285,34 +285,9 @@ func main() {
 	// Set max bitrate endpoint
 	r.PUT("/api/streams/:id/maxbitrate", handlers.JWTMiddleware(), streamHandler.SetMaxBitrate)
 
-	// List streams with pagination and live/scheduled counts
-	r.GET("/api/streams", handlers.JWTMiddleware(), func(c *gin.Context) {
-		var streams []models.Stream
-		page := 1
-		perPage := 10
-		if p := c.Query("page"); p != "" {
-			fmt.Sscanf(p, "%d", &page)
-		}
-		if pp := c.Query("per_page"); pp != "" {
-			fmt.Sscanf(pp, "%d", &perPage)
-		}
-		offset := (page - 1) * perPage
-		var total int64
-		db.Model(&models.Stream{}).Count(&total)
-		db.Order("created_at desc").Offset(offset).Limit(perPage).Find(&streams)
-		// Count live and scheduled
-		var liveCount, scheduledCount int64
-		db.Model(&models.Stream{}).Where("status = ?", "live").Count(&liveCount)
-		db.Model(&models.Stream{}).Where("status = ?", "scheduled").Count(&scheduledCount)
-		c.JSON(200, gin.H{
-			"streams":        streams,
-			"total":          total,
-			"page":           page,
-			"per_page":       perPage,
-			"countLive":      liveCount,
-			"countScheduled": scheduledCount,
-		})
-	})
+	// List streams for current user with pagination and live/scheduled counts
+	r.GET("/api/streams", handlers.JWTMiddleware(), streamHandler.ListStreams)
+
 	r.GET("/stream", func(c *gin.Context) {
 		c.File("./web/static/stream-list.html")
 	})
@@ -322,9 +297,10 @@ func main() {
 		c.File("./web/static/dashboard.html")
 	})
 	r.GET("/api/dashboard/streams", handlers.JWTMiddleware(), func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
 		var started, scheduled int64
-		db.Model(&models.Stream{}).Where("status = ?", "live").Count(&started)
-		db.Model(&models.Stream{}).Where("status = ?", "scheduled").Count(&scheduled)
+		db.Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&started)
+		db.Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&scheduled)
 		c.JSON(200, gin.H{"started": started, "scheduled": scheduled})
 	})
 	r.GET("/api/dashboard/metrics", handlers.JWTMiddleware(), func(c *gin.Context) {
@@ -341,6 +317,11 @@ func main() {
 	r.POST("/api/streams/upload", handlers.JWTMiddleware(), func(c *gin.Context) {
 		file, fileHeaderErr := c.FormFile("videoFile")
 		driveLink := c.PostForm("driveLink")
+		userID, ok := c.Get("user_id")
+		if !ok {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			return
+		}
 		if fileHeaderErr != nil && driveLink == "" {
 			c.JSON(400, gin.H{"error": "No file or Google Drive link provided."})
 			return
@@ -389,6 +370,7 @@ func main() {
 			fileName = file.Filename
 			uploadPath := "./uploads/" + fileName
 			if err := c.SaveUploadedFile(file, uploadPath); err != nil {
+				fmt.Println(err)
 				c.JSON(500, gin.H{"error": "Failed to save file."})
 				return
 			}
@@ -411,8 +393,10 @@ func main() {
 			Status:          "stopped",
 			CreatedAt:       time.Now(),
 			UpdatedAt:       time.Now(),
+			UserId:          userID.(string),
 		}
 		if err := db.Create(&stream).Error; err != nil {
+			fmt.Println(err)
 			c.JSON(500, gin.H{"error": "Failed to save stream info."})
 			return
 		}
@@ -509,9 +493,10 @@ func main() {
 					"started_at":  time.Now(),
 				})
 				// Broadcast to all ws clients
+				userID, _ := c.Get("user_id")
 				go func() {
 					handlers.BroadcastStreamListUpdate()
-					handlers.BroadcastDashboardStreams(db)
+					handlers.BroadcastDashboardStreams(db, userID.(string))
 				}()
 			}
 		}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
@@ -541,9 +526,10 @@ func main() {
 			"ffmpeg_p_id": nil,
 		})
 		// Broadcast to all ws clients
+		userID, _ := c.Get("user_id")
 		go func() {
 			handlers.BroadcastStreamListUpdate()
-			handlers.BroadcastDashboardStreams(db)
+			handlers.BroadcastDashboardStreams(db, userID.(string))
 		}()
 		c.JSON(200, gin.H{"success": true})
 	})
@@ -568,10 +554,98 @@ func main() {
 			c.JSON(500, gin.H{"error": "Failed to delete stream."})
 			return
 		}
+		userID, _ := c.Get("user_id")
 		go func() {
 			handlers.BroadcastStreamListUpdate()
-			handlers.BroadcastDashboardStreams(db)
+			handlers.BroadcastDashboardStreams(db, userID.(string))
 		}()
+		c.JSON(200, gin.H{"success": true})
+	})
+
+	r.GET("/users", func(c *gin.Context) {
+		c.File("./web/static/user-management.html")
+	})
+
+	r.GET("/api/users", handlers.JWTMiddleware(), func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		var user models.User
+		if err := db.First(&user, "id = ?", userID).Error; err != nil || !user.IsAdmin {
+			c.JSON(403, gin.H{"error": "Forbidden"})
+			return
+		}
+		var users []models.User
+		db.Find(&users)
+		var userList []map[string]interface{}
+		for _, u := range users {
+			userList = append(userList, map[string]interface{}{
+				"id":                    u.ID,
+				"username":              u.Username,
+				"email":                 u.Email,
+				"is_admin":              u.IsAdmin,
+				"is_active":             u.IsActive,
+				"subscription_start_at": u.SubscriptionStartAt,
+				"subscription_end_at":   u.SubscriptionEndAt,
+			})
+		}
+		c.JSON(200, gin.H{"users": userList})
+	})
+
+	r.PUT("/api/users/:id/admin", handlers.JWTMiddleware(), func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		var user models.User
+		if err := db.First(&user, "id = ?", userID).Error; err != nil || !user.IsAdmin {
+			c.JSON(403, gin.H{"error": "Forbidden"})
+			return
+		}
+		id := c.Param("id")
+		var req struct {
+			IsAdmin bool `json:"is_admin"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request"})
+			return
+		}
+		if err := db.Model(&models.User{}).Where("id = ?", id).Update("is_admin", req.IsAdmin).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update admin status"})
+			return
+		}
+		c.JSON(200, gin.H{"success": true})
+	})
+
+	r.PUT("/api/users/:id/active", handlers.JWTMiddleware(), func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		var user models.User
+		if err := db.First(&user, "id = ?", userID).Error; err != nil || !user.IsAdmin {
+			c.JSON(403, gin.H{"error": "Forbidden"})
+			return
+		}
+		id := c.Param("id")
+		var req struct {
+			IsActive bool `json:"is_active"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request"})
+			return
+		}
+		if err := db.Model(&models.User{}).Where("id = ?", id).Update("is_active", req.IsActive).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update active status"})
+			return
+		}
+		c.JSON(200, gin.H{"success": true})
+	})
+
+	r.DELETE("/api/users/:id", handlers.JWTMiddleware(), func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		var user models.User
+		if err := db.First(&user, "id = ?", userID).Error; err != nil || !user.IsAdmin {
+			c.JSON(403, gin.H{"error": "Forbidden"})
+			return
+		}
+		id := c.Param("id")
+		if err := db.Delete(&models.User{}, "id = ?", id).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to delete user"})
+			return
+		}
 		c.JSON(200, gin.H{"success": true})
 	})
 

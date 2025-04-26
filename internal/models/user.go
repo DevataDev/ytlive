@@ -16,6 +16,7 @@ type User struct {
 	CreatedAt           time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt           time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 	IsActive            bool       `gorm:"default:true" json:"is_active"`
+	IsAdmin             bool       `gorm:"default:false" json:"is_admin"`
 	SubscriptionStartAt *time.Time `json:"subscription_start_at"`
 	SubscriptionEndAt   *time.Time `json:"subscription_end_at"`
 }

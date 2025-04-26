@@ -24,6 +24,9 @@
                     <li class="nav-item">
                         <a href="/stream" class="nav-link" id="menuStream">Stream</a>
                     </li>
+                    <li class="nav-item" id="menuUserMgmt">
+                        <a href="/users" class="nav-link">User Management</a>
+                    </li>
                 </ul>
                 <button id="logoutBtn" class="btn btn-outline-secondary ms-lg-2">Logout</button>
             </div>
@@ -96,6 +99,22 @@ const sinceYear = 2025;
 const nowYear = new Date().getFullYear();
 let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
 document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama`;
+
+// Show User Management menu if user is admin
+$(function() {
+    const token = localStorage.getItem('jwt_token');
+    if (token) {
+        // Decode JWT to check is_admin (assume payload is base64 encoded JSON)
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            if (!payload.is_admin) {
+                $('#menuUserMgmt').addClass('d-none');
+            }
+        } catch (e) {}
+    } else {
+        $('#menuUserMgmt').addClass('d-none');
+    }
+});
 </script>
 </body>
 </html>

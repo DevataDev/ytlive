@@ -36,10 +36,10 @@ func BroadcastStreamListUpdate() {
 }
 
 // Broadcast dashboard stream stats to all clients
-func BroadcastDashboardStreams(db *gorm.DB) {
+func BroadcastDashboardStreams(db *gorm.DB, userID string) {
 	var started, scheduled int64
-	db.Model(&models.Stream{}).Where("status = ?", "live").Count(&started)
-	db.Model(&models.Stream{}).Where("status = ?", "scheduled").Count(&scheduled)
+	db.Model(&models.Stream{}).Where("status = ? AND user_id = ?", "live", userID).Count(&started)
+	db.Model(&models.Stream{}).Where("status = ? AND user_id = ?", "scheduled", userID).Count(&scheduled)
 	msg := map[string]interface{}{"type": "dashboard_streams", "started": started, "scheduled": scheduled}
 	streamListClientsMu.Lock()
 	for c := range streamListClients {

@@ -12,6 +12,27 @@ $(function() {
         window.location.href = "/";
     });
 
+    function fetchDashboardStreams() {
+        const token = localStorage.getItem("jwt_token");
+        $.ajax({
+            url: "/api/dashboard/streams",
+            method: "GET",
+            headers: { Authorization: "Bearer " + token },
+            success: function(data) {
+                $("#streamsStarted").text(data.started);
+                $("#streamsScheduled").text(data.scheduled);
+            },
+            error: function() {
+                $("#streamsStarted").text("-");
+                $("#streamsScheduled").text("-");
+            }
+        });
+    }
+
+    // Call once on load and every 5 seconds
+    fetchDashboardStreams();
+    setInterval(fetchDashboardStreams, 5000);
+
     function setupDashboardWebSocket() {
         if (window.dashboardSocket) {
             window.dashboardSocket.close();
@@ -23,10 +44,7 @@ $(function() {
         window.dashboardSocket.onmessage = function(event) {
             try {
                 const msg = JSON.parse(event.data);
-                if (msg.type === 'dashboard_streams') {
-                    $("#streamsStarted").text(msg.started);
-                    $("#streamsScheduled").text(msg.scheduled);
-                } else if (msg.type === 'dashboard_metrics') {
+                if (msg.type === 'dashboard_metrics') {
                     $("#cpuUsage").text(msg.cpu.toFixed(1) + "%");
                     $("#memoryUsage").text(msg.memory.toFixed(1) + "%");
                     $("#uploadRate").text(msg.upload.toFixed(2) + " Mbps");
@@ -40,21 +58,4 @@ $(function() {
     }
     setupDashboardWebSocket();
 
-    // Removed polling for metrics
-    // function fetchDashboard() {
-    //     const token = localStorage.getItem("jwt_token");
-    //     $.ajax({
-    //         url: "/api/dashboard/metrics",
-    //         method: "GET",
-    //         headers: { Authorization: "Bearer " + token },
-    //         success: function(data) {
-    //             $("#cpuUsage").text(data.cpu + "%");
-    //             $("#memoryUsage").text(data.memory + "%");
-    //             $("#uploadRate").text(data.upload + " KB/s");
-    //             $("#downloadRate").text(data.download + " KB/s");
-    //         }
-    //     });
-    // }
-    // fetchDashboard();
-    // setInterval(fetchDashboard, 5000);
 });

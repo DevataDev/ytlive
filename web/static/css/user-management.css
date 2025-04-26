@@ -1,0 +1,13 @@
+.user-management-wide-container {
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (max-width: 1200px) {
+    .user-management-wide-container {
+        max-width: 100%;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
