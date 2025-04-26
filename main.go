@@ -48,7 +48,6 @@ func extractDriveFileID(link string) string {
 
 // Downloads a public Google Drive file using its file ID
 func downloadDriveFile(client *http.Client, url string, destPath string) error {
-	fmt.Println("Downloading from:", url)
 	resp, err := client.Get(url)
 	if err != nil {
 		return err
@@ -221,6 +220,36 @@ func loadConfig(path string) (*Config, error) {
 	return &cfg, nil
 }
 
+func normalizeFileName(fileName string) string {
+	// Remove special characters and convert to lowercase
+	normalizeFileName := strings.ToLower(fileName)
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, ".", "-")
+	// remove any symbol
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "!", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "@", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "#", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "$", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "%", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "^", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "&", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "*", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "(", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, ")", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "_", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "-", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "+", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "=", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "[", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "]", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "{", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "}", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "|", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "\\", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "/", "-")
+	normalizeFileName = strings.ReplaceAll(normalizeFileName, "?", "-")
+	return normalizeFileName
+}
+
 func main() {
 	cfg, err := loadConfig("config.yaml")
 	if err != nil {
@@ -323,7 +352,6 @@ func main() {
 		if driveLink != "" {
 			googleDriveLink = &driveLink
 			fileID := extractDriveFileID(driveLink)
-			fmt.Println("File ID:", fileID)
 			if fileID != "" {
 				srv, err := drive.NewService(ctx, option.WithAPIKey(cfg.Google.ApiKey))
 				if err != nil {
@@ -343,7 +371,7 @@ func main() {
 					c.JSON(500, gin.H{"error": "error : Google Drive file not accessible, failed to generate download URL"})
 					return
 				}
-				downloadName := file.OriginalFilename
+				downloadName := fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(file.OriginalFilename))
 				destPath := "./uploads/" + downloadName
 				if err := downloadDriveFile(client, downloadUrl, destPath); err != nil {
 					c.JSON(500, gin.H{"error": err.Error()})
@@ -358,7 +386,7 @@ func main() {
 		}
 		if fileHeaderErr == nil {
 			// Save file to disk (uploads folder)
-			fileName = file.Filename
+			fileName = fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(file.Filename))
 			uploadPath := "./uploads/" + fileName
 			if err := c.SaveUploadedFile(file, uploadPath); err != nil {
 				fmt.Println(err)

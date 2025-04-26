@@ -3,6 +3,8 @@ package models
 import (
 	"context"
 	"fmt"
+	"math"
+	"os"
 	"os/exec"
 	"sync"
 	"syscall"
@@ -55,49 +57,93 @@ func GetWorker(streamID string) (*StreamWorker, bool) {
 // StartStreamWorker starts an FFmpeg process for the stream and registers the worker.
 func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*StreamWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	// Example FFmpeg command (customize as needed)
-	// Replace with your actual FFmpeg command to stream to YouTube
-	cmd := exec.CommandContext(ctx, "ffmpeg",
-		"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1",
-		"-i", filePath,
-		"-c:v", "copy",
-		"-c:a", "copy",
-		"-threads", "1",
-		"-preset", "ultrafast",
-		"-f", "flv",
-		"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
-	)
-	fmt.Println("FFmpeg command:", cmd)
-	if maxBitrate != nil {
-		cmd = exec.CommandContext(ctx, "ffmpeg",
-			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
-			"-threads", "1",
-			"-c:v", "copy",
-			"-c:a", "copy",
-			"-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
-			"-f", "flv",
-			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
-		)
-	}
-	if err := cmd.Start(); err != nil {
-		cancel()
-		return nil, 0, err
-	}
 	worker := &StreamWorker{
 		StreamID:   streamID,
-		Cmd:        cmd,
 		CancelFunc: cancel,
 		Status:     "live",
 	}
 	AddWorker(worker)
 
-	// Start stats monitor goroutine
-	stopChan := make(chan struct{})
-	worker.StopChan = stopChan // Store stopChan in worker
 	go func() {
-		worker.MonitorFFmpegStats(stopChan)
+		baseDelay := time.Second * 2
+		maxDelay := time.Minute
+		attempt := 0
+
+		for {
+			select {
+			case <-ctx.Done():
+				fmt.Println("StreamWorker context cancelled for", streamID)
+				return
+			default:
+			}
+
+			var cmd *exec.Cmd
+			if maxBitrate != nil {
+				cmd = exec.CommandContext(ctx, "ffmpeg",
+					"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
+					"-threads", "1",
+					"-c:v", "copy",
+					"-c:a", "copy",
+					"-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
+					"-f", "flv",
+					"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
+				)
+			} else {
+				cmd = exec.CommandContext(ctx, "ffmpeg",
+					"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1",
+					"-i", filePath,
+					"-c:v", "copy",
+					"-c:a", "copy",
+					"-threads", "1",
+					"-preset", "ultrafast",
+					"-f", "flv",
+					"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
+				)
+			}
+
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			worker.Cmd = cmd
+
+			fmt.Println("Starting FFmpeg for stream:", streamID)
+			err := cmd.Start()
+			if err != nil {
+				fmt.Println("Failed to start FFmpeg:", err)
+			} else {
+				err = cmd.Wait()
+				if ctx.Err() != nil {
+					fmt.Println("Context cancelled during FFmpeg run for", streamID)
+					// make sure ffmpeg process is terminated
+					if worker.Cmd != nil && worker.Cmd.Process != nil {
+						_ = worker.Cmd.Process.Signal(syscall.SIGTERM)
+					}
+					return
+				}
+
+				fmt.Println("FFmpeg exited for stream", streamID, "with error:", err)
+			}
+
+			// Start stats monitor goroutine
+			stopChan := make(chan struct{})
+			worker.StopChan = stopChan // Store stopChan in worker
+			go func() {
+				worker.MonitorFFmpegStats(stopChan)
+			}()
+
+			// Exponential backoff before restart
+			sleep := time.Duration(float64(baseDelay) * math.Pow(2, float64(attempt)))
+			if sleep > maxDelay {
+				sleep = maxDelay
+			}
+			fmt.Printf("Restarting FFmpeg for stream %s in %v...\n", streamID, sleep)
+			time.Sleep(sleep)
+			if attempt < 6 {
+				attempt++
+			}
+		}
 	}()
-	return worker, cmd.Process.Pid, nil
+	// Return immediately after spawning goroutine
+	return worker, 0, nil
 }
 
 // StopStreamWorker stops the FFmpeg process for the stream and removes the worker.
@@ -125,7 +171,11 @@ func StopStreamWorker(streamID string) error {
 		}
 	}
 	// Close stopChan to stop stats monitor goroutine
-	close(worker.StopChan)
+	if worker.StopChan != nil {
+		close(worker.StopChan)
+	}
+	// Remove worker from map
+
 	RemoveWorker(streamID)
 	return nil
 }
