@@ -280,4 +280,6 @@ Temporary Items
 
 config.*
 
+*.zip
+
 # End of https://www.toptal.com/developers/gitignore/api/go,video,audio,jetbrains,goland,macos
