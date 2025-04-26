@@ -566,29 +566,34 @@ func main() {
 		c.File("./web/static/user-management.html")
 	})
 
-	r.GET("/api/users", handlers.JWTMiddleware(), func(c *gin.Context) {
-		userID, _ := c.Get("user_id")
-		var user models.User
-		if err := db.First(&user, "id = ?", userID).Error; err != nil || !user.IsAdmin {
-			c.JSON(403, gin.H{"error": "Forbidden"})
-			return
-		}
-		var users []models.User
-		db.Find(&users)
-		var userList []map[string]interface{}
-		for _, u := range users {
-			userList = append(userList, map[string]interface{}{
-				"id":                    u.ID,
-				"username":              u.Username,
-				"email":                 u.Email,
-				"is_admin":              u.IsAdmin,
-				"is_active":             u.IsActive,
-				"subscription_start_at": u.SubscriptionStartAt,
-				"subscription_end_at":   u.SubscriptionEndAt,
-			})
-		}
-		c.JSON(200, gin.H{"users": userList})
-	})
+	// User management endpoints
+	userHandler := &handlers.UserHandler{DB: db}
+	r.GET("/api/users", handlers.JWTMiddleware(), userHandler.ListUsers)
+	r.POST("/api/users", handlers.JWTMiddleware(), userHandler.CreateUser)
+
+	// r.GET("/api/users", handlers.JWTMiddleware(), func(c *gin.Context) {
+	// 	userID, _ := c.Get("user_id")
+	// 	var user models.User
+	// 	if err := db.First(&user, "id = ?", userID).Error; err != nil || !user.IsAdmin {
+	// 		c.JSON(403, gin.H{"error": "Forbidden"})
+	// 		return
+	// 	}
+	// 	var users []models.User
+	// 	db.Find(&users)
+	// 	var userList []map[string]interface{}
+	// 	for _, u := range users {
+	// 		userList = append(userList, map[string]interface{}{
+	// 			"id":                    u.ID,
+	// 			"username":              u.Username,
+	// 			"email":                 u.Email,
+	// 			"is_admin":              u.IsAdmin,
+	// 			"is_active":             u.IsActive,
+	// 			"subscription_start_at": u.SubscriptionStartAt,
+	// 			"subscription_end_at":   u.SubscriptionEndAt,
+	// 		})
+	// 	}
+	// 	c.JSON(200, gin.H{"users": userList})
+	// })
 
 	r.PUT("/api/users/:id/admin", handlers.JWTMiddleware(), func(c *gin.Context) {
 		userID, _ := c.Get("user_id")

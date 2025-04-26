@@ -33,7 +33,23 @@ $(function() {
             tbody.append('<tr><td colspan="5" class="text-center text-muted">No users found.</td></tr>');
             return;
         }
+        // Get logged-in username from JWT
+        let loggedInUsername = null;
+        try {
+            const token = localStorage.getItem("jwt_token");
+
+            if (token) {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                loggedInUsername = payload.user_id;
+            }
+        } catch (e) {
+            console.error("Failed to parse JWT payload:", e);
+        }
         users.forEach(function(user) {
+            let deleteBtn = '';
+            if (user.id !== loggedInUsername) {
+                deleteBtn = `<button class="btn btn-sm btn-danger delete-btn" data-username="${user.username}">Delete</button>`;
+            }
             tbody.append(`
                 <tr>
                     <td>${user.username}</td>
@@ -41,7 +57,7 @@ $(function() {
                     <td><input type="checkbox" class="form-check-input admin-toggle" data-username="${user.username}" ${user.is_admin ? 'checked' : ''}></td>
                     <td><input type="checkbox" class="form-check-input active-toggle" data-username="${user.username}" ${user.is_active ? 'checked' : ''}></td>
                     <td>
-                        <button class="btn btn-sm btn-danger delete-btn" data-username="${user.username}">Delete</button>
+                        ${deleteBtn}
                     </td>
                 </tr>
             `);
@@ -86,6 +102,46 @@ $(function() {
             headers: { Authorization: "Bearer " + token },
             success: fetchUsers
         });
+    });
+
+    // Add user form handler
+    $("#addUserForm").submit(function(e) {
+        e.preventDefault();
+        const username = $("#addUsername").val().trim();
+        const email = $("#addEmail").val().trim();
+        const password = $("#addPassword").val();
+        const isAdmin = $("#addIsAdmin").is(":checked");
+        if (!username || !email || !password) {
+            alert("All fields are required.");
+            return;
+        }
+        $.ajax({
+            url: "/api/users",
+            method: "POST",
+            headers: { Authorization: "Bearer " + token, 'Content-Type': 'application/json' },
+            data: JSON.stringify({ username, email, password, is_admin: isAdmin }),
+            success: function() {
+                $("#addUserForm")[0].reset();
+                fetchUsers();
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : "Failed to add user.");
+            }
+        });
+    });
+
+    // Password eye toggle for add user
+    $(document).on('click', '#addUserForm .toggle-password', function() {
+        // Find the input within the same input-group
+        const input = $(this).closest('.input-group').find('input');
+        const icon = $(this).find('i');
+        if (input.attr('type') === 'password') {
+            input.attr('type', 'text');
+            icon.removeClass('fa-eye').addClass('fa-eye-slash');
+        } else {
+            input.attr('type', 'password');
+            icon.removeClass('fa-eye-slash').addClass('fa-eye');
+        }
     });
 
     fetchUsers();

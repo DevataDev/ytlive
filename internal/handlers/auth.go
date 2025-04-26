@@ -4,10 +4,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"windsorf-youtube-live/internal/auth"
 	"windsorf-youtube-live/internal/models"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type AuthHandler struct {
