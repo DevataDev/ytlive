@@ -289,12 +289,15 @@ func main() {
 	r.GET("/api/streams", handlers.JWTMiddleware(), streamHandler.ListStreams)
 
 	r.GET("/stream", func(c *gin.Context) {
-		c.File("./web/static/stream-list.html")
+		// replace it with static embedded file stream-list.html
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/stream-list.html", http.FS(staticFs))
 	})
 
 	// Dashboard endpoints (JWT protected)
 	r.GET("/dashboard", func(c *gin.Context) {
-		c.File("./web/static/dashboard.html")
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/dashboard.html", http.FS(staticFs))
 	})
 	r.GET("/api/dashboard/streams", handlers.JWTMiddleware(), func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
@@ -310,7 +313,8 @@ func main() {
 
 	// Serve the upload page at /upload
 	r.GET("/upload", func(c *gin.Context) {
-		c.File("./web/static/upload.html")
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/upload.html", http.FS(staticFs))
 	})
 
 	// Handle video upload (file or Google Drive link)
@@ -563,7 +567,8 @@ func main() {
 	})
 
 	r.GET("/users", func(c *gin.Context) {
-		c.File("./web/static/user-management.html")
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/user-management.html", http.FS(staticFs))
 	})
 
 	// User management endpoints
@@ -668,8 +673,10 @@ func main() {
 		}
 		handlers.WebSocketHandlerWithContext(ctx, c)
 	})
+
 	r.GET("/", func(c *gin.Context) {
-		c.File("./web/static/index.html")
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/index.html", http.FS(staticFs))
 	})
 
 	// Periodically broadcast server metrics to all websocket clients
