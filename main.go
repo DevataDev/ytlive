@@ -129,9 +129,7 @@ func generateDownloadUrl(client *http.Client, file *drive.File) (string, error) 
 
 		// get the hidden input
 		for child := range formElem.ChildNodes() {
-			fmt.Println("Child element:", child)
 			if child.Type == html.ElementNode && child.Data == "input" {
-				fmt.Println("Input element found:", child)
 				if attr := getAttribute(child, "name"); attr == "id" {
 					id = getAttribute(child, "value")
 				}
@@ -152,13 +150,6 @@ func generateDownloadUrl(client *http.Client, file *drive.File) (string, error) 
 				}
 			}
 		}
-
-		fmt.Println("id:", id)
-		fmt.Println("export:", export)
-		fmt.Println("authuser:", authuser)
-		fmt.Println("confirm:", confirm)
-		fmt.Println("uuid:", uuid)
-		fmt.Println("at:", at)
 
 		if id != "" && export != "" && authuser != "" && confirm != "" && uuid != "" {
 			return fmt.Sprintf("https://drive.usercontent.google.com/download?id=%s&export=%s&authuser=%s&confirm=%s&uuid=%s", id, export, authuser, confirm, uuid), nil
