@@ -43,7 +43,7 @@ func extractDriveFileID(link string) string {
 // Downloads a public Google Drive file using its file ID
 func downloadDriveFile(client *http.Client, url string, destPath string) error {
 	fmt.Println("Downloading from:", url)
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,6 @@ func generateDownloadUrl(client *http.Client, file *drive.File) (string, error) 
 	}
 
 	// TODO: Check if the page is "Google Drive Quota Exceeded or Limit Reached"
-	fmt.Println("Download page content:", downloadPage)
 	formElem := getElementByID(downloadPage, "download-form")
 	if formElem == nil {
 		return "", fmt.Errorf("form element was not found in the download page")
@@ -113,16 +112,56 @@ func generateDownloadUrl(client *http.Client, file *drive.File) (string, error) 
 		return "", fmt.Errorf("form action was not found in the download page")
 	}
 
-	fmt.Println("Download URL:", formAction)
+	// get the form input type hidden
+	if formElem != nil {
+		id := ""
+		export := ""
+		authuser := "0"
+		confirm := "t"
+		uuid := ""
+		at := ""
 
-	// Check if the form action is a valid download URL
-	if !strings.HasPrefix(formAction, "https://drive.usercontent.google.com") {
-		return "", fmt.Errorf("form action is not a valid download URL")
+		// get the hidden input
+		for child := range formElem.ChildNodes() {
+			fmt.Println("Child element:", child)
+			if child.Type == html.ElementNode && child.Data == "input" {
+				fmt.Println("Input element found:", child)
+				if attr := getAttribute(child, "name"); attr == "id" {
+					id = getAttribute(child, "value")
+				}
+				if attr := getAttribute(child, "name"); attr == "export" {
+					export = getAttribute(child, "value")
+				}
+				if attr := getAttribute(child, "name"); attr == "authuser" {
+					authuser = getAttribute(child, "value")
+				}
+				if attr := getAttribute(child, "name"); attr == "confirm" {
+					confirm = getAttribute(child, "value")
+				}
+				if attr := getAttribute(child, "name"); attr == "uuid" {
+					uuid = getAttribute(child, "value")
+				}
+				if attr := getAttribute(child, "name"); attr == "at" {
+					at = getAttribute(child, "value")
+				}
+			}
+		}
+
+		fmt.Println("id:", id)
+		fmt.Println("export:", export)
+		fmt.Println("authuser:", authuser)
+		fmt.Println("confirm:", confirm)
+		fmt.Println("uuid:", uuid)
+		fmt.Println("at:", at)
+
+		if id != "" && export != "" && authuser != "" && confirm != "" && uuid != "" {
+			return fmt.Sprintf("https://drive.usercontent.google.com/download?id=%s&export=%s&authuser=%s&confirm=%s&uuid=%s", id, export, authuser, confirm, uuid), nil
+		} else {
+			return "", fmt.Errorf("download page content type is not html: %s", contentType)
+		}
+	} else {
+		return "", fmt.Errorf("download page content type is not html: %s", contentType)
 	}
-
-	fmt.Println("Download URL:", formAction)
-
-	return formAction, nil
 }
 
 func getElementByID(n *html.Node, id string) *html.Node {
@@ -154,6 +193,10 @@ var (
 
 // Config struct for MySQL and default
 type Config struct {
+	App struct {
+		Port int    `yaml:"port"`
+		Host string `yaml:"host"`
+	} `yaml:"app"`
 	MySQL struct {
 		User     string `yaml:"user"`
 		Password string `yaml:"password"`
@@ -228,6 +271,11 @@ func main() {
 	authHandler := &handlers.AuthHandler{DB: db}
 	r.POST("/api/login", authHandler.Login)
 	r.POST("/api/logout", authHandler.Logout)
+
+	// Stream handler
+	streamHandler := &handlers.StreamHandler{DB: db}
+	// Set max bitrate endpoint
+	r.PUT("/api/streams/:id/maxbitrate", handlers.JWTMiddleware(), streamHandler.SetMaxBitrate)
 
 	// List streams with pagination and live/scheduled counts
 	r.GET("/api/streams", handlers.JWTMiddleware(), func(c *gin.Context) {
@@ -315,7 +363,7 @@ func main() {
 					c.JSON(500, gin.H{"error": "error : Google Drive file not accessible, failed to generate download URL"})
 					return
 				}
-				downloadName := file.OriginalFilename + ".mp4"
+				downloadName := file.OriginalFilename
 				destPath := "./uploads/" + downloadName
 				if err := downloadDriveFile(client, downloadUrl, destPath); err != nil {
 					c.JSON(500, gin.H{"error": err.Error()})
@@ -444,8 +492,8 @@ func main() {
 			}
 		}
 		// Start FFmpeg goroutine (using models.AddWorker)
-		go func(streamID, filePath, streamKey string) {
-			_, pid, err := models.StartStreamWorker(streamID, filePath, streamKey)
+		go func(streamID, filePath, streamKey string, maxBitrate *int) {
+			_, pid, err := models.StartStreamWorker(streamID, filePath, streamKey, maxBitrate)
 			if err == nil {
 				db.Model(&models.Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
 					"ffmpeg_p_id": pid,
@@ -458,7 +506,7 @@ func main() {
 					handlers.BroadcastDashboardStreams(db)
 				}()
 			}
-		}(stream.ID, *stream.FilePath, stream.StreamKey)
+		}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
 		c.JSON(200, gin.H{"success": true})
 	})
 
@@ -545,12 +593,15 @@ func main() {
 		}
 	}()
 
+	// Start background goroutine for broadcasting stream stats
+	go handlers.BroadcastStreamStats()
+
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port),
 		Handler: r,
 	}
 
-	log.Println("Server started at http://localhost:8080")
+	log.Println("Server started at http://" + cfg.App.Host + ":" + fmt.Sprintf("%d", cfg.App.Port))
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %s\n", err)

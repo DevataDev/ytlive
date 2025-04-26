@@ -19,4 +19,5 @@ type Stream struct {
     UpdatedAt       time.Time
     DeletedAt       gorm.DeletedAt `gorm:"index"`
     StreamKey       string         `gorm:"column:stream_key" json:"StreamKey"`
+    MaxBitrate       *int           `gorm:"column:max_bitrate" json:"MaxBitrate,omitempty"`
 }

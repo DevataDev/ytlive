@@ -2,10 +2,13 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/shirou/gopsutil/v3/process"
 )
 
 type StreamWorker struct {
@@ -13,6 +16,13 @@ type StreamWorker struct {
 	Cmd        *exec.Cmd
 	CancelFunc context.CancelFunc
 	Status     string // "live", "scheduled", "stopped", etc.
+	Stats      StreamStats
+	StopChan   chan struct{} // Added StopChan field
+}
+
+type StreamStats struct {
+	CPUPercent float64
+	RSSBytes   uint64
 }
 
 var (
@@ -43,16 +53,24 @@ func GetWorker(streamID string) (*StreamWorker, bool) {
 }
 
 // StartStreamWorker starts an FFmpeg process for the stream and registers the worker.
-func StartStreamWorker(streamID, filePath, streamKey string) (*StreamWorker, int, error) {
+func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*StreamWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// Example FFmpeg command (customize as needed)
 	// Replace with your actual FFmpeg command to stream to YouTube
 	cmd := exec.CommandContext(ctx, "ffmpeg",
 		"-re", "-nostdin", "-stream_loop", "-1", "-i", filePath,
-		"-c:v", "libx264", "-preset", "veryfast", "-maxrate", "3000k", "-bufsize", "6000k",
-		"-pix_fmt", "yuv420p", "-g", "60", "-f", "flv",
+		"-c:v", "libx264", "-preset", "ultrafast",
+		"-pix_fmt", "yuv420p", "-f", "flv",
 		"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
 	)
+	if maxBitrate != nil {
+		cmd = exec.CommandContext(ctx, "ffmpeg",
+			"-re", "-nostdin", "-stream_loop", "-1", "-i", filePath,
+			"-c:v", "libx264", "-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
+			"-pix_fmt", "yuv420p", "-f", "flv",
+			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
+		)
+	}
 	if err := cmd.Start(); err != nil {
 		cancel()
 		return nil, 0, err
@@ -64,6 +82,13 @@ func StartStreamWorker(streamID, filePath, streamKey string) (*StreamWorker, int
 		Status:     "live",
 	}
 	AddWorker(worker)
+
+	// Start stats monitor goroutine
+	stopChan := make(chan struct{})
+	worker.StopChan = stopChan // Store stopChan in worker
+	go func() {
+		worker.MonitorFFmpegStats(stopChan)
+	}()
 	return worker, cmd.Process.Pid, nil
 }
 
@@ -91,6 +116,31 @@ func StopStreamWorker(streamID string) error {
 			<-done // ensure Wait() returns
 		}
 	}
+	// Close stopChan to stop stats monitor goroutine
+	close(worker.StopChan)
 	RemoveWorker(streamID)
 	return nil
+}
+
+// MonitorFFmpegStats monitors CPU and memory usage for the FFmpeg process
+func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
+	pid := w.Cmd.Process.Pid
+	proc, err := process.NewProcess(int32(pid))
+	if err != nil {
+		return
+	}
+	for {
+		select {
+		case <-stopChan:
+			return
+		default:
+			cpu, _ := proc.CPUPercent()
+			mem, _ := proc.MemoryInfo()
+			w.Stats.CPUPercent = cpu
+			if mem != nil {
+				w.Stats.RSSBytes = mem.RSS
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}
 }

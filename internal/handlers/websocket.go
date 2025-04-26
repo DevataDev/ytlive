@@ -98,6 +98,32 @@ func BroadcastDashboardMetrics() {
 	streamListClientsMu.Unlock()
 }
 
+// Periodically broadcast per-stream stats to all clients
+func BroadcastStreamStats() {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		<-ticker.C
+		stats := make(map[string]interface{})
+		models.WorkersMu.Lock()
+		for id, worker := range models.Workers {
+			stats[id] = map[string]interface{}{
+				"cpu": worker.Stats.CPUPercent,
+				"mem": worker.Stats.RSSBytes,
+			}
+		}
+		models.WorkersMu.Unlock()
+		streamListClientsMu.Lock()
+		for c := range streamListClients {
+			c.WriteJSON(map[string]interface{}{
+				"type":  "stream_stats",
+				"stats": stats,
+			})
+		}
+		streamListClientsMu.Unlock()
+	}
+}
+
 func WebSocketHandler(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {

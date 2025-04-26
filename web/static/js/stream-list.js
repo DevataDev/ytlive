@@ -19,7 +19,7 @@ $(function() {
         const tbody = $("#streamTable tbody");
         tbody.empty();
         if (!data.streams || data.streams.length === 0) {
-            tbody.append('<tr><td colspan="4" class="text-center text-muted">No streams found.</td></tr>');
+            tbody.append('<tr><td colspan="7" class="text-center text-muted">No streams found.</td></tr>');
             return;
         }
         data.streams.forEach(stream => {
@@ -33,34 +33,55 @@ $(function() {
             let downloadBtn = stream.FilePath ? `<button class="btn btn-sm btn-success download-btn" data-id="${stream.ID}"><i class="fa-solid fa-download"></i></button>` : '';
             let streamKeyBtn = `<button class="btn btn-sm btn-secondary streamkey-btn" data-id="${stream.ID}" data-streamkey="${stream.StreamKey || ''}"><i class="fa-solid fa-key"></i></button>`;
             let deleteBtn = `<button class="btn btn-sm btn-outline-danger delete-btn" data-id="${stream.ID}" title="Delete"><i class="fa-solid fa-trash"></i></button>`;
-            // --- Add relative time info for live streams ---
+            let maxBitrateCol = stream.MaxBitrate && stream.MaxBitrate > 0 ? stream.MaxBitrate + ' kbps' : '-';
+            let setBitrateBtn = `<button class="btn btn-sm btn-warning set-bitrate-btn" data-id="${stream.ID}" data-bitrate="${stream.MaxBitrate || ''}"><i class="fa-solid fa-gauge"></i></button>`;
             let statusText = stream.Status;
+            let startedAtAttr = '';
+            let startedAtDisplay = '';
             if (stream.Status === 'live' && stream.StartedAt) {
-                const startedAt = new Date(stream.StartedAt);
-                const now = new Date();
-                const diffMs = now - startedAt;
-                const diffSec = Math.floor(diffMs / 1000);
-                let rel = '';
-                if (diffSec < 60) rel = `${diffSec}s ago`;
-                else if (diffSec < 3600) rel = `${Math.floor(diffSec/60)}m ago`;
-                else if (diffSec < 86400) rel = `${Math.floor(diffSec/3600)}h ago`;
-                else rel = `${Math.floor(diffSec/86400)}d ago`;
-                statusText += ` (${rel})`;
+                startedAtAttr = ` data-started-at='${stream.StartedAt}'`;
+                startedAtDisplay = ` <span class="started-at-rel"></span>`;
             }
             tbody.append(`
-                <tr>
+                <tr data-id="${stream.ID}"${startedAtAttr}>
                     <td>${liveIndicator}</td>
                     <td><span>${stream.FileName || '-'}</span></td>
-                    <td>${statusText}</td>
+                    <td>${statusText}${startedAtDisplay}</td>
+                    <td>${maxBitrateCol}</td>
+                    <td class="cpu-col">-</td>
+                    <td class="mem-col">-</td>
                     <td>
                         <button class="btn btn-sm btn-primary" data-id="${stream.ID}" data-action="start" ${startDisabled}><i class="fa-solid fa-play"></i></button>
                         <button class="btn btn-sm btn-danger" data-id="${stream.ID}" data-action="stop" ${stopDisabled}><i class="fa-solid fa-stop"></i></button>
                         ${downloadBtn}
                         ${streamKeyBtn}
+                        ${setBitrateBtn}
                         ${deleteBtn}
                     </td>
                 </tr>
             `);
+        });
+        // After rendering, update all started-at relative times
+        updateAllStartedAtRel();
+    }
+
+    function updateAllStartedAtRel() {
+        const now = Date.now();
+        $("#streamTable tbody tr[data-started-at]").each(function() {
+            const startedAt = $(this).attr('data-started-at');
+            if (startedAt) {
+                const started = new Date(startedAt).getTime();
+                const diff = Math.floor((now - started) / 1000);
+                let rel = '-';
+                if (!isNaN(diff) && diff > 0) {
+                    const h = Math.floor(diff / 3600);
+                    const m = Math.floor((diff % 3600) / 60);
+                    const s = diff % 60;
+                    rel = `${h > 0 ? h + 'h ' : ''}${m > 0 ? m + 'm ' : ''}${s}s ago`;
+                    rel = `(${rel})`;
+                }
+                $(this).find('.started-at-rel').text(rel);
+            }
         });
     }
 
@@ -89,7 +110,7 @@ $(function() {
                 renderPagination(data);
             },
             error: function() {
-                $("#streamTable tbody").html('<tr><td colspan="4" class="text-center text-danger">Failed to load streams.</td></tr>');
+                $("#streamTable tbody").html('<tr><td colspan="7" class="text-center text-danger">Failed to load streams.</td></tr>');
             }
         });
     }
@@ -172,6 +193,28 @@ $(function() {
             },
             error: function() {
                 alert("Failed to update stream key.");
+            }
+        });
+    });
+
+    // Set Bitrate handler
+    $(document).on("click", ".set-bitrate-btn", function(e) {
+        e.preventDefault();
+        const id = $(this).data("id");
+        const currentBitrate = $(this).data("bitrate") || '';
+        const newBitrate = prompt("Enter max bitrate in kbps (leave empty to unset):", currentBitrate);
+        if (newBitrate === null) return;
+        const token = localStorage.getItem("jwt_token");
+        $.ajax({
+            url: `/api/streams/${id}/maxbitrate`,
+            method: "PUT",
+            headers: { Authorization: "Bearer " + token, 'Content-Type': 'application/json' },
+            data: JSON.stringify({ MaxBitrate: newBitrate ? parseInt(newBitrate) : null }),
+            success: function() {
+                fetchStreams();
+            },
+            error: function(xhr) {
+                alert("Failed to update max bitrate: " + (xhr.responseJSON?.error || xhr.statusText));
             }
         });
     });
@@ -267,6 +310,37 @@ $(function() {
         };
     }
     setupStreamListWebSocket();
+
+    // Listen for stream_stats websocket messages and update table
+    function setupStreamStatsWebSocket() {
+        if (window.streamStatsSocket) {
+            window.streamStatsSocket.close();
+        }
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const token = localStorage.getItem("jwt_token");
+        const wsUrl = protocol + '://' + window.location.host + '/ws?token=' + encodeURIComponent(token);
+        window.streamStatsSocket = new WebSocket(wsUrl);
+        window.streamStatsSocket.onmessage = function(event) {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'stream_stats' && msg.stats) {
+                    for (const [id, stat] of Object.entries(msg.stats)) {
+                        const row = $(`#streamTable tbody tr[data-id='${id}']`);
+                        if (row.length) {
+                            row.find('.cpu-col').text(stat.cpu ? stat.cpu.toFixed(1) + '%' : '-');
+                            row.find('.mem-col').text(stat.mem ? (stat.mem / 1024 / 1024).toFixed(1) + ' MB' : '-');
+                        }
+                    }
+                    // Also update all started-at relative times
+                    updateAllStartedAtRel();
+                }
+            } catch(e) {}
+        };
+        window.streamStatsSocket.onclose = function() {
+            setTimeout(setupStreamStatsWebSocket, 2000);
+        };
+    }
+    setupStreamStatsWebSocket();
 
     // Initial load
     fetchStreams();
