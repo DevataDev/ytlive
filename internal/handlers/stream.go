@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"windsorf-youtube-live/internal/models"
 
@@ -84,4 +85,67 @@ func (h *StreamHandler) CreateStream(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"stream": stream})
+}
+
+// PUT /api/streams/:id/schedule
+func (h *StreamHandler) SetSchedule(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		ScheduledAt string `json:"ScheduledAt"`
+		StoppedAt   string `json:"StoppedAt"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
+		return
+	}
+	start, err1 := time.Parse("2006-01-02T15:04", req.ScheduledAt)
+	end, err2 := time.Parse("2006-01-02T15:04", req.StoppedAt)
+	if err1 != nil || err2 != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date/time format"})
+		return
+	}
+	if start.Before(time.Now()) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Start time cannot be earlier than the current time"})
+		return
+	}
+	if end.Before(start) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "End time cannot be earlier than start time"})
+		return
+	}
+	stream.ScheduledAt = &start
+	stream.StoppedAt = &end
+	stream.Status = "scheduled"
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to schedule stream"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Stream scheduled"})
+}
+
+// PUT /api/streams/:id/rename
+func (h *StreamHandler) RenameFile(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		FileName string `json:"FileName"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.FileName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
+		return
+	}
+	stream.FileName = req.FileName
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to rename file"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "File renamed"})
 }

@@ -32,9 +32,11 @@ $(function() {
             let stopDisabled = (stream.Status !== 'live') ? 'disabled' : '';
             let downloadBtn = stream.FilePath ? `<button class="btn btn-sm btn-success download-btn" data-id="${stream.ID}"><i class="fa-solid fa-download"></i></button>` : '';
             let streamKeyBtn = `<button class="btn btn-sm btn-secondary streamkey-btn" data-id="${stream.ID}" data-streamkey="${stream.StreamKey || ''}"><i class="fa-solid fa-key"></i></button>`;
+            let setBitrateBtn = `<button class="btn btn-sm btn-warning set-bitrate-btn" data-id="${stream.ID}" data-bitrate="${stream.MaxBitrate || ''}"><i class="fa-solid fa-gauge"></i></button>`;
+            let scheduleBtn = `<button class="btn btn-sm btn-info schedule-btn" data-id="${stream.ID}" title="Schedule Stream"><i class="fa-solid fa-clock"></i></button>`;
+            let renameBtn = `<button class="btn btn-sm btn-secondary rename-btn" data-id="${stream.ID}" title="Rename File"><i class="fa-solid fa-pen-to-square"></i></button>`;
             let deleteBtn = `<button class="btn btn-sm btn-outline-danger delete-btn" data-id="${stream.ID}" title="Delete"><i class="fa-solid fa-trash"></i></button>`;
             let maxBitrateCol = stream.MaxBitrate && stream.MaxBitrate > 0 ? stream.MaxBitrate + ' kbps' : '-';
-            let setBitrateBtn = `<button class="btn btn-sm btn-warning set-bitrate-btn" data-id="${stream.ID}" data-bitrate="${stream.MaxBitrate || ''}"><i class="fa-solid fa-gauge"></i></button>`;
             let statusText = stream.Status;
             let startedAtAttr = '';
             let startedAtDisplay = '';
@@ -56,6 +58,8 @@ $(function() {
                         ${downloadBtn}
                         ${streamKeyBtn}
                         ${setBitrateBtn}
+                        ${scheduleBtn}
+                        ${renameBtn}
                         ${deleteBtn}
                     </td>
                 </tr>
@@ -108,6 +112,8 @@ $(function() {
                 $("#countScheduled").text(data.countScheduled || 0);
                 renderStreamsTable(data);
                 renderPagination(data);
+                // Store the latest streams list globally for validation
+                window.lastStreams = data.streams || [];
             },
             error: function() {
                 $("#streamTable tbody").html('<tr><td colspan="7" class="text-center text-danger">Failed to load streams.</td></tr>');
@@ -282,6 +288,81 @@ $(function() {
             },
             error: function(xhr) {
                 alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : "Failed to delete stream.");
+            }
+        });
+    });
+
+    // Schedule button handler
+    $(document).on('click', '.schedule-btn', function() {
+        const streamId = $(this).data('id');
+        $('#scheduleStreamId').val(streamId);
+        $('#scheduleModal').modal('show');
+    });
+
+    // Save schedule
+    $('#saveScheduleBtn').on('click', function(e) {
+        e.preventDefault();
+        const streamId = $('#scheduleStreamId').val();
+        const start = $('#scheduleStart').val();
+        const end = $('#scheduleEnd').val();
+        const token = localStorage.getItem('jwt_token');
+        // Get the stream object from the last loaded streams (from fetchStreams)
+        let stream = null;
+        if (window.lastStreams && Array.isArray(window.lastStreams)) {
+            stream = window.lastStreams.find(s => s.ID === streamId);
+        }
+        if (!stream || !stream.StreamKey || stream.StreamKey.trim() === "") {
+            alert('Please set a stream key before scheduling this stream.');
+            return;
+        }
+        if (!start || !end) {
+            alert('Please select start and end time.');
+            return;
+        }
+        $.ajax({
+            url: `/api/streams/${streamId}/schedule`,
+            method: 'PUT',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            data: JSON.stringify({ ScheduledAt: start, StoppedAt: end }),
+            success: function() {
+                $('#scheduleModal').modal('hide');
+                fetchStreams();
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to schedule stream.');
+            }
+        });
+    });
+
+    // Rename button handler
+    $(document).on('click', '.rename-btn', function() {
+        const streamId = $(this).data('id');
+        $('#renameStreamId').val(streamId);
+        $('#renameFileName').val($(this).closest('tr').find('td:nth-child(2) span').text());
+        $('#renameModal').modal('show');
+    });
+
+    // Save rename
+    $('#saveRenameBtn').on('click', function(e) {
+        e.preventDefault();
+        const streamId = $('#renameStreamId').val();
+        const newName = $('#renameFileName').val().trim();
+        const token = localStorage.getItem('jwt_token');
+        if (!newName) {
+            alert('Please enter a new file name.');
+            return;
+        }
+        $.ajax({
+            url: `/api/streams/${streamId}/rename`,
+            method: 'PUT',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            data: JSON.stringify({ FileName: newName }),
+            success: function() {
+                $('#renameModal').modal('hide');
+                fetchStreams();
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to rename file.');
             }
         });
     });

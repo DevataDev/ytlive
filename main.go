@@ -300,9 +300,10 @@ func main() {
 	streamHandler := &handlers.StreamHandler{DB: db}
 	// Set max bitrate endpoint
 	r.PUT("/api/streams/:id/maxbitrate", handlers.JWTMiddleware(), streamHandler.SetMaxBitrate)
-
-	// List streams for current user with pagination and live/scheduled counts
 	r.GET("/api/streams", handlers.JWTMiddleware(), streamHandler.ListStreams)
+	r.POST("/api/streams", handlers.JWTMiddleware(), streamHandler.CreateStream)
+	r.PUT("/api/streams/:id/schedule", handlers.JWTMiddleware(), streamHandler.SetSchedule)
+	r.PUT("/api/streams/:id/rename", handlers.JWTMiddleware(), streamHandler.RenameFile)
 
 	r.GET("/stream", func(c *gin.Context) {
 		// replace it with static embedded file stream-list.html
