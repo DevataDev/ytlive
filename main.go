@@ -180,7 +180,8 @@ func getAttribute(n *html.Node, key string) string {
 }
 
 var (
-	ctx = context.Background()
+	ctx               = context.Background()
+	database *gorm.DB = nil
 )
 
 // Config struct for MySQL and default
@@ -257,6 +258,9 @@ func main() {
 	}
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", cfg.MySQL.User, cfg.MySQL.Password, cfg.MySQL.Host, cfg.MySQL.Port, cfg.MySQL.DBName, cfg.MySQL.Params)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+	database = db
+
 	if err != nil {
 		log.Fatalf("failed to connect to DB: %v", err)
 	}
@@ -542,7 +546,7 @@ func main() {
 			c.JSON(500, gin.H{"error": "Failed to stop stream."})
 			return
 		}
-		db.Model(&models.Stream{}).Where("id = ?", stream.ID).Updates(map[string]interface{}{
+		db.Model(&stream).Updates(map[string]interface{}{
 			"status":      "stopped",
 			"stopped_at":  time.Now(),
 			"ffmpeg_p_id": nil,
@@ -726,6 +730,44 @@ func main() {
 
 	// Start background goroutine for broadcasting stream stats
 	go handlers.BroadcastStreamStats()
+
+	// --- Stream Scheduler: Start scheduled streams and stop overdue live streams ---
+	go func() {
+		fmt.Println("Starting stream scheduler...")
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			<-ticker.C
+			now := time.Now()
+
+			// Start scheduled streams
+			var streamsToStart []models.Stream
+			database.Where("status = ? AND scheduled_at <= ? AND started_at IS NULL", "scheduled", now).Find(&streamsToStart)
+			for _, stream := range streamsToStart {
+				if stream.StreamKey == "" || stream.FilePath == nil {
+					continue // Do not start if no stream key or file path
+				}
+				_, _, err := models.StartStreamWorker(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
+				if err == nil {
+					db.Model(&stream).Updates(map[string]interface{}{
+						"Status":    "live",
+						"StartedAt": now,
+					})
+				}
+			}
+
+			// Stop live streams whose end time has passed
+			var streamsToStop []models.Stream
+			database.Where("status = ? AND stopped_at <= ? AND stopped_at IS NOT NULL", "live", now).Find(&streamsToStop)
+			for _, stream := range streamsToStop {
+				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
+				database.Model(&stream).Updates(map[string]interface{}{
+					"Status":    "stopped",
+					"StoppedAt": now,
+				})
+			}
+		}
+	}()
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port),
