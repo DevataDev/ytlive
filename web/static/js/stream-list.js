@@ -28,13 +28,11 @@ $(function() {
                 liveIndicator = '<span class="live-indicator"></span>';
             }
             // Disable start button if no StreamKey or if already live
-            const startDisabled = !stream.StreamKey || stream.Status === 'live' ? 'disabled' : '';
-            const stopDisabled = stream.Status !== 'live' ? 'disabled' : '';
-            let downloadBtn = '';
-            if (stream.FilePath) {
-                downloadBtn = `<button class="btn btn-sm btn-outline-secondary ms-1 download-btn" data-id="${stream.ID}">Download</button>`;
-            }
-            let streamKeyBtn = `<button class="btn btn-sm btn-warning ms-1 streamkey-btn" data-id="${stream.ID}" data-streamkey="${stream.StreamKey || ''}">Set Stream Key</button>`;
+            let startDisabled = (!stream.StreamKey || stream.Status === 'live') ? 'disabled' : '';
+            let stopDisabled = (stream.Status !== 'live') ? 'disabled' : '';
+            let downloadBtn = stream.FilePath ? `<button class="btn btn-sm btn-success download-btn" data-id="${stream.ID}"><i class="fa-solid fa-download"></i></button>` : '';
+            let streamKeyBtn = `<button class="btn btn-sm btn-secondary streamkey-btn" data-id="${stream.ID}" data-streamkey="${stream.StreamKey || ''}"><i class="fa-solid fa-key"></i></button>`;
+            let deleteBtn = `<button class="btn btn-sm btn-outline-danger delete-btn" data-id="${stream.ID}" title="Delete"><i class="fa-solid fa-trash"></i></button>`;
             // --- Add relative time info for live streams ---
             let statusText = stream.Status;
             if (stream.Status === 'live' && stream.StartedAt) {
@@ -52,17 +50,14 @@ $(function() {
             tbody.append(`
                 <tr>
                     <td>${liveIndicator}</td>
-                    <td>
-                        <span class="file-name-tooltip" title="${stream.StreamKey ? `Stream Key: ${stream.StreamKey}` : 'No Stream Key'}">
-                            ${stream.FileName || '-'}
-                        </span>
-                    </td>
+                    <td><span>${stream.FileName || '-'}</span></td>
                     <td>${statusText}</td>
                     <td>
-                        <button class="btn btn-sm btn-primary" data-id="${stream.ID}" data-action="start" ${startDisabled}>Start</button>
-                        <button class="btn btn-sm btn-danger" data-id="${stream.ID}" data-action="stop" ${stopDisabled}>Stop</button>
+                        <button class="btn btn-sm btn-primary" data-id="${stream.ID}" data-action="start" ${startDisabled}><i class="fa-solid fa-play"></i></button>
+                        <button class="btn btn-sm btn-danger" data-id="${stream.ID}" data-action="stop" ${stopDisabled}><i class="fa-solid fa-stop"></i></button>
                         ${downloadBtn}
                         ${streamKeyBtn}
+                        ${deleteBtn}
                     </td>
                 </tr>
             `);
@@ -225,6 +220,25 @@ $(function() {
             error: function(xhr) {
                 alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : "Failed to stop stream.");
                 btn.prop("disabled", false);
+            }
+        });
+    });
+
+    // Delete stream handler
+    $(document).on("click", ".delete-btn", function(e) {
+        e.preventDefault();
+        if (!confirm("Are you sure you want to delete this stream?")) return;
+        const id = $(this).data("id");
+        const token = localStorage.getItem("jwt_token");
+        $.ajax({
+            url: `/api/streams/${id}`,
+            method: "DELETE",
+            headers: { Authorization: "Bearer " + token },
+            success: function() {
+                fetchStreams();
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : "Failed to delete stream.");
             }
         });
     });

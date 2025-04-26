@@ -23,6 +23,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/oklog/ulid/v2"
 	"gopkg.in/yaml.v3"
+
+	"golang.org/x/net/html"
+	"google.golang.org/api/drive/v2"
+	"google.golang.org/api/option"
 )
 
 // Extracts the file ID from a Google Drive share link
@@ -37,8 +41,7 @@ func extractDriveFileID(link string) string {
 }
 
 // Downloads a public Google Drive file using its file ID
-func downloadDriveFile(fileID, destPath string) error {
-	url := "https://drive.google.com/uc?export=download&id=" + fileID
+func downloadDriveFile(client *http.Client, url string, destPath string) error {
 	fmt.Println("Downloading from:", url)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -46,15 +49,6 @@ func downloadDriveFile(fileID, destPath string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("error : Google Drive file not accessible (status %d)", resp.StatusCode)
-	}
-	// check in body if contains html tags  then return error
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if strings.Contains(string(body), "<html>") {
 		return fmt.Errorf("error : Google Drive file not accessible (status %d)", resp.StatusCode)
 	}
 
@@ -72,6 +66,92 @@ func downloadDriveFile(fileID, destPath string) error {
 	return err
 }
 
+func generateDownloadUrl(client *http.Client, file *drive.File) (string, error) {
+	fileSize := file.FileSize
+	fileId := file.Id
+	// check if file size is larger than 100MB
+	if fileSize < 100*(1<<20) {
+		// simple download
+		// https://drive.google.com/uc?export=download&id=file-id
+		downloadUrl := fmt.Sprintf("https://drive.google.com/uc?export=download&id=%s", fileId)
+		return downloadUrl, nil
+	}
+
+	// large file download, more complicated download
+	// Example: https://drive.google.com/u/0/uc?id=XXXXXXXXBKPx3G5_UZWA79g79ncqEfQ&export=download
+	scanFailedUrl := fmt.Sprintf("https://drive.google.com/uc?export=download&id=%s", fileId)
+	res, err := client.Get(scanFailedUrl)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to open download url: %s", scanFailedUrl)
+	}
+
+	// check content type, must be html
+	contentType := res.Header.Get("Content-Type")
+	if contentType != "text/html; charset=utf-8" {
+		return "", fmt.Errorf("download page content type is not html: %s", contentType)
+	}
+
+	downloadPage, err := html.Parse(res.Body)
+	if err != nil {
+		return "", err
+	}
+
+	// TODO: Check if the page is "Google Drive Quota Exceeded or Limit Reached"
+	fmt.Println("Download page content:", downloadPage)
+	formElem := getElementByID(downloadPage, "download-form")
+	if formElem == nil {
+		return "", fmt.Errorf("form element was not found in the download page")
+	}
+
+	formAction := getAttribute(formElem, "action")
+	if formAction == "" {
+		return "", fmt.Errorf("form action was not found in the download page")
+	}
+
+	fmt.Println("Download URL:", formAction)
+
+	// Check if the form action is a valid download URL
+	if !strings.HasPrefix(formAction, "https://drive.usercontent.google.com") {
+		return "", fmt.Errorf("form action is not a valid download URL")
+	}
+
+	fmt.Println("Download URL:", formAction)
+
+	return formAction, nil
+}
+
+func getElementByID(n *html.Node, id string) *html.Node {
+	if n.Type == html.ElementNode {
+		if attr := getAttribute(n, "id"); attr == id {
+			return n
+		}
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if n := getElementByID(c, id); n != nil {
+			return n
+		}
+	}
+	return nil
+}
+
+func getAttribute(n *html.Node, key string) string {
+	for _, attr := range n.Attr {
+		if attr.Key == key {
+			return attr.Val
+		}
+	}
+	return ""
+}
+
+var (
+	ctx = context.Background()
+)
+
 // Config struct for MySQL and default
 type Config struct {
 	MySQL struct {
@@ -85,6 +165,10 @@ type Config struct {
 	Default struct {
 		Password string `yaml:"password"`
 	} `yaml:"default"`
+
+	Google struct {
+		ApiKey string `yaml:"apiKey"`
+	} `yaml:"google"`
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -213,9 +297,27 @@ func main() {
 			fileID := extractDriveFileID(driveLink)
 			fmt.Println("File ID:", fileID)
 			if fileID != "" {
-				downloadName := fileID + ".mp4"
+				srv, err := drive.NewService(ctx, option.WithAPIKey(cfg.Google.ApiKey))
+				if err != nil {
+					c.JSON(500, gin.H{"error": "error : Google Drive file not accessible"})
+					return
+				}
+
+				file, err := srv.Files.Get(fileID).Do()
+				if err != nil {
+					c.JSON(500, gin.H{"error": "error : Google Drive file not accessible"})
+					return
+				}
+
+				client := http.DefaultClient
+				downloadUrl, err := generateDownloadUrl(client, file)
+				if err != nil {
+					c.JSON(500, gin.H{"error": "error : Google Drive file not accessible, failed to generate download URL"})
+					return
+				}
+				downloadName := file.OriginalFilename + ".mp4"
 				destPath := "./uploads/" + downloadName
-				if err := downloadDriveFile(fileID, destPath); err != nil {
+				if err := downloadDriveFile(client, downloadUrl, destPath); err != nil {
 					c.JSON(500, gin.H{"error": err.Error()})
 					return
 				}
@@ -383,6 +485,33 @@ func main() {
 			"ffmpeg_p_id": nil,
 		})
 		// Broadcast to all ws clients
+		go func() {
+			handlers.BroadcastStreamListUpdate()
+			handlers.BroadcastDashboardStreams(db)
+		}()
+		c.JSON(200, gin.H{"success": true})
+	})
+
+	// DELETE /api/streams/:id endpoint
+	r.DELETE("/api/streams/:id", handlers.JWTMiddleware(), func(c *gin.Context) {
+		id := c.Param("id")
+		var stream models.Stream
+		if err := db.First(&stream, "id = ?", id).Error; err != nil {
+			c.JSON(404, gin.H{"error": "Stream not found."})
+			return
+		}
+		// Optionally: stop the stream if it's live
+		if stream.Status == "live" {
+			_ = models.StopStreamWorker(stream.ID)
+		}
+		// Remove video file if exists
+		if stream.FilePath != nil && *stream.FilePath != "" {
+			_ = os.Remove(*stream.FilePath)
+		}
+		if err := db.Delete(&stream).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to delete stream."})
+			return
+		}
 		go func() {
 			handlers.BroadcastStreamListUpdate()
 			handlers.BroadcastDashboardStreams(db)
