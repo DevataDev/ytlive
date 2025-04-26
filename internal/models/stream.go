@@ -13,6 +13,8 @@ type Stream struct {
     Status          string         `gorm:"not null"` // "live", "scheduled", "stopped"
     FfmpegPID       *int           `gorm:"default:null"` // Optional, for managing ffmpeg process
     ScheduledAt     *time.Time
+    ScheduledStartAt *time.Time `gorm:"column:scheduled_start_at;default:null" json:"ScheduledStartAt"`
+    ScheduledEndAt   *time.Time `gorm:"column:scheduled_end_at;default:null" json:"ScheduledEndAt"`
     StartedAt       *time.Time
     StoppedAt       *time.Time
     CreatedAt       time.Time

@@ -738,15 +738,23 @@ func main() {
 		defer ticker.Stop()
 		for {
 			<-ticker.C
-			now := time.Now()
+			now := time.Now().UTC()
 
+			fmt.Println("Checking for scheduled streams...")
+			fmt.Println("Current time:", now)
 			// Start scheduled streams
 			var streamsToStart []models.Stream
-			database.Where("status = ? AND scheduled_at <= ? AND started_at IS NULL", "scheduled", now).Find(&streamsToStart)
+			database.Where("status = ?", "scheduled").Find(&streamsToStart)
+			fmt.Println("Found", len(streamsToStart), "scheduled streams to start.")
 			for _, stream := range streamsToStart {
 				if stream.StreamKey == "" || stream.FilePath == nil {
 					fmt.Println("Stream", stream.ID, "has no stream key or file path, skipping.")
 					continue // Do not start if no stream key or file path
+				}
+				// check start time
+				if stream.ScheduledStartAt.After(now) {
+					fmt.Println("Stream", stream.ID, "has not started yet, skipping. start time:", stream.ScheduledStartAt)
+					continue
 				}
 				_, _, err := models.StartStreamWorker(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
 				if err == nil {
@@ -760,14 +768,18 @@ func main() {
 
 			// Stop live streams whose end time has passed
 			var streamsToStop []models.Stream
-			database.Where("status = ? AND stopped_at <= ? AND stopped_at IS NOT NULL", "live", now).Find(&streamsToStop)
+			database.Where("status = ? AND scheduled_end_at IS NOT NULL", "live").Find(&streamsToStop)
+			fmt.Println("Found", len(streamsToStop), "live streams to stop.")
 			for _, stream := range streamsToStop {
-				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
-				database.Model(&stream).Updates(map[string]interface{}{
-					"Status":    "stopped",
-					"StoppedAt": now,
-				})
-				fmt.Println("Stream", stream.ID, "stopped successfully.")
+				// check end time
+				if stream.ScheduledEndAt.Before(now) {
+					_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
+					database.Model(&stream).Updates(map[string]interface{}{
+						"Status":    "stopped",
+						"StoppedAt": now,
+					})
+					fmt.Println("Stream", stream.ID, "stopped successfully.")
+				}
 			}
 		}
 	}()

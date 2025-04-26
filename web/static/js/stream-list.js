@@ -306,6 +306,7 @@ $(function() {
         const start = $('#scheduleStart').val();
         const end = $('#scheduleEnd').val();
         const token = localStorage.getItem('jwt_token');
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         // Get the stream object from the last loaded streams (from fetchStreams)
         let stream = null;
         if (window.lastStreams && Array.isArray(window.lastStreams)) {
@@ -323,7 +324,7 @@ $(function() {
             url: `/api/streams/${streamId}/schedule`,
             method: 'PUT',
             headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-            data: JSON.stringify({ ScheduledAt: start, StoppedAt: end }),
+            data: JSON.stringify({ ScheduledAt: start, StoppedAt: end, Timezone: timezone }),
             success: function() {
                 $('#scheduleModal').modal('hide');
                 fetchStreams();

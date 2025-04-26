@@ -93,6 +93,7 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 	var req struct {
 		ScheduledAt string `json:"ScheduledAt"`
 		StoppedAt   string `json:"StoppedAt"`
+		Timezone    string `json:"Timezone"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
@@ -103,13 +104,28 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
 		return
 	}
-	start, err1 := time.Parse("2006-01-02T15:04", req.ScheduledAt)
-	end, err2 := time.Parse("2006-01-02T15:04", req.StoppedAt)
+
+	// convert start and end from local time to utc
+	timezone := req.Timezone
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid timezone"})
+		return
+	}
+	start, err1 := time.ParseInLocation("2006-01-02T15:04", req.ScheduledAt, loc)
+	end, err2 := time.ParseInLocation("2006-01-02T15:04", req.StoppedAt, loc)
+	scheduledAt := time.Now().UTC()
+
+	// reduce the time from local timezone to utc
+	start = start.UTC()
+	end = end.UTC()
+	now := time.Now().UTC()
+
 	if err1 != nil || err2 != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date/time format"})
 		return
 	}
-	if start.Before(time.Now()) {
+	if start.Before(now) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Start time cannot be earlier than the current time"})
 		return
 	}
@@ -117,8 +133,10 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "End time cannot be earlier than start time"})
 		return
 	}
-	stream.ScheduledAt = &start
-	stream.StoppedAt = &end
+	stream.ScheduledStartAt = &start
+	stream.ScheduledEndAt = &end
+	stream.ScheduledAt = &scheduledAt
+
 	stream.Status = "scheduled"
 	if err := h.DB.Save(&stream).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to schedule stream"})
