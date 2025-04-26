@@ -675,8 +675,20 @@ func main() {
 	})
 
 	r.GET("/", func(c *gin.Context) {
+		// check if user is logged in
+		_, exists := c.Get("user_id")
+		if exists {
+			// redirect to dashboard
+			c.Redirect(http.StatusSeeOther, "/dashboard")
+		} else {
+			// redirect to login
+			c.Redirect(http.StatusSeeOther, "/login")
+		}
+	})
+
+	r.GET("/login", func(c *gin.Context) {
 		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/index.html", http.FS(staticFs))
+		c.FileFromFS("/login.html", http.FS(staticFs))
 	})
 
 	// Periodically broadcast server metrics to all websocket clients
