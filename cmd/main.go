@@ -400,7 +400,7 @@ func main() {
 			FileName:        fileName,
 			FilePath:        filePath,
 			GoogleDriveLink: googleDriveLink,
-			Status:          "scheduled",
+			Status:          "stopped",
 			CreatedAt:       time.Now(),
 			UpdatedAt:       time.Now(),
 		}
