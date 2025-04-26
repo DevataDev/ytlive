@@ -59,6 +59,7 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 	// Replace with your actual FFmpeg command to stream to YouTube
 	cmd := exec.CommandContext(ctx, "ffmpeg",
 		"-re", "-nostdin", "-stream_loop", "-1", "-i", filePath,
+		"-threads", "1",
 		"-c:v", "libx264", "-preset", "ultrafast",
 		"-pix_fmt", "yuv420p", "-f", "flv",
 		"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
@@ -66,6 +67,7 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 	if maxBitrate != nil {
 		cmd = exec.CommandContext(ctx, "ffmpeg",
 			"-re", "-nostdin", "-stream_loop", "-1", "-i", filePath,
+			"-threads", "1",
 			"-c:v", "libx264", "-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
 			"-pix_fmt", "yuv420p", "-f", "flv",
 			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
