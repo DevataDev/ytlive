@@ -1,0 +1,96 @@
+html, body {
+    height: 100%;
+}
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fa;
+}
+header.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    background: #fff;
+}
+.container {
+    flex: 1 0 auto;
+    max-width: 500px; 
+}
+.dashboard-container {
+    margin-top: 2rem !important;
+}
+footer {
+    flex-shrink: 0;
+    width: 100%;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Dashboard cards eye-catching */
+.dashboard-card {
+    border: none;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    max-width: 260px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.dashboard-card.bg-live {
+    background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+}
+.dashboard-card.bg-scheduled {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+.dashboard-card.bg-cpu {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+.dashboard-card.bg-memory {
+    background: linear-gradient(135deg, #8360c3 0%, #2ebf91 100%);
+}
+.dashboard-card.bg-upload {
+    background: linear-gradient(135deg, #fc5c7d 0%, #6a82fb 100%);
+}
+.dashboard-card.bg-download {
+    background: linear-gradient(135deg, #56ccf2 0%, #2f80ed 100%);
+}
+.dashboard-card .card-title {
+    color: #fff;
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+.dashboard-card .fs-4, .dashboard-card .display-4 {
+    color: #fff;
+    white-space: nowrap;
+    font-size: 1rem;
+}
+.dashboard-card .card-body {
+    min-width: 0;
+}
+@media (max-width: 1200px) {
+    .dashboard-card {
+        max-width: 220px;
+    }
+    .dashboard-card .fs-4, .dashboard-card .display-4 {
+        font-size: 0.95rem;
+    }
+}
+@media (max-width: 991px) {
+    .dashboard-card {
+        max-width: 180px;
+    }
+    .dashboard-card .fs-4, .dashboard-card .display-4 {
+        font-size: 0.9rem;
+    }
+}
+@media (max-width: 767px) {
+    .dashboard-card {
+        max-width: 100%;
+    }
+    .dashboard-card .fs-4, .dashboard-card .display-4 {
+        font-size: 0.85rem;
+    }
+    .dashboard-card .card-title {
+        font-size: 0.85rem;
+    }
+}
