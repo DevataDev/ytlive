@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"math/rand"
 	"net/http"
@@ -27,7 +28,12 @@ import (
 	"golang.org/x/net/html"
 	"google.golang.org/api/drive/v2"
 	"google.golang.org/api/option"
+
+	"embed"
 )
+
+//go:embed web/static/* web/static
+var StaticFiles embed.FS
 
 // Extracts the file ID from a Google Drive share link
 func extractDriveFileID(link string) string {
@@ -265,7 +271,9 @@ func main() {
 
 	r := gin.Default()
 
-	r.Static("/static", "./web/static")
+	// Replace static file serving with embedded static files
+	staticFS, _ := fs.Sub(StaticFiles, "web/static")
+	r.StaticFS("/static", http.FS(staticFS))
 
 	// Auth handler
 	authHandler := &handlers.AuthHandler{DB: db}
