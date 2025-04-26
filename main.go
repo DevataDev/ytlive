@@ -189,6 +189,7 @@ type Config struct {
 	App struct {
 		Port int    `yaml:"port"`
 		Host string `yaml:"host"`
+		Mode string `yaml:"mode"`
 	} `yaml:"app"`
 	MySQL struct {
 		User     string `yaml:"user"`
@@ -287,6 +288,10 @@ func main() {
 			IsActive: true,
 		}
 		db.Create(&defaultUser)
+	}
+
+	if cfg.App.Mode == "production" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
 	r := gin.Default()
