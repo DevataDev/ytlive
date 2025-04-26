@@ -64,6 +64,7 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 		"-pix_fmt", "yuv420p", "-f", "flv",
 		"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
 	)
+	fmt.Println("FFmpeg command:", cmd)
 	if maxBitrate != nil {
 		cmd = exec.CommandContext(ctx, "ffmpeg",
 			"-re", "-nostdin", "-stream_loop", "-1", "-i", filePath,
