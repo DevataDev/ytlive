@@ -48,10 +48,21 @@ func downloadDriveFile(fileID, destPath string) error {
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("error : Google Drive file not accessible (status %d)", resp.StatusCode)
 	}
+	// check in body if contains html tags  then return error
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if strings.Contains(string(body), "<html>") {
+		return fmt.Errorf("error : Google Drive file not accessible (status %d)", resp.StatusCode)
+	}
+
 	// if file is html, return error
 	if resp.Header.Get("Content-Type") == "text/html" {
 		return fmt.Errorf("error : Google Drive file not accessible (status %d)", resp.StatusCode)
 	}
+
 	out, err := os.Create(destPath)
 	if err != nil {
 		return err
