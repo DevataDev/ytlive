@@ -38,28 +38,6 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="/static/js/app.js"></script>
 <script>
-// Redirect to dashboard if already logged in (with token presence and JWT validity check)
-(function() {
-    function isJwtValid(token) {
-        if (!token || token.length < 20) return false;
-        const parts = token.split('.');
-        if (parts.length !== 3) return false;
-        try {
-            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-            if (!payload.exp) return false;
-            const now = Math.floor(Date.now() / 1000);
-            return payload.exp > now;
-        } catch (e) {
-            return false;
-        }
-    }
-    const token = localStorage.getItem("jwt_token");
-    if (isJwtValid(token)) {
-        window.location.href = "/dashboard";
-    }
-})();
-</script>
-<script>
 const sinceYear = 2025;
 const nowYear = new Date().getFullYear();
 let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
