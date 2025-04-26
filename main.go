@@ -745,10 +745,12 @@ func main() {
 			database.Where("status = ? AND scheduled_at <= ? AND started_at IS NULL", "scheduled", now).Find(&streamsToStart)
 			for _, stream := range streamsToStart {
 				if stream.StreamKey == "" || stream.FilePath == nil {
+					fmt.Println("Stream", stream.ID, "has no stream key or file path, skipping.")
 					continue // Do not start if no stream key or file path
 				}
 				_, _, err := models.StartStreamWorker(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
 				if err == nil {
+					fmt.Println("Stream", stream.ID, "started successfully.")
 					db.Model(&stream).Updates(map[string]interface{}{
 						"Status":    "live",
 						"StartedAt": now,
@@ -765,6 +767,7 @@ func main() {
 					"Status":    "stopped",
 					"StoppedAt": now,
 				})
+				fmt.Println("Stream", stream.ID, "stopped successfully.")
 			}
 		}
 	}()
