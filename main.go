@@ -144,9 +144,6 @@ func generateDownloadUrl(client *http.Client, file *drive.File) (string, error) 
 				if attr := getAttribute(child, "name"); attr == "uuid" {
 					uuid = getAttribute(child, "value")
 				}
-				if attr := getAttribute(child, "name"); attr == "at" {
-					at = getAttribute(child, "value")
-				}
 			}
 		}
 

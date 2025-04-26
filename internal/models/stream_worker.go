@@ -60,9 +60,11 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 	cmd := exec.CommandContext(ctx, "ffmpeg",
 		"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1",
 		"-i", filePath,
+		"-c:v", "copy",
+		"-c:a", "copy",
 		"-threads", "1",
 		"-preset", "ultrafast",
-		"-pix_fmt", "yuv420p", "-f", "flv",
+		"-f", "flv",
 		"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
 	)
 	fmt.Println("FFmpeg command:", cmd)
@@ -70,8 +72,10 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 		cmd = exec.CommandContext(ctx, "ffmpeg",
 			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
 			"-threads", "1",
+			"-c:v", "copy",
+			"-c:a", "copy",
 			"-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
-			"-pix_fmt", "yuv420p", "-f", "flv",
+			"-f", "flv",
 			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
 		)
 	}
