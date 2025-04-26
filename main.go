@@ -371,7 +371,9 @@ func main() {
 					c.JSON(500, gin.H{"error": "error : Google Drive file not accessible, failed to generate download URL"})
 					return
 				}
-				downloadName := fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(file.OriginalFilename))
+
+				fileNameWithoutExtension := strings.ReplaceAll(file.OriginalFilename, file.FileExtension, "")
+				downloadName := fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(fileNameWithoutExtension))
 				destPath := "./uploads/" + downloadName
 				if err := downloadDriveFile(client, downloadUrl, destPath); err != nil {
 					c.JSON(500, gin.H{"error": err.Error()})
