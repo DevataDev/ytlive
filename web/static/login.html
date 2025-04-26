@@ -38,6 +38,28 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="/static/js/app.js"></script>
 <script>
+    function validateToken(token) {
+        try {
+            const decoded = JSON.parse(atob(token.split('.')[1]));
+            return decoded.exp > Date.now() / 1000;
+        } catch (e) {
+            console.dir(e);
+            return false;
+        }
+    }
+
+    $(function() {
+        // auth check if valid then redirect to dashboard
+        const token = localStorage.getItem("jwt_token");
+        if (token) {
+            // check token validity
+            if (validateToken(token)) {
+                window.location.href = "/dashboard";
+            }
+        }
+    });
+</script>
+<script>
 const sinceYear = 2025;
 const nowYear = new Date().getFullYear();
 let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
