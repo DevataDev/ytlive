@@ -125,7 +125,6 @@ func generateDownloadUrl(client *http.Client, file *drive.File) (string, error) 
 		authuser := "0"
 		confirm := "t"
 		uuid := ""
-		at := ""
 
 		// get the hidden input
 		for child := range formElem.ChildNodes() {
