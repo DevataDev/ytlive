@@ -124,6 +124,9 @@ func StopStreamWorker(streamID string) error {
 	if !ok {
 		return nil // Already stopped
 	}
+
+	// update worker status
+	worker.Status = "stopped" // prevent double restart
 	// chceck if context still active
 	if worker.CancelFunc != nil {
 		fmt.Println("Cancelling context for stream", streamID)
