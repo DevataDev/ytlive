@@ -800,6 +800,30 @@ func main() {
 		}
 	}()
 
+	// Check stream that have been live but ffmpeg not running, we restart it
+	go func() {
+		for {
+			time.Sleep(2 * time.Second)
+			var streamsToRestart []models.Stream
+			database.Where("status = ? AND (started_at IS NOT NULL OR scheduled_start_at <= ?)", "live", time.Now().UTC()).Find(&streamsToRestart)
+			fmt.Println("Found", len(streamsToRestart), "streams to restart.")
+			for _, stream := range streamsToRestart {
+				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
+				_, _, err := models.StartStreamWorker(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
+				if err != nil {
+					fmt.Println("Failed to restart stream", stream.ID, ":", err)
+					continue
+				}
+				database.Model(&stream).Updates(map[string]interface{}{
+					"Status":    "live",
+					"StartedAt": time.Now().UTC(),
+				})
+				// send websocket message
+				handlers.BroadcastStreamListUpdate()
+			}
+		}
+	}()
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port),
 		Handler: r,
