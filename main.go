@@ -815,12 +815,9 @@ func main() {
 				// check if ffmpeg is running by the pid
 				if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
 					// check if process is still running
-					if process, err := os.FindProcess(*stream.FfmpegPID); err == nil && process != nil {
-						// check if process is exists
-						if err := process.Signal(syscall.Signal(0)); err == nil {
-							fmt.Println("Stream", stream.ID, "is already running with PID", *stream.FfmpegPID)
-							continue
-						}
+					if models.IsProcessRunning(*stream.FfmpegPID) {
+						fmt.Println("Stream", stream.ID, "is already running with PID", *stream.FfmpegPID)
+						continue
 					}
 				}
 				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
@@ -833,6 +830,38 @@ func main() {
 				handlers.BroadcastStreamListUpdate()
 				fmt.Println("Stream", stream.ID, "restarted successfully.")
 			}
+		}
+	}()
+
+	// one time restarter
+	go func() {
+		fmt.Println("Starting one time restarter...")
+		var streamsToRestart []models.Stream
+		database.Where("status = ? AND (started_at IS NOT NULL OR scheduled_start_at <= ?)", "live", time.Now().UTC()).Find(&streamsToRestart)
+		fmt.Println("Found", len(streamsToRestart), "streams to restart.")
+		for _, stream := range streamsToRestart {
+			// check if ffmpeg is running by the pid
+			if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
+				// check if process is still running
+				if models.IsProcessRunning(*stream.FfmpegPID) {
+					fmt.Println("Stream", stream.ID, "is already running with PID", *stream.FfmpegPID)
+					continue
+				}
+			}
+			// lock
+			models.RestartLock.Lock()
+			_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
+			_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, database)
+			models.RestartLock.Unlock()
+
+			if err != nil {
+				fmt.Println("Failed to restart stream", stream.ID, ":", err)
+				continue
+			}
+
+			// send websocket message
+			handlers.BroadcastStreamListUpdate()
+			fmt.Println("Stream", stream.ID, "restarted successfully.")
 		}
 	}()
 
@@ -854,12 +883,10 @@ func main() {
 
 	// Kill all running stream workers (FFmpeg processes)
 	log.Println("Killing all running stream workers...")
-	models.WorkersMu.Lock()
 	for id := range models.Workers {
 		log.Println("Killing stream worker for stream", id)
 		_ = models.StopStreamWorker(id)
 	}
-	models.WorkersMu.Unlock()
 
 	server.Shutdown(context.Background())
 }

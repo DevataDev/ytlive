@@ -3,8 +3,11 @@ package models
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -20,7 +23,12 @@ type StreamWorker struct {
 	Status     string // "live", "scheduled", "stopped", etc.
 	Stats      StreamStats
 	StopChan   chan struct{} // Added StopChan field
+	stopOnce   sync.Once
 	FfmpegPID  *int
+	FilePath   string
+	StreamKey  string
+	MaxBitrate *int
+	DB         *gorm.DB
 }
 
 type StreamStats struct {
@@ -29,8 +37,9 @@ type StreamStats struct {
 }
 
 var (
-	Workers   = make(map[string]*StreamWorker)
-	WorkersMu sync.RWMutex
+	Workers     = make(map[string]*StreamWorker)
+	WorkersMu   sync.RWMutex
+	RestartLock sync.Mutex
 )
 
 // AddWorker safely adds a worker to the map
@@ -173,7 +182,7 @@ func StopStreamWorker(streamID string) error {
 	// Close stopChan to stop stats monitor goroutine
 	if worker.StopChan != nil {
 		fmt.Println("Closing stopChan for stream", streamID)
-		close(worker.StopChan)
+		worker.stopOnce.Do(func() { close(worker.StopChan) })
 	}
 	// Remove worker from map
 	if worker != nil {
@@ -199,6 +208,19 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 		case <-stopChan:
 			return
 		default:
+			// check if process is still running
+			if !isProcessAliveAndNotDefunct(pid) {
+				fmt.Println("FFmpeg process stopped for stream", w.StreamID)
+				// restart stream worker
+				// how to prevent double restart?
+				// check if worker is already restarting
+				// lock
+				RestartLock.Lock()
+				StopStreamWorker(w.StreamID)
+				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.DB)
+				RestartLock.Unlock()
+				return
+			}
 			cpu, _ := proc.CPUPercent()
 			mem, _ := proc.MemoryInfo()
 			w.Stats.CPUPercent = cpu
@@ -216,6 +238,10 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 		StreamID:   streamID,
 		CancelFunc: cancel,
 		Status:     "live",
+		FilePath:   filePath,
+		StreamKey:  streamKey,
+		MaxBitrate: maxBitrate,
+		DB:         database,
 	}
 
 	var cmd *exec.Cmd
@@ -267,123 +293,6 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	}()
 
 	AddWorker(worker)
-
-	// go func() {
-	// 	baseDelay := time.Second * 2
-	// 	maxDelay := time.Minute
-	// 	attempt := 0
-
-	// 	for {
-	// 		select {
-	// 		case <-ctx.Done():
-	// 			fmt.Println("StreamWorker context cancelled for", streamID)
-	// 			return
-	// 		default:
-	// 		}
-
-	// 		var cmd *exec.Cmd
-	// 		if maxBitrate != nil {
-	// 			cmd = exec.CommandContext(ctx, "ffmpeg",
-	// 				"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
-	// 				"-threads", "1",
-	// 				"-c:v", "copy",
-	// 				"-c:a", "copy",
-	// 				"-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
-	// 				"-f", "flv",
-	// 				"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
-	// 			)
-	// 		} else {
-	// 			cmd = exec.CommandContext(ctx, "ffmpeg",
-	// 				"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1",
-	// 				"-i", filePath,
-	// 				"-c:v", "copy",
-	// 				"-c:a", "copy",
-	// 				"-threads", "1",
-	// 				"-preset", "ultrafast",
-	// 				"-f", "flv",
-	// 				"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
-	// 			)
-	// 		}
-
-	// 		cmd.Stdout = os.Stdout
-	// 		cmd.Stderr = os.Stderr
-	// 		worker.Cmd = cmd
-
-	// 		fmt.Println("Starting FFmpeg for stream:", streamID)
-	// 		err := cmd.Start()
-	// 		if err != nil {
-	// 			fmt.Println("Failed to start FFmpeg:", err)
-	// 		} else {
-	// 			database.Model(&Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
-	// 				"Status":    "live",
-	// 				"StartedAt": time.Now().UTC(),
-	// 				"FfmpegPID": &cmd.Process.Pid,
-	// 			})
-
-	// 			if worker.FfmpegPID != nil {
-	// 				*worker.FfmpegPID = cmd.Process.Pid
-	// 			} else {
-	// 				worker.FfmpegPID = &cmd.Process.Pid
-	// 			}
-
-	// 			// Start stats monitor goroutine
-	// 			stopChan := make(chan struct{})
-	// 			worker.StopChan = stopChan
-	// 			go func() {
-	// 				worker.MonitorFFmpegStats(stopChan)
-	// 			}()
-
-	// 			err = cmd.Wait()
-	// 			if err != nil {
-	// 				fmt.Println("FFmpeg failed for stream", streamID, "with error:", err)
-	// 			}
-
-	// 			if ctx.Err() != nil {
-	// 				fmt.Println("Context cancelled during FFmpeg run for", streamID)
-	// 				return
-	// 			}
-
-	// 			fmt.Println("FFmpeg exited for stream", streamID, "with error:", err)
-
-	// 			// Only restart if context is not cancelled
-	// 			select {
-	// 			case <-ctx.Done():
-	// 				fmt.Println("Context cancelled after FFmpeg exit for", streamID)
-	// 				return
-	// 			default:
-	// 				// Exponential backoff before restart
-	// 				sleep := time.Duration(float64(baseDelay) * math.Pow(2, float64(attempt)))
-	// 				if sleep > maxDelay {
-	// 					sleep = maxDelay
-	// 				}
-	// 				fmt.Printf("Restarting FFmpeg for stream %s in %v...\n", streamID, sleep)
-	// 				time.Sleep(sleep)
-	// 				if attempt < 6 {
-	// 					attempt++
-	// 				}
-	// 			}
-	// 		}
-
-	// 		// Only restart if context is not cancelled
-	// 		select {
-	// 		case <-ctx.Done():
-	// 			fmt.Println("Context cancelled after FFmpeg exit for", streamID)
-	// 			return
-	// 		default:
-	// 			// Exponential backoff before restart
-	// 			sleep := time.Duration(float64(baseDelay) * math.Pow(2, float64(attempt)))
-	// 			if sleep > maxDelay {
-	// 				sleep = maxDelay
-	// 			}
-	// 			fmt.Printf("Restarting FFmpeg for stream %s in %v...\n", streamID, sleep)
-	// 			time.Sleep(sleep)
-	// 			if attempt < 6 {
-	// 				attempt++
-	// 			}
-	// 		}
-	// 	}
-	// }()
-	// Return immediately after spawning goroutine
 	fmt.Println("FFmpeg process started for stream", streamID, "with PID", cmd.Process.Pid)
 	return worker, cmd.Process.Pid, nil
 }
@@ -393,10 +302,43 @@ func (w *StreamWorker) GetFFmpegPID() int32 {
 }
 
 func IsProcessRunning(pid int) bool {
-	proc, err := process.NewProcess(int32(pid))
-	if err != nil {
+	if process, err := os.FindProcess(pid); err == nil && process != nil {
+		// check if process is exists
+		if err := process.Signal(syscall.Signal(0)); err == nil {
+			return isProcessAliveAndNotDefunct(pid)
+		}
 		return false
 	}
+	return false
+}
+
+func isDefunct(pid int) (bool, error) {
+	out, err := exec.Command("ps", "-o", "stat=", "-p", strconv.Itoa(pid)).Output()
+	if err != nil {
+		return false, err
+	}
+	stat := strings.TrimSpace(string(out))
+	// 'Z' anywhere in the stat means zombie
+	return strings.Contains(stat, "Z"), nil
+}
+
+// Returns true if the process exists, is running, and is NOT defunct/zombie
+func isProcessAliveAndNotDefunct(pid int) bool {
+	proc, err := process.NewProcess(int32(pid))
+	if err != nil {
+		// Process does not exist
+		return false
+	}
+
 	_, err = proc.Status()
-	return err == nil
+	if err != nil {
+		// Could not get status, treat as not running
+		return false
+	}
+	// status can be "running", "sleep", "idle", "zombie", etc.
+	// check in status []string if it contains "zombie"
+	if defunct, _ := isDefunct(pid); defunct {
+		return false
+	}
+	return true
 }
