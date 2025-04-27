@@ -80,10 +80,27 @@
                     <!-- Stream Key column removed -->
                 </tr>
             </thead>
-            <tbody>
-                <!-- Stream rows will be injected here -->
+            <tbody id="stream-table-body">
+                <!-- Stream rows will be dynamically inserted here -->
             </tbody>
         </table>
+    </div>
+    <!-- Video Preview Modal -->
+    <div class="modal fade" id="videoPreviewModal" tabindex="-1" aria-labelledby="videoPreviewModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="videoPreviewModalLabel">Video Preview</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <video id="videoPreview" width="100%" controls>
+              <source id="videoPreviewSource" src="" type="video/mp4">
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </div>
+      </div>
     </div>
     <nav>
         <ul class="pagination justify-content-center" id="pagination">

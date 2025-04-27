@@ -37,6 +37,7 @@ $(function() {
             let renameBtn = `<button class="btn btn-sm btn-secondary rename-btn" data-id="${stream.ID}" title="Rename File"><i class="fa-solid fa-pen-to-square"></i></button>`;
             let deleteBtn = `<button class="btn btn-sm btn-outline-danger delete-btn" data-id="${stream.ID}" title="Delete"><i class="fa-solid fa-trash"></i></button>`;
             let gearBtn = `<button class="btn btn-sm btn-secondary duration-btn" data-id="${stream.ID}" title="Set Duration"><i class="fa-solid fa-gear"></i></button>`;
+            let previewVideoBtn = `<button class="btn btn-sm btn-outline-primary preview-video-btn" data-file="${stream.FilePath}" title="Preview Video"><i class="bi bi-tv"></i></button>`;
             let maxBitrateCol = stream.MaxBitrate && stream.MaxBitrate > 0 ? stream.MaxBitrate + ' kbps' : '-';
             let statusText = stream.Status;
             let startedAtAttr = '';
@@ -63,6 +64,7 @@ $(function() {
                         ${gearBtn}
                         ${renameBtn}
                         ${deleteBtn}
+                        ${previewVideoBtn}
                     </td>
                 </tr>
             `);
@@ -476,6 +478,17 @@ $(function() {
                 $(document).off('mousedown.durationTooltip');
             }
         });
+    });
+
+    // Preview video button handler
+    $(document).on('click', '.preview-video-btn', function() {
+        const filePath = $(this).data('file');
+        if (filePath) {
+            // Set video source and show modal
+            $('#videoPreviewSource').attr('src', `/static/uploads/${filePath}`);
+            $('#videoPreview')[0].load();
+            $('#videoPreviewModal').modal('show');
+        }
     });
 
     // --- WebSocket for stream list updates ---
