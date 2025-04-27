@@ -215,6 +215,10 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				// how to prevent double restart?
 				// check if worker is already restarting
 				// lock
+				// restart only for live stream
+				if w.Status != "live" {
+					return
+				}
 				RestartLock.Lock()
 				StopStreamWorker(w.StreamID)
 				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.DB)
