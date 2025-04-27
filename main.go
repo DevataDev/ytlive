@@ -19,6 +19,7 @@ import (
 	"windsorf-youtube-live/internal/models"
 
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
@@ -196,6 +197,7 @@ type Config struct {
 		Port int    `yaml:"port"`
 		Host string `yaml:"host"`
 		Mode string `yaml:"mode"`
+		Sql  string `yaml:"sql"`
 	} `yaml:"app"`
 	MySQL struct {
 		User     string `yaml:"user"`
@@ -205,6 +207,9 @@ type Config struct {
 		DBName   string `yaml:"dbname"`
 		Params   string `yaml:"params"`
 	} `yaml:"mysql"`
+	Sqlite struct {
+		Db string `yaml:"db"`
+	} `yaml:"sqlite"`
 	Default struct {
 		Password string `yaml:"password"`
 	} `yaml:"default"`
@@ -263,13 +268,31 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to read config.yaml: %v", err))
 	}
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", cfg.MySQL.User, cfg.MySQL.Password, cfg.MySQL.Host, cfg.MySQL.Port, cfg.MySQL.DBName, cfg.MySQL.Params)
-	fmt.Println("Connecting to MySQL with DSN:", dsn)
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+	var db *gorm.DB
+	var dbErr error
+
+	if cfg.App.Sql == "mysql" {
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", cfg.MySQL.User, cfg.MySQL.Password, cfg.MySQL.Host, cfg.MySQL.Port, cfg.MySQL.DBName, cfg.MySQL.Params)
+		fmt.Println("Connecting to MySQL with DSN:", dsn)
+		db, dbErr = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	} else if cfg.App.Sql == "sqlite3" {
+		// check if db file exists
+		if _, err := os.Stat(cfg.Sqlite.Db); os.IsNotExist(err) {
+			// create db file
+			_, err := os.Create(cfg.Sqlite.Db)
+			if err != nil {
+				panic(fmt.Sprintf("failed to create database file: %v", err))
+			}
+		}
+		db, dbErr = gorm.Open(sqlite.Open(cfg.Sqlite.Db), &gorm.Config{})
+	} else {
+		panic(fmt.Sprintf("Invalid SQL type: %s", cfg.App.Sql))
+	}
 
 	database = db
 
-	if err != nil {
+	if dbErr != nil {
 		log.Fatalf("failed to connect to DB: %v", err)
 	}
 	// Auto-migrate user table

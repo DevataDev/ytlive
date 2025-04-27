@@ -282,4 +282,6 @@ config.*
 
 *.zip
 
+*.db
+
 # End of https://www.toptal.com/developers/gitignore/api/go,video,audio,jetbrains,goland,macos
