@@ -231,6 +231,15 @@ $(function() {
         const id = $(this).data("id");
         const token = localStorage.getItem("jwt_token");
         const btn = $(this);
+        // Validation: Prevent starting if stream is scheduled
+        let stream = null;
+        if (window.lastStreams && Array.isArray(window.lastStreams)) {
+            stream = window.lastStreams.find(s => s.ID === id);
+        }
+        if (stream && stream.Status === "scheduled") {
+            alert("This stream has been scheduled and cannot be started manually.");
+            return;
+        }
         btn.prop("disabled", true);
         $.ajax({
             url: `/api/streams/${id}/start`,
