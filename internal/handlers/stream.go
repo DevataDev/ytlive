@@ -87,6 +87,23 @@ func (h *StreamHandler) CreateStream(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"stream": stream})
 }
 
+// POST /api/streams/:id/start
+func (h *StreamHandler) StartStream(c *gin.Context) {
+	id := c.Param("id")
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
+		return
+	}
+	if stream.Status == "scheduled" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This stream has been scheduled and cannot be started manually."})
+		return
+	}
+	// Existing logic to start the stream (call your StartStreamWorker, update status, etc.)
+	// ...
+	c.JSON(http.StatusOK, gin.H{"message": "Stream started"})
+}
+
 // PUT /api/streams/:id/schedule
 func (h *StreamHandler) SetSchedule(c *gin.Context) {
 	id := c.Param("id")

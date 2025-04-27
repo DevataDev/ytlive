@@ -493,6 +493,10 @@ func main() {
 			c.JSON(400, gin.H{"error": "StreamKey or FilePath missing."})
 			return
 		}
+		if stream.Status == "scheduled" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "This stream has been scheduled and cannot be started manually."})
+			return
+		}
 		// Before starting, check if ffmpeg pid exists and is running, kill if so (prevent double stream)
 		if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
 			proc, err := os.FindProcess(*stream.FfmpegPID)
