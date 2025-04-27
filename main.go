@@ -258,6 +258,7 @@ func main() {
 		panic(fmt.Sprintf("failed to read config.yaml: %v", err))
 	}
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", cfg.MySQL.User, cfg.MySQL.Password, cfg.MySQL.Host, cfg.MySQL.Port, cfg.MySQL.DBName, cfg.MySQL.Params)
+	fmt.Println("Connecting to MySQL with DSN:", dsn)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 	database = db
