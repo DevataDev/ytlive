@@ -808,6 +808,15 @@ func main() {
 			database.Where("status = ? AND (started_at IS NOT NULL OR scheduled_start_at <= ?)", "live", time.Now().UTC()).Find(&streamsToRestart)
 			fmt.Println("Found", len(streamsToRestart), "streams to restart.")
 			for _, stream := range streamsToRestart {
+				// check if ffmpeg is running by the pid
+				if *stream.FfmpegPID > 0 {
+					// check if process is still running
+					if models.IsProcessRunning(*stream.FfmpegPID) {
+						// process is still running, skip
+						fmt.Println("Stream", stream.ID, "is still running, skipping restart.")
+						continue
+					}
+				}
 				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
 				_, _, err := models.StartStreamWorker(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
 				if err != nil {

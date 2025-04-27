@@ -261,3 +261,16 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 		}
 	}
 }
+
+func (w *StreamWorker) GetFFmpegPID() int32 {
+	return int32(w.Cmd.Process.Pid)
+}
+
+func IsProcessRunning(pid int) bool {
+	proc, err := process.NewProcess(int32(pid))
+	if err != nil {
+		return false
+	}
+	_, err = proc.Status()
+	return err == nil
+}
