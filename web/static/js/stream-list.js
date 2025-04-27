@@ -132,6 +132,11 @@ $(function() {
                     rel = `${h > 0 ? h + 'h ' : ''}${m > 0 ? m + 'm ' : ''}${s}s left`;
                     rel = `Mode : Duration(${rel})`;
                 }
+                // if scheduled end have been past then show as Past
+                const scheduledEndTime = new Date(scheduledEnd).getTime();
+                if (scheduledEndTime <= now) {
+                    rel = 'Mode : Duration(Ended)';
+                }
                 $(this).find('.scheduled-at-rel').text(rel);
             }
         });
