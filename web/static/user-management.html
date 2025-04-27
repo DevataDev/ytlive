@@ -87,14 +87,17 @@
         </div>
     </div>
 </div>
-<footer class="text-center text-muted py-3" id="footer"></footer>
+<footer class="footer mt-auto py-3 bg-light text-center w-100" style="position:fixed;bottom:0;left:0;z-index:1030;">
+    <div class="container">
+        <script>
+        const sinceYear = 2025;
+        const nowYear = new Date().getFullYear();
+        let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
+        document.write(`&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama`);
+        </script>
+    </div>
+</footer>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="/static/js/user-management.js"></script>
-<script>
-const sinceYear = 2025;
-const nowYear = new Date().getFullYear();
-let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
-document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama`;
-</script>
 </body>
 </html>
