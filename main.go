@@ -512,7 +512,9 @@ func main() {
 					case <-done:
 						// exited gracefully
 					case <-time.After(5 * time.Second):
-						_ = proc.Kill()
+						if proc.Pid > 0 {
+							_ = proc.Kill()
+						}
 						<-done
 					}
 				}
@@ -753,7 +755,7 @@ func main() {
 			fmt.Println("Current time:", now)
 			// Start scheduled streams
 			var streamsToStart []models.Stream
-			database.Where("status = ?", "scheduled").Find(&streamsToStart)
+			database.Where("status = ? AND scheduled_start_at <= ?", "scheduled", now).Find(&streamsToStart)
 			fmt.Println("Found", len(streamsToStart), "scheduled streams to start.")
 			for _, stream := range streamsToStart {
 				if stream.StreamKey == "" || stream.FilePath == nil {
@@ -772,6 +774,8 @@ func main() {
 						"Status":    "live",
 						"StartedAt": now,
 					})
+					// send websocket message
+					handlers.BroadcastStreamListUpdate()
 				}
 			}
 
@@ -787,6 +791,8 @@ func main() {
 						"Status":    "stopped",
 						"StoppedAt": now,
 					})
+					// send websocket message
+					handlers.BroadcastStreamListUpdate()
 					fmt.Println("Stream", stream.ID, "stopped successfully.")
 				}
 			}

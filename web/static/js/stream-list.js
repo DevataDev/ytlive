@@ -45,13 +45,12 @@ $(function() {
                 startedAtDisplay = ` <span class="started-at-rel"></span>`;
             }
             tbody.append(`
-                <tr data-id="${stream.ID}"${startedAtAttr}>
+                <tr data-id="${stream.ID}"${startedAtAttr} data-scheduled-at="${stream.ScheduledStartAt || ''}" data-scheduled-end="${stream.ScheduledEndAt || ''}">
                     <td>${liveIndicator}</td>
                     <td><span>${stream.FileName || '-'}</span></td>
                     <td>${statusText}${startedAtDisplay}</td>
                     <td>${maxBitrateCol}</td>
-                    <td class="cpu-col">-</td>
-                    <td class="mem-col">-</td>
+                    <td class="scheduled"><span class="scheduled-at-rel"></span></td>
                     <td>
                         <button class="btn btn-sm btn-primary" data-id="${stream.ID}" data-action="start" ${startDisabled}><i class="fa-solid fa-play"></i></button>
                         <button class="btn btn-sm btn-danger" data-id="${stream.ID}" data-action="stop" ${stopDisabled}><i class="fa-solid fa-stop"></i></button>
@@ -67,6 +66,8 @@ $(function() {
         });
         // After rendering, update all started-at relative times
         updateAllStartedAtRel();
+        // After rendering, update all scheduled times
+        updateAllScheduled();
     }
 
     function updateAllStartedAtRel() {
@@ -85,6 +86,37 @@ $(function() {
                     rel = `(${rel})`;
                 }
                 $(this).find('.started-at-rel').text(rel);
+            }
+        });
+    }
+
+    function updateAllScheduled() {
+        const now = Date.now();
+        $("#streamTable tbody tr[data-scheduled-at]").each(function() {
+            const scheduledAt = $(this).attr('data-scheduled-at');
+            const scheduledEnd = $(this).attr('data-scheduled-end');
+            if (scheduledAt) {
+                const scheduled = new Date(scheduledAt).getTime();
+                const diff = Math.floor((scheduled - now) / 1000);
+                let rel = '-';
+                if (!isNaN(diff) && diff > 0) {
+                    const h = Math.floor(diff / 3600);
+                    const m = Math.floor((diff % 3600) / 60);
+                    const s = diff % 60;
+                    rel = `${h > 0 ? h + 'h ' : ''}${m > 0 ? m + 'm ' : ''}${s}s left`;
+                    rel = `(${rel})`;
+                }
+
+                // if started, show started time
+                if (diff <= 0) {
+                    rel = '(Been started, until : ' + new Date(scheduledEnd).toLocaleString() + ')';
+                }
+                // if scheduled end have been past then show as Past
+                const scheduledEndTime = new Date(scheduledEnd).getTime();
+                if (scheduledEndTime <= now) {
+                    rel = '(Past)';
+                }
+                $(this).find('.scheduled-at-rel').text(rel);
             }
         });
     }
@@ -415,15 +447,10 @@ $(function() {
             try {
                 const msg = JSON.parse(event.data);
                 if (msg.type === 'stream_stats' && msg.stats) {
-                    for (const [id, stat] of Object.entries(msg.stats)) {
-                        const row = $(`#streamTable tbody tr[data-id='${id}']`);
-                        if (row.length) {
-                            row.find('.cpu-col').text(stat.cpu ? stat.cpu.toFixed(1) + '%' : '-');
-                            row.find('.mem-col').text(stat.mem ? (stat.mem / 1024 / 1024).toFixed(1) + ' MB' : '-');
-                        }
-                    }
                     // Also update all started-at relative times
                     updateAllStartedAtRel();
+                    // Update all scheduled times
+                    updateAllScheduled();
                 }
             } catch(e) {}
         };

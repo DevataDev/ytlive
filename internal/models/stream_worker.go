@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -62,6 +63,7 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 		CancelFunc: cancel,
 		Status:     "live",
 	}
+
 	AddWorker(worker)
 
 	go func() {
@@ -117,6 +119,23 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 					if worker.Cmd != nil && worker.Cmd.Process != nil {
 						_ = worker.Cmd.Process.Signal(syscall.SIGTERM)
 					}
+					// kill ffmpeg process
+					if worker.Cmd != nil && worker.Cmd.Process != nil {
+						_ = worker.Cmd.Process.Kill()
+					}
+					// if still alive, kill using os kill
+					if worker.Cmd != nil && worker.Cmd.Process != nil {
+						if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+							_ = exec.Command("kill", "-9", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
+						} else if runtime.GOOS == "windows" {
+							_ = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
+						}
+					}
+					fmt.Println("FFmpeg exited for stream", streamID, "with error:", err)
+					// remove worker
+					RemoveWorker(streamID)
+					// exit goroutine
+					cancel()
 					return
 				}
 
@@ -152,31 +171,71 @@ func StopStreamWorker(streamID string) error {
 	if !ok {
 		return nil // Already stopped
 	}
+	// chceck if context still active
 	if worker.CancelFunc != nil {
+		fmt.Println("Cancelling context for stream", streamID)
 		worker.CancelFunc()
+		fmt.Println("Context cancelled for stream", streamID)
+		select {
+		case <-time.After(5 * time.Second):
+			fmt.Println("Timeout waiting for FFmpeg to exit after cancel, forcing kill...")
+			// Force kill logic here (e.g., kill process)
+			if worker.Cmd != nil && worker.Cmd.Process != nil {
+				_ = worker.Cmd.Process.Kill()
+			}
+
+			// if still alive, kill using os kill
+			if worker.Cmd != nil && worker.Cmd.Process != nil {
+				if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+					_ = exec.Command("kill", "-9", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
+				} else if runtime.GOOS == "windows" {
+					_ = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
+				}
+			}
+			fmt.Println("FFmpeg process killed for stream", streamID)
+		}
 	}
+	fmt.Println("Killing FFmpeg process for stream", streamID)
 	if worker.Cmd != nil && worker.Cmd.Process != nil {
 		_ = worker.Cmd.Process.Signal(syscall.SIGTERM)
-		// Wait for process to exit, then kill if still alive
+		fmt.Println("FFmpeg process signalled for stream", streamID)
+		// Wait for process to exit, then kill if still alive, timeout after 5 seconds
 		done := make(chan error, 1)
 		go func() {
 			done <- worker.Cmd.Wait()
+			fmt.Println("FFmpeg process exited for stream", streamID)
 		}()
 		select {
 		case <-done:
+			fmt.Println("FFmpeg process exited for stream", streamID)
 			// exited gracefully
 		case <-time.After(5 * time.Second):
-			_ = worker.Cmd.Process.Kill()
+			if worker.Cmd != nil && worker.Cmd.Process != nil {
+				_ = worker.Cmd.Process.Kill()
+				fmt.Println("FFmpeg process killed for stream", streamID)
+			} else {
+				// exec kill -9 <pid> if its linux
+				if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+					_ = exec.Command("kill", "-9", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
+				} else if runtime.GOOS == "windows" {
+					_ = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
+				}
+				fmt.Println("FFmpeg process killed for stream", streamID)
+			}
 			<-done // ensure Wait() returns
 		}
 	}
+
 	// Close stopChan to stop stats monitor goroutine
 	if worker.StopChan != nil {
+		fmt.Println("Closing stopChan for stream", streamID)
 		close(worker.StopChan)
 	}
 	// Remove worker from map
-
-	RemoveWorker(streamID)
+	if worker != nil {
+		fmt.Println("Removing worker for stream", streamID)
+		RemoveWorker(streamID)
+	}
 	return nil
 }
 
