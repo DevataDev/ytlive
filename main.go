@@ -35,6 +35,12 @@ import (
 //go:embed web/static/* web/static
 var StaticFiles embed.FS
 
+var (
+	version = "devel"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 // Extracts the file ID from a Google Drive share link
 func extractDriveFileID(link string) string {
 	parts := strings.Split(link, "/")
@@ -301,6 +307,11 @@ func main() {
 	staticFS, _ := fs.Sub(StaticFiles, "web/static")
 	r.StaticFS("/static", http.FS(staticFS))
 
+	// serve uploads folder
+	// server ./uploads
+	// uploadsFS, _ := fs.Sub(StaticFiles, "uploads")
+	// r.StaticFS("/uploads", http.Dir("uploads"))
+
 	// Auth handler
 	authHandler := &handlers.AuthHandler{DB: db}
 	r.POST("/api/login", authHandler.Login)
@@ -315,6 +326,7 @@ func main() {
 	r.PUT("/api/streams/:id/schedule", handlers.JWTMiddleware(), streamHandler.SetSchedule)
 	r.PUT("/api/streams/:id/rename", handlers.JWTMiddleware(), streamHandler.RenameFile)
 	r.PUT("/api/streams/:id/duration", handlers.JWTMiddleware(), streamHandler.SetDuration)
+	r.GET("/api/streams/preview/:id", handlers.JWTMiddleware(), streamHandler.ServeVideoPreviewByID)
 
 	r.GET("/stream", func(c *gin.Context) {
 		// replace it with static embedded file stream-list.html

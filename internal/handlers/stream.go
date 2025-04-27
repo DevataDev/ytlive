@@ -1,7 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"windsorf-youtube-live/internal/models"
@@ -216,4 +220,59 @@ func (h *StreamHandler) RenameFile(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "File renamed"})
+}
+
+// ServeVideoPreview serves a video file for preview, requires JWT auth
+func (h *StreamHandler) ServeVideoPreview(c *gin.Context) {
+	// Authenticate user via JWT (middleware should already do this)
+	file := c.Query("file")
+	if file == "" {
+		c.JSON(400, gin.H{"error": "file parameter required"})
+		return
+	}
+	// Only allow safe file paths (no directory traversal)
+	if strings.Contains(file, "..") {
+		c.JSON(400, gin.H{"error": "invalid file path"})
+		return
+	}
+	// Build full path
+	videoPath := filepath.Join("uploads", filepath.Clean("/"+file))
+	if _, err := os.Stat(videoPath); os.IsNotExist(err) {
+		c.JSON(404, gin.H{"error": "file not found"})
+		return
+	}
+	c.File(videoPath)
+}
+
+// ServeVideoPreviewByID serves a video file for preview by stream ID, requires JWT auth
+func (h *StreamHandler) ServeVideoPreviewByID(c *gin.Context) {
+	streamID := c.Param("id")
+	if streamID == "" {
+		c.JSON(400, gin.H{"error": "stream_id required"})
+		return
+	}
+	// Find stream in DB
+	var stream models.Stream
+	db := h.DB
+	err := db.Where("id = ?", streamID).First(&stream).Error
+	if err != nil {
+		c.JSON(404, gin.H{"error": "stream not found"})
+		return
+	}
+	if stream.FilePath == nil || *stream.FilePath == "" {
+		c.JSON(404, gin.H{"error": "no file for this stream"})
+		return
+	}
+	file := *stream.FilePath
+	if strings.Contains(file, "..") {
+		c.JSON(400, gin.H{"error": "invalid file path"})
+		return
+	}
+	videoPath := "." + filepath.Clean("/"+file)
+	fmt.Println(videoPath)
+	if _, err := os.Stat(videoPath); os.IsNotExist(err) {
+		c.JSON(404, gin.H{"error": "file not found"})
+		return
+	}
+	c.File(videoPath)
 }
