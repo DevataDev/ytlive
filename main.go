@@ -648,6 +648,7 @@ func main() {
 	userHandler := &handlers.UserHandler{DB: db}
 	r.GET("/api/users", handlers.JWTMiddleware(), userHandler.ListUsers)
 	r.POST("/api/users", handlers.JWTMiddleware(), userHandler.CreateUser)
+	r.PUT("/api/users/username/:username/password", handlers.JWTMiddleware(), userHandler.UpdateUserPassword)
 
 	// r.GET("/api/users", handlers.JWTMiddleware(), func(c *gin.Context) {
 	// 	userID, _ := c.Get("user_id")

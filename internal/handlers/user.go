@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"windsorf-youtube-live/internal/auth"
@@ -86,4 +87,43 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"users": result})
+}
+
+// PUT /api/users/username/:username/password - update a user's password (admin only)
+func (h *UserHandler) UpdateUserPassword(c *gin.Context) {
+	username := c.Param("username")
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	var loggedInUser models.User
+	fmt.Println(userID)
+	if err := h.DB.First(&loggedInUser, "id = ?", userID).Error; err != nil || !loggedInUser.IsAdmin {
+		c.JSON(403, gin.H{"error": "Forbidden"})
+		return
+	}
+	var user models.User
+	if err := h.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+	hash, err := auth.HashPassword(req.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		return
+	}
+	user.Password = hash
+	if err := h.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Password updated"})
 }

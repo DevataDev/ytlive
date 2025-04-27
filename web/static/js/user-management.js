@@ -47,8 +47,10 @@ $(function() {
         }
         users.forEach(function(user) {
             let deleteBtn = '';
+            let updateBtn = '';
             if (user.id !== loggedInUsername) {
                 deleteBtn = `<button class="btn btn-sm btn-danger delete-btn" data-username="${user.username}">Delete</button>`;
+                updateBtn = `<button class="btn btn-sm btn-warning update-password-btn" data-username="${user.username}">Update Password</button>`;
             }
             tbody.append(`
                 <tr>
@@ -57,6 +59,7 @@ $(function() {
                     <td><input type="checkbox" class="form-check-input admin-toggle" data-username="${user.username}" ${user.is_admin ? 'checked' : ''}></td>
                     <td><input type="checkbox" class="form-check-input active-toggle" data-username="${user.username}" ${user.is_active ? 'checked' : ''}></td>
                     <td>
+                        ${updateBtn}
                         ${deleteBtn}
                     </td>
                 </tr>
@@ -101,6 +104,38 @@ $(function() {
             method: "DELETE",
             headers: { Authorization: "Bearer " + token },
             success: fetchUsers
+        });
+    });
+
+    // Show update password modal
+    $(document).on('click', '.update-password-btn', function() {
+        const username = $(this).data('username');
+        $('#updatePasswordUsername').val(username);
+        $('#updatePasswordInput').val('');
+        $('#updatePasswordModal').modal('show');
+    });
+
+    // Handle password update form submit
+    $('#updatePasswordForm').submit(function(e) {
+        e.preventDefault();
+        const username = $('#updatePasswordUsername').val();
+        const newPassword = $('#updatePasswordInput').val();
+        if (!username || !newPassword) {
+            alert('Username and new password required.');
+            return;
+        }
+        $.ajax({
+            url: `/api/users/username/${encodeURIComponent(username)}/password`,
+            method: 'PUT',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            data: JSON.stringify({ password: newPassword }),
+            success: function() {
+                $('#updatePasswordModal').modal('hide');
+                alert('Password updated successfully.');
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to update password.');
+            }
         });
     });
 
