@@ -309,13 +309,14 @@ func main() {
 
 	// Create default user if not exists
 	var defaultUser models.User
-	if err := db.Where("email = ?", "default@yuklive.id").First(&defaultUser).Error; err == gorm.ErrRecordNotFound {
+	if err := db.Where("email = ?", "admin@yuklive.id").First(&defaultUser).Error; err == gorm.ErrRecordNotFound {
 		hashed, _ := auth.HashPassword(cfg.Default.Password)
 		defaultUser = models.User{
-			Username: "default",
-			Email:    "default@yuklive.id",
+			Username: "admin",
+			Email:    "admin@yuklive.id",
 			Password: hashed,
 			IsActive: true,
+			IsAdmin:  true,
 		}
 		db.Create(&defaultUser)
 	}
