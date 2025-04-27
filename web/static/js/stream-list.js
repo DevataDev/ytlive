@@ -36,6 +36,7 @@ $(function() {
             let scheduleBtn = `<button class="btn btn-sm btn-info schedule-btn" data-id="${stream.ID}" title="Schedule Stream"><i class="fa-solid fa-clock"></i></button>`;
             let renameBtn = `<button class="btn btn-sm btn-secondary rename-btn" data-id="${stream.ID}" title="Rename File"><i class="fa-solid fa-pen-to-square"></i></button>`;
             let deleteBtn = `<button class="btn btn-sm btn-outline-danger delete-btn" data-id="${stream.ID}" title="Delete"><i class="fa-solid fa-trash"></i></button>`;
+            let gearBtn = `<button class="btn btn-sm btn-secondary duration-btn" data-id="${stream.ID}" title="Set Duration"><i class="fa-solid fa-gear"></i></button>`;
             let maxBitrateCol = stream.MaxBitrate && stream.MaxBitrate > 0 ? stream.MaxBitrate + ' kbps' : '-';
             let statusText = stream.Status;
             let startedAtAttr = '';
@@ -58,6 +59,7 @@ $(function() {
                         ${streamKeyBtn}
                         ${setBitrateBtn}
                         ${scheduleBtn}
+                        ${gearBtn}
                         ${renameBtn}
                         ${deleteBtn}
                     </td>
@@ -115,6 +117,20 @@ $(function() {
                 const scheduledEndTime = new Date(scheduledEnd).getTime();
                 if (scheduledEndTime <= now) {
                     rel = '(Past)';
+                }
+                $(this).find('.scheduled-at-rel').text(rel);
+            }
+
+            if (scheduledEnd && !scheduledAt) {
+                const scheduled = new Date(scheduledEnd).getTime();
+                const diff = Math.floor((scheduled - now) / 1000);
+                let rel = '-';
+                if (!isNaN(diff) && diff > 0) {
+                    const h = Math.floor(diff / 3600);
+                    const m = Math.floor((diff % 3600) / 60);
+                    const s = diff % 60;
+                    rel = `${h > 0 ? h + 'h ' : ''}${m > 0 ? m + 'm ' : ''}${s}s left`;
+                    rel = `Mode : Duration(${rel})`;
                 }
                 $(this).find('.scheduled-at-rel').text(rel);
             }
@@ -405,6 +421,53 @@ $(function() {
             },
             error: function(xhr) {
                 alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to rename file.');
+            }
+        });
+    });
+
+    // Duration button handler (gear icon)
+    $(document).on('click', '.duration-btn', function(e) {
+        e.preventDefault();
+        const btn = $(this);
+        const streamId = btn.data('id');
+        // Remove any existing tooltip
+        $('.duration-tooltip').remove();
+        // Clone and show the tooltip
+        const tooltip = $('#durationTooltipTemplate').clone().removeAttr('id').addClass('duration-tooltip').css({display:'block',position:'absolute',zIndex:2000});
+        $('body').append(tooltip);
+        // Position tooltip near the button
+        const offset = btn.offset();
+        tooltip.css({top: offset.top + btn.outerHeight() + 6, left: offset.left - 70});
+        // Handle set button
+        tooltip.find('.set-duration-confirm').on('click', function() {
+            const hours = parseInt(tooltip.find('#durationInput').val(), 10);
+            if (isNaN(hours) || hours < 0 || hours > 24) {
+                alert('Please enter a value between 0 and 24.');
+                return;
+            }
+            const token = localStorage.getItem('jwt_token');
+            $.ajax({
+                url: `/api/streams/${streamId}/duration`,
+                method: 'PUT',
+                headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                data: JSON.stringify({ DurationHours: hours }),
+                success: function(resp) {
+                    tooltip.remove();
+                    fetchStreams();
+                    alert('Stream duration updated successfully.');
+                },
+                error: function(xhr) {
+                    let msg = 'Failed to set duration.';
+                    if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
+                    alert(msg);
+                }
+            });
+        });
+        // Hide tooltip if clicking outside
+        $(document).on('mousedown.durationTooltip', function(ev) {
+            if (!tooltip.is(ev.target) && tooltip.has(ev.target).length === 0 && !btn.is(ev.target)) {
+                tooltip.remove();
+                $(document).off('mousedown.durationTooltip');
             }
         });
     });

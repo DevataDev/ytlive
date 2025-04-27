@@ -162,6 +162,39 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Stream scheduled"})
 }
 
+// PUT /api/streams/:id/duration
+func (h *StreamHandler) SetDuration(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		DurationHours int `json:"DurationHours"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+	if req.DurationHours < 0 || req.DurationHours > 24 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Duration must be between 0 and 24 hours"})
+		return
+	}
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
+		return
+	}
+	stream.ScheduledStartAt = nil
+	if req.DurationHours == 0 {
+		stream.ScheduledEndAt = nil // Unlimited
+	} else {
+		end := time.Now().UTC().Add(time.Duration(req.DurationHours) * time.Hour)
+		stream.ScheduledEndAt = &end
+	}
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set duration"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Stream duration set"})
+}
+
 // PUT /api/streams/:id/rename
 func (h *StreamHandler) RenameFile(c *gin.Context) {
 	id := c.Param("id")
