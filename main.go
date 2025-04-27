@@ -812,11 +812,12 @@ func main() {
 			fmt.Println("Found", len(streamsToRestart), "streams to restart.")
 			for _, stream := range streamsToRestart {
 				// check if ffmpeg is running by the pid
+				fmt.Println("Checking if ffmpeg process is still running for stream", stream.ID)
 				if *stream.FfmpegPID > 0 {
+					fmt.Println("Checking if ffmpeg process PID", *stream.FfmpegPID, "is still running")
 					// check if process is still running
-					if models.IsProcessRunning(*stream.FfmpegPID) {
-						// process is still running, skip
-						fmt.Println("Stream", stream.ID, "is still running, skipping restart.")
+					if process, err := os.FindProcess(*stream.FfmpegPID); err == nil && process != nil {
+						fmt.Println("Process is still running, skipping restart.")
 						continue
 					}
 				}
