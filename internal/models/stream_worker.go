@@ -3,8 +3,6 @@ package models
 import (
 	"context"
 	"fmt"
-	"math"
-	"os"
 	"os/exec"
 	"runtime"
 	"sync"
@@ -12,6 +10,7 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/v3/process"
+	"gorm.io/gorm"
 )
 
 type StreamWorker struct {
@@ -21,6 +20,7 @@ type StreamWorker struct {
 	Status     string // "live", "scheduled", "stopped", etc.
 	Stats      StreamStats
 	StopChan   chan struct{} // Added StopChan field
+	FfmpegPID  *int
 }
 
 type StreamStats struct {
@@ -64,105 +64,49 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 		Status:     "live",
 	}
 
-	AddWorker(worker)
+	var cmd *exec.Cmd
+	if maxBitrate != nil {
+		cmd = exec.CommandContext(ctx, "ffmpeg",
+			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
+			"-threads", "1",
+			"-c:v", "copy",
+			"-c:a", "copy",
+			"-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
+			"-f", "flv",
+			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
+		)
+	} else {
+		cmd = exec.CommandContext(ctx, "ffmpeg",
+			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1",
+			"-i", filePath,
+			"-c:v", "copy",
+			"-c:a", "copy",
+			"-threads", "1",
+			"-preset", "ultrafast",
+			"-f", "flv",
+			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
+		)
+	}
 
+	worker.Cmd = cmd
+	err := cmd.Start()
+	if err != nil {
+		fmt.Println("Failed to start FFmpeg:", err)
+		return nil, 0, err
+	}
+
+	worker.FfmpegPID = &cmd.Process.Pid
+
+	// Start stats monitor goroutine
+	stopChan := make(chan struct{})
+	worker.StopChan = stopChan
 	go func() {
-		baseDelay := time.Second * 2
-		maxDelay := time.Minute
-		attempt := 0
-
-		for {
-			select {
-			case <-ctx.Done():
-				fmt.Println("StreamWorker context cancelled for", streamID)
-				return
-			default:
-			}
-
-			var cmd *exec.Cmd
-			if maxBitrate != nil {
-				cmd = exec.CommandContext(ctx, "ffmpeg",
-					"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
-					"-threads", "1",
-					"-c:v", "copy",
-					"-c:a", "copy",
-					"-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
-					"-f", "flv",
-					"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
-				)
-			} else {
-				cmd = exec.CommandContext(ctx, "ffmpeg",
-					"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1",
-					"-i", filePath,
-					"-c:v", "copy",
-					"-c:a", "copy",
-					"-threads", "1",
-					"-preset", "ultrafast",
-					"-f", "flv",
-					"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
-				)
-			}
-
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			worker.Cmd = cmd
-
-			fmt.Println("Starting FFmpeg for stream:", streamID)
-			err := cmd.Start()
-			if err != nil {
-				fmt.Println("Failed to start FFmpeg:", err)
-			} else {
-				err = cmd.Wait()
-				if ctx.Err() != nil {
-					fmt.Println("Context cancelled during FFmpeg run for", streamID)
-					// make sure ffmpeg process is terminated
-					if worker.Cmd != nil && worker.Cmd.Process != nil {
-						_ = worker.Cmd.Process.Signal(syscall.SIGTERM)
-					}
-					// kill ffmpeg process
-					if worker.Cmd != nil && worker.Cmd.Process != nil {
-						_ = worker.Cmd.Process.Kill()
-					}
-					// if still alive, kill using os kill
-					if worker.Cmd != nil && worker.Cmd.Process != nil {
-						if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
-							_ = exec.Command("kill", "-9", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
-						} else if runtime.GOOS == "windows" {
-							_ = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
-						}
-					}
-					fmt.Println("FFmpeg exited for stream", streamID, "with error:", err)
-					// remove worker
-					RemoveWorker(streamID)
-					// exit goroutine
-					cancel()
-					return
-				}
-
-				fmt.Println("FFmpeg exited for stream", streamID, "with error:", err)
-			}
-
-			// Start stats monitor goroutine
-			stopChan := make(chan struct{})
-			worker.StopChan = stopChan // Store stopChan in worker
-			go func() {
-				worker.MonitorFFmpegStats(stopChan)
-			}()
-
-			// Exponential backoff before restart
-			sleep := time.Duration(float64(baseDelay) * math.Pow(2, float64(attempt)))
-			if sleep > maxDelay {
-				sleep = maxDelay
-			}
-			fmt.Printf("Restarting FFmpeg for stream %s in %v...\n", streamID, sleep)
-			time.Sleep(sleep)
-			if attempt < 6 {
-				attempt++
-			}
-		}
+		worker.MonitorFFmpegStats(stopChan)
 	}()
+
+	AddWorker(worker)
 	// Return immediately after spawning goroutine
-	return worker, 0, nil
+	return worker, cmd.Process.Pid, nil
 }
 
 // StopStreamWorker stops the FFmpeg process for the stream and removes the worker.
@@ -242,6 +186,10 @@ func StopStreamWorker(streamID string) error {
 // MonitorFFmpegStats monitors CPU and memory usage for the FFmpeg process
 func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	pid := w.Cmd.Process.Pid
+	fmt.Println("Monitoring FFmpeg stats for stream", w.StreamID, "with PID", pid)
+	if pid == 0 {
+		return
+	}
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return
@@ -260,6 +208,184 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitrate *int, database *gorm.DB) (*StreamWorker, int, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	worker := &StreamWorker{
+		StreamID:   streamID,
+		CancelFunc: cancel,
+		Status:     "live",
+	}
+
+	var cmd *exec.Cmd
+	if maxBitrate != nil {
+		cmd = exec.CommandContext(ctx, "ffmpeg",
+			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
+			"-threads", "1",
+			"-c:v", "copy",
+			"-c:a", "copy",
+			"-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
+			"-f", "flv",
+			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
+		)
+	} else {
+		cmd = exec.CommandContext(ctx, "ffmpeg",
+			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1",
+			"-i", filePath,
+			"-c:v", "copy",
+			"-c:a", "copy",
+			"-threads", "1",
+			"-preset", "ultrafast",
+			"-f", "flv",
+			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
+		)
+	}
+
+	worker.Cmd = cmd
+	// start cmd
+	err := cmd.Start()
+	if err != nil {
+		fmt.Println("Failed to start FFmpeg:", err)
+		return nil, 0, err
+	}
+
+	// update database
+	database.Model(&Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
+		"Status":    "live",
+		"StartedAt": time.Now().UTC(),
+		"FfmpegPID": &cmd.Process.Pid,
+	})
+
+	worker.FfmpegPID = &cmd.Process.Pid
+
+	// Start stats monitor goroutine
+	stopChan := make(chan struct{})
+	worker.StopChan = stopChan
+	go func() {
+		worker.MonitorFFmpegStats(stopChan)
+	}()
+
+	AddWorker(worker)
+
+	// go func() {
+	// 	baseDelay := time.Second * 2
+	// 	maxDelay := time.Minute
+	// 	attempt := 0
+
+	// 	for {
+	// 		select {
+	// 		case <-ctx.Done():
+	// 			fmt.Println("StreamWorker context cancelled for", streamID)
+	// 			return
+	// 		default:
+	// 		}
+
+	// 		var cmd *exec.Cmd
+	// 		if maxBitrate != nil {
+	// 			cmd = exec.CommandContext(ctx, "ffmpeg",
+	// 				"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
+	// 				"-threads", "1",
+	// 				"-c:v", "copy",
+	// 				"-c:a", "copy",
+	// 				"-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
+	// 				"-f", "flv",
+	// 				"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
+	// 			)
+	// 		} else {
+	// 			cmd = exec.CommandContext(ctx, "ffmpeg",
+	// 				"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1",
+	// 				"-i", filePath,
+	// 				"-c:v", "copy",
+	// 				"-c:a", "copy",
+	// 				"-threads", "1",
+	// 				"-preset", "ultrafast",
+	// 				"-f", "flv",
+	// 				"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
+	// 			)
+	// 		}
+
+	// 		cmd.Stdout = os.Stdout
+	// 		cmd.Stderr = os.Stderr
+	// 		worker.Cmd = cmd
+
+	// 		fmt.Println("Starting FFmpeg for stream:", streamID)
+	// 		err := cmd.Start()
+	// 		if err != nil {
+	// 			fmt.Println("Failed to start FFmpeg:", err)
+	// 		} else {
+	// 			database.Model(&Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
+	// 				"Status":    "live",
+	// 				"StartedAt": time.Now().UTC(),
+	// 				"FfmpegPID": &cmd.Process.Pid,
+	// 			})
+
+	// 			if worker.FfmpegPID != nil {
+	// 				*worker.FfmpegPID = cmd.Process.Pid
+	// 			} else {
+	// 				worker.FfmpegPID = &cmd.Process.Pid
+	// 			}
+
+	// 			// Start stats monitor goroutine
+	// 			stopChan := make(chan struct{})
+	// 			worker.StopChan = stopChan
+	// 			go func() {
+	// 				worker.MonitorFFmpegStats(stopChan)
+	// 			}()
+
+	// 			err = cmd.Wait()
+	// 			if err != nil {
+	// 				fmt.Println("FFmpeg failed for stream", streamID, "with error:", err)
+	// 			}
+
+	// 			if ctx.Err() != nil {
+	// 				fmt.Println("Context cancelled during FFmpeg run for", streamID)
+	// 				return
+	// 			}
+
+	// 			fmt.Println("FFmpeg exited for stream", streamID, "with error:", err)
+
+	// 			// Only restart if context is not cancelled
+	// 			select {
+	// 			case <-ctx.Done():
+	// 				fmt.Println("Context cancelled after FFmpeg exit for", streamID)
+	// 				return
+	// 			default:
+	// 				// Exponential backoff before restart
+	// 				sleep := time.Duration(float64(baseDelay) * math.Pow(2, float64(attempt)))
+	// 				if sleep > maxDelay {
+	// 					sleep = maxDelay
+	// 				}
+	// 				fmt.Printf("Restarting FFmpeg for stream %s in %v...\n", streamID, sleep)
+	// 				time.Sleep(sleep)
+	// 				if attempt < 6 {
+	// 					attempt++
+	// 				}
+	// 			}
+	// 		}
+
+	// 		// Only restart if context is not cancelled
+	// 		select {
+	// 		case <-ctx.Done():
+	// 			fmt.Println("Context cancelled after FFmpeg exit for", streamID)
+	// 			return
+	// 		default:
+	// 			// Exponential backoff before restart
+	// 			sleep := time.Duration(float64(baseDelay) * math.Pow(2, float64(attempt)))
+	// 			if sleep > maxDelay {
+	// 				sleep = maxDelay
+	// 			}
+	// 			fmt.Printf("Restarting FFmpeg for stream %s in %v...\n", streamID, sleep)
+	// 			time.Sleep(sleep)
+	// 			if attempt < 6 {
+	// 				attempt++
+	// 			}
+	// 		}
+	// 	}
+	// }()
+	// Return immediately after spawning goroutine
+	fmt.Println("FFmpeg process started for stream", streamID, "with PID", cmd.Process.Pid)
+	return worker, cmd.Process.Pid, nil
 }
 
 func (w *StreamWorker) GetFFmpegPID() int32 {

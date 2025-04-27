@@ -524,10 +524,12 @@ func main() {
 		}
 		// Start FFmpeg goroutine (using models.AddWorker)
 		go func(streamID, filePath, streamKey string, maxBitrate *int) {
-			_, pid, err := models.StartStreamWorker(streamID, filePath, streamKey, maxBitrate)
+			worker, pid, err := models.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, db)
 			if err == nil {
+				fmt.Println("FFmpeg started for stream", streamID, "with PID", pid)
+				fmt.Println("FFmpeg PID stored in worker", worker.FfmpegPID)
 				db.Model(&models.Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
-					"ffmpeg_p_id": pid,
+					"ffmpeg_p_id": worker.FfmpegPID,
 					"status":      "live",
 					"started_at":  time.Now(),
 				})
@@ -753,7 +755,6 @@ func main() {
 			<-ticker.C
 			now := time.Now().UTC()
 			fmt.Println("Checking for scheduled streams...")
-			fmt.Println("Current time:", now)
 			// Start scheduled streams
 			var streamsToStart []models.Stream
 			database.Where("status = ? AND scheduled_start_at <= ?", "scheduled", now).Find(&streamsToStart)
@@ -768,7 +769,7 @@ func main() {
 					fmt.Println("Stream", stream.ID, "has not started yet, skipping. start time:", stream.ScheduledStartAt)
 					continue
 				}
-				_, _, err := models.StartStreamWorker(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
+				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, db)
 				if err == nil {
 					fmt.Println("Stream", stream.ID, "started successfully.")
 					db.Model(&stream).Updates(map[string]interface{}{
@@ -812,25 +813,22 @@ func main() {
 			fmt.Println("Found", len(streamsToRestart), "streams to restart.")
 			for _, stream := range streamsToRestart {
 				// check if ffmpeg is running by the pid
-				fmt.Println("Checking if ffmpeg process is still running for stream", stream.ID)
-				if *stream.FfmpegPID > 0 {
-					fmt.Println("Checking if ffmpeg process PID", *stream.FfmpegPID, "is still running")
+				if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
 					// check if process is still running
 					if process, err := os.FindProcess(*stream.FfmpegPID); err == nil && process != nil {
-						fmt.Println("Process is still running, skipping restart.")
-						continue
+						// check if process is exists
+						if err := process.Signal(syscall.Signal(0)); err == nil {
+							fmt.Println("Stream", stream.ID, "is already running with PID", *stream.FfmpegPID)
+							continue
+						}
 					}
 				}
 				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
-				_, _, err := models.StartStreamWorker(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
+				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, database)
 				if err != nil {
 					fmt.Println("Failed to restart stream", stream.ID, ":", err)
 					continue
 				}
-				database.Model(&stream).Updates(map[string]interface{}{
-					"Status":    "live",
-					"StartedAt": time.Now().UTC(),
-				})
 				// send websocket message
 				handlers.BroadcastStreamListUpdate()
 				fmt.Println("Stream", stream.ID, "restarted successfully.")
@@ -853,5 +851,15 @@ func main() {
 	// Wait for interrupt
 	<-ctx.Done()
 	log.Println("Shutting down server...")
+
+	// Kill all running stream workers (FFmpeg processes)
+	log.Println("Killing all running stream workers...")
+	models.WorkersMu.Lock()
+	for id := range models.Workers {
+		log.Println("Killing stream worker for stream", id)
+		_ = models.StopStreamWorker(id)
+	}
+	models.WorkersMu.Unlock()
+
 	server.Shutdown(context.Background())
 }

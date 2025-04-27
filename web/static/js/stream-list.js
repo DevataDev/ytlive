@@ -52,6 +52,7 @@ $(function() {
                     <td>${statusText}${startedAtDisplay}</td>
                     <td>${maxBitrateCol}</td>
                     <td class="scheduled"><span class="scheduled-at-rel"></span></td>
+                    <td><span class="cpu-usage"></span><br/><span class="memory-usage"></span></td>
                     <td>
                         <button class="btn btn-sm btn-primary" data-id="${stream.ID}" data-action="start" ${startDisabled}><i class="fa-solid fa-play"></i></button>
                         <button class="btn btn-sm btn-danger" data-id="${stream.ID}" data-action="stop" ${stopDisabled}><i class="fa-solid fa-stop"></i></button>
@@ -515,10 +516,31 @@ $(function() {
             try {
                 const msg = JSON.parse(event.data);
                 if (msg.type === 'stream_stats' && msg.stats) {
-                    // Also update all started-at relative times
-                    updateAllStartedAtRel();
-                    // Update all scheduled times
-                    updateAllScheduled();
+                    const rows = $(`#streamTable tbody tr`);
+                    for (const row of rows) {
+                        const streamId = $(row).data('id');
+                        const stream = msg.stats[streamId];
+                        if (stream) {
+                            // Format CPU to 1 decimal place, Memory to MB with 1 decimal
+                            const cpu = (typeof stream.cpu === 'number') ? stream.cpu.toFixed(1) : '-';
+                            let mem = '-';
+                            if (typeof stream.mem === 'number') {
+                                // Assume mem is in bytes if value is large, else MB
+                                if (stream.mem > 1024 * 1024) {
+                                    mem = (stream.mem / (1024 * 1024)).toFixed(1);
+                                } else {
+                                    mem = stream.mem.toFixed(1);
+                                }
+                            }
+                            $(row).find('.cpu-usage').text(`CPU : ${cpu}%`);
+                            $(row).find('.memory-usage').text(`Memory : ${mem} MB`);
+                        }
+
+                        // Also update all started-at relative times
+                        updateAllStartedAtRel();
+                        // Update all scheduled times
+                        updateAllScheduled();
+                    }
                 }
             } catch(e) {}
         };
