@@ -752,6 +752,35 @@ func main() {
 			<-ticker.C
 			now := time.Now().UTC()
 
+			// Check stream that have been live but ffmpeg not running, we restart it
+			var streamsToRestart []models.Stream
+			database.Where("status = ? AND (started_at IS NOT NULL OR scheduled_start_at <= ?)", "live", now).Find(&streamsToRestart)
+			fmt.Println("Found", len(streamsToRestart), "streams to restart.")
+			for _, stream := range streamsToRestart {
+				// check if ffmpeg is running by the pid
+				if *stream.FfmpegPID > 0 {
+					// check if process is still running
+					if models.IsProcessRunning(*stream.FfmpegPID) {
+						// process is still running, skip
+						fmt.Println("Stream", stream.ID, "is still running, skipping restart.")
+						continue
+					}
+				}
+				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
+				_, _, err := models.StartStreamWorker(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
+				if err != nil {
+					fmt.Println("Failed to restart stream", stream.ID, ":", err)
+					continue
+				}
+				database.Model(&stream).Updates(map[string]interface{}{
+					"Status":    "live",
+					"StartedAt": now,
+				})
+				// send websocket message
+				handlers.BroadcastStreamListUpdate()
+				fmt.Println("Stream", stream.ID, "restarted successfully.")
+			}
+
 			fmt.Println("Checking for scheduled streams...")
 			fmt.Println("Current time:", now)
 			// Start scheduled streams
