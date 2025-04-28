@@ -53,10 +53,52 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch streams"})
 		return
 	}
+	// Add file size info for each stream
+	for i, s := range streams {
+		if s.FilePath != nil && *s.FilePath != "" {
+			videoPath := "." + filepath.Clean("/"+*s.FilePath)
+			if fi, err := os.Stat(videoPath); err == nil {
+				streams[i].FileName = s.FileName // ensure not empty
+				if streams[i].FilePath == nil {
+					streams[i].FilePath = s.FilePath
+				}
+				// Add as a new field (FileSizeBytes)
+				if fs, ok := fi.Size(), true; ok {
+					// Attach to stream as a map
+					c.Set("file_size_"+s.ID, fs)
+				}
+			}
+		}
+	}
 	var countLive, countScheduled int64
 	h.DB.Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&countLive)
 	h.DB.Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&countScheduled)
-	c.JSON(http.StatusOK, gin.H{"streams": streams, "page": 1, "per_page": 10, "total": len(streams), "countLive": countLive, "countScheduled": countScheduled})
+	// Build response with file size
+	resp := make([]map[string]interface{}, 0, len(streams))
+	for _, s := range streams {
+		item := map[string]interface{}{
+			"ID": s.ID,
+			"FileName": s.FileName,
+			"FilePath": s.FilePath,
+			"Status": s.Status,
+			"GoogleDriveLink": s.GoogleDriveLink,
+			"ScheduledAt": s.ScheduledAt,
+			"ScheduledStartAt": s.ScheduledStartAt,
+			"ScheduledEndAt": s.ScheduledEndAt,
+			"StartedAt": s.StartedAt,
+			"StoppedAt": s.StoppedAt,
+			"StreamKey": s.StreamKey,
+			"MaxBitrate": s.MaxBitrate,
+			"UserId": s.UserId,
+		}
+		if s.FilePath != nil && *s.FilePath != "" {
+			if fs, ok := c.Get("file_size_"+s.ID); ok {
+				item["FileSizeBytes"] = fs
+			}
+		}
+		resp = append(resp, item)
+	}
+	c.JSON(http.StatusOK, gin.H{"streams": resp, "page": 1, "per_page": 10, "total": len(streams), "countLive": countLive, "countScheduled": countScheduled})
 }
 
 // POST /api/streams - create a new stream for current user

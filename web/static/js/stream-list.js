@@ -86,10 +86,28 @@ $(function() {
                 startedAtAttr = ` data-started-at='${stream.StartedAt}'`;
                 startedAtDisplay = ` <span class="started-at-rel"></span>`;
             }
+            let fileSizeHtml = '';
+            if (stream.FileSizeBytes !== undefined && stream.FileSizeBytes !== null) {
+                let size = stream.FileSizeBytes;
+                let sizeStr = '';
+                if (size >= 1024 * 1024 * 1024) {
+                    sizeStr = (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+                } else if (size >= 1024 * 1024) {
+                    sizeStr = (size / (1024 * 1024)).toFixed(2) + ' MB';
+                } else if (size >= 1024) {
+                    sizeStr = (size / 1024).toFixed(1) + ' KB';
+                } else {
+                    sizeStr = size + ' bytes';
+                }
+                fileSizeHtml = `<div class='file-size-container'><span class='file-size-ellipsize'>${sizeStr}</span></div>`;
+            }
             tbody.append(`
                 <tr data-id="${stream.ID}"${startedAtAttr} data-scheduled-at="${stream.ScheduledStartAt || ''}" data-scheduled-end="${stream.ScheduledEndAt || ''}">
                     <td>${liveIndicator}</td>
-                    <td><span>${stream.FileName || '-'}</span></td>
+                    <td>
+                        <div>${stream.FileName || '-'}</div>
+                        ${fileSizeHtml}
+                    </td>
                     <td>${statusText}${startedAtDisplay}</td>
                     <td>${maxBitrateCol}</td>
                     <td class="scheduled"><span class="scheduled-at-rel"></span></td>
