@@ -381,7 +381,7 @@ func main() {
 	// serve uploads folder
 	// server ./uploads
 	// uploadsFS, _ := fs.Sub(StaticFiles, "uploads")
-	// r.StaticFS("/uploads", http.Dir("uploads"))
+	r.StaticFS("/uploads", http.Dir("uploads"))
 
 	// Auth handler
 	authHandler := &handlers.AuthHandler{DB: db}
@@ -398,7 +398,7 @@ func main() {
 	r.PUT("/api/streams/:id/schedule", handlers.JWTMiddleware(), streamHandler.SetSchedule)
 	r.PUT("/api/streams/:id/rename", handlers.JWTMiddleware(), streamHandler.RenameFile)
 	r.PUT("/api/streams/:id/duration", handlers.JWTMiddleware(), streamHandler.SetDuration)
-	r.GET("/api/streams/preview/:id", handlers.JWTMiddleware(), streamHandler.ServeVideoPreviewByID)
+	r.GET("/api/streams/preview/:id", streamHandler.ServeVideoPreviewByID)
 
 	r.GET("/stream", func(c *gin.Context) {
 		// replace it with static embedded file stream-list.html

@@ -563,30 +563,11 @@ $(function() {
     $(document).on('click', '.preview-video-btn', function() {
         const streamId = $(this).closest('tr').data('id');
         if (streamId) {
-            // Get JWT token from localStorage
-            const token = localStorage.getItem('jwt_token');
-            if (!token) {
-                alert('You must be logged in to preview videos.');
-                return;
-            }
-            // Set video source with Authorization header via blob
+            // Direct link to file via backend redirect
             const url = `/api/streams/preview/${streamId}`;
-            fetch(url, {
-                headers: { 'Authorization': 'Bearer ' + token }
-            })
-            .then(response => {
-                if (!response.ok) throw new Error('Failed to fetch video');
-                return response.blob();
-            })
-            .then(blob => {
-                const videoUrl = URL.createObjectURL(blob);
-                $('#videoPreviewSource').attr('src', videoUrl);
-                $('#videoPreview')[0].load();
-                $('#videoPreviewModal').modal('show');
-            })
-            .catch(() => {
-                alert('Could not load video preview.');
-            });
+            $('#videoPreviewSource').attr('src', url);
+            $('#videoPreview')[0].load();
+            $('#videoPreviewModal').modal('show');
         }
     });
 

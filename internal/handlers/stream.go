@@ -331,13 +331,11 @@ func (h *StreamHandler) ServeVideoPreviewByID(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "invalid file path"})
 		return
 	}
-	videoPath := "." + filepath.Clean("/"+file)
-	fmt.Println(videoPath)
-	if _, err := os.Stat(videoPath); os.IsNotExist(err) {
-		c.JSON(404, gin.H{"error": "file not found"})
-		return
-	}
-	c.File(videoPath)
+	// Instead of serving the file directly, redirect to the static uploads URL
+	// Assuming uploads are served at /uploads/ and file is relative to uploads dir
+	// Remove leading slashes from file path if present
+	cleanFile := strings.TrimLeft(file, "/")
+	c.Redirect(302, "/"+cleanFile)
 }
 
 // GET /api/streams/upload/progress
