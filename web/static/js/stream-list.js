@@ -207,19 +207,36 @@ $(function() {
         const pag = $("#pagination");
         pag.empty();
         const page = data.page || 1;
-        const perPage = data.per_page || 10;
+        const perPage = data.per_page || 5;
         const total = data.total || 0;
         const totalPages = Math.ceil(total / perPage);
         if (totalPages <= 1) return;
-        for (let i = 1; i <= totalPages; i++) {
+
+        // Total items info
+        pag.append(`<li class="page-item disabled"><span class="page-link">Total: ${total} items</span></li>`);
+
+        // First & Prev
+        pag.append(`<li class="page-item${page === 1 ? ' disabled' : ''}"><a class="page-link" href="#" data-page="1">First</a></li>`);
+        pag.append(`<li class="page-item${page === 1 ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${page - 1}">Prev</a></li>`);
+        
+        // Numbered pages (show up to 5 pages around current)
+        let start = Math.max(1, page - 2);
+        let end = Math.min(totalPages, page + 2);
+        if (page <= 3) end = Math.min(5, totalPages);
+        if (page >= totalPages - 2) start = Math.max(1, totalPages - 4);
+        for (let i = start; i <= end; i++) {
             pag.append(`<li class="page-item${i === page ? ' active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`);
         }
+
+        // Next & Last
+        pag.append(`<li class="page-item${page === totalPages ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${page + 1}">Next</a></li>`);
+        pag.append(`<li class="page-item${page === totalPages ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${totalPages}">Last</a></li>`);
     }
 
-    function fetchStreams(page = 1) {
+    function fetchStreams(page = 1, per_page = 5) {
         const token = localStorage.getItem("jwt_token");
         ajaxWithRefresh({
-            url: `/api/streams?page=${page}&per_page=10`,
+            url: `/api/streams?page=${page}&per_page=${per_page}`,
             method: "GET",
             headers: { Authorization: "Bearer " + token },
             success: function(data) {

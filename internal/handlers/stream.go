@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,8 +49,30 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
+	// Parse pagination params
+	page := 1
+	perPage := 5
+	if p := c.Query("page"); p != "" {
+		if n, err := strconv.Atoi(p); err == nil && n > 0 {
+			page = n
+		}
+	}
+	if pp := c.Query("per_page"); pp != "" {
+		if n, err := strconv.Atoi(pp); err == nil && n > 0 {
+			perPage = n
+		}
+	}
+
+	fmt.Println(page, perPage)
+
+	var total int64
+	h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Count(&total)
 	var streams []models.Stream
-	if err := h.DB.Where("user_id = ?", userID).Find(&streams).Error; err != nil {
+	if err := h.DB.Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Limit(perPage).
+		Offset((page - 1) * perPage).
+		Find(&streams).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch streams"})
 		return
 	}
@@ -62,9 +85,7 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 				if streams[i].FilePath == nil {
 					streams[i].FilePath = s.FilePath
 				}
-				// Add as a new field (FileSizeBytes)
 				if fs, ok := fi.Size(), true; ok {
-					// Attach to stream as a map
 					c.Set("file_size_"+s.ID, fs)
 				}
 			}
@@ -73,7 +94,6 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 	var countLive, countScheduled int64
 	h.DB.Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&countLive)
 	h.DB.Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&countScheduled)
-	// Build response with file size
 	resp := make([]map[string]interface{}, 0, len(streams))
 	for _, s := range streams {
 		item := map[string]interface{}{
@@ -98,7 +118,8 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 		}
 		resp = append(resp, item)
 	}
-	c.JSON(http.StatusOK, gin.H{"streams": resp, "page": 1, "per_page": 10, "total": len(streams), "countLive": countLive, "countScheduled": countScheduled})
+	c.JSON(http.StatusOK, gin.H{"streams": resp, "page": page, "per_page": perPage, "total": total, "countLive": countLive, "countScheduled": countScheduled})
+	return
 }
 
 // POST /api/streams - create a new stream for current user
