@@ -463,7 +463,10 @@ $(function() {
     $(document).on('click', '.rename-btn', function() {
         const streamId = $(this).data('id');
         $('#renameStreamId').val(streamId);
-        $('#renameFileName').val($(this).closest('tr').find('td:nth-child(2) span').text());
+        // Correctly get the filename (not file size) from the rendered row
+        // The filename is in the first div of the second td (FileName column)
+        const fileName = $(this).closest('tr').find('td:nth-child(2) div:first').text().trim();
+        $('#renameFileName').val(fileName);
         $('#renameModal').modal('show');
     });
 
