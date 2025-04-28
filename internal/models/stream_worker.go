@@ -75,13 +75,15 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 
 	var cmd *exec.Cmd
 	if maxBitrate != nil {
+		//ffmpeg -re -stream_loop -1 -i ombay.mp4 -c copy -f flv -drop_pkts_on_overflow 1 -attempt_recovery 1 -recover_any_error 1
 		cmd = exec.CommandContext(ctx, "ffmpeg",
 			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
 			"-threads", "1",
 			"-c:v", "copy",
 			"-c:a", "copy",
-			"-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
+			"-preset", "ultrafast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
 			"-f", "flv",
+			"-drop_pkts_on_overflow", "1", "-attempt_recovery", "1", "-recover_any_error", "1",
 			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
 		)
 	} else {
@@ -93,6 +95,7 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 			"-threads", "1",
 			"-preset", "ultrafast",
 			"-f", "flv",
+			"-drop_pkts_on_overflow", "1", "-attempt_recovery", "1", "-recover_any_error", "1",
 			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
 		)
 	}
@@ -258,8 +261,9 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 			"-threads", "1",
 			"-c:v", "copy",
 			"-c:a", "copy",
-			"-preset", "veryfast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
+			"-preset", "ultrafast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
 			"-f", "flv",
+			"-drop_pkts_on_overflow", "1", "-attempt_recovery", "1", "-recover_any_error", "1",
 			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
 		)
 	} else {
@@ -271,6 +275,7 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 			"-threads", "1",
 			"-preset", "ultrafast",
 			"-f", "flv",
+			"-drop_pkts_on_overflow", "1", "-attempt_recovery", "1", "-recover_any_error", "1",
 			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
 		)
 	}

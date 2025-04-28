@@ -11,12 +11,55 @@ $(function() {
         window.location.href = "/";
     });
 
+    // Helper: Refresh JWT token
+    function refreshToken(callback, onFail) {
+        const token = localStorage.getItem("jwt_token");
+        $.ajax({
+            url: "/api/refresh-token",
+            method: "POST",
+            headers: { Authorization: "Bearer " + token },
+            success: function(data) {
+                if (data.token) {
+                    localStorage.setItem("jwt_token", data.token);
+                    if (callback) callback();
+                } else {
+                    if (onFail) onFail();
+                }
+            },
+            error: function() {
+                if (onFail) onFail();
+            }
+        });
+    }
+
+    // Wrap AJAX to handle 401 and refresh token
+    function ajaxWithRefresh(options) {
+        var origError = options.error;
+        options.error = function(xhr, status, err) {
+            if (xhr.status === 401) {
+                refreshToken(function() {
+                    // Retry original request with new token
+                    options.headers = options.headers || {};
+                    options.headers.Authorization = "Bearer " + localStorage.getItem("jwt_token");
+                    $.ajax(options);
+                }, function() {
+                    // If refresh fails, logout
+                    localStorage.removeItem("jwt_token");
+                    window.location.href = "/";
+                });
+            } else if (origError) {
+                origError(xhr, status, err);
+            }
+        };
+        $.ajax(options);
+    }
+
     // Fetch users and render table
     function fetchUsers() {
-        $.ajax({
+        ajaxWithRefresh({
             url: "/api/users",
             method: "GET",
-            headers: { Authorization: "Bearer " + token },
+            headers: { Authorization: "Bearer " + localStorage.getItem("jwt_token") },
             success: function(data) {
                 renderUserTable(data.users);
             },
@@ -71,10 +114,10 @@ $(function() {
     $(document).on("change", ".admin-toggle", function() {
         const username = $(this).data("username");
         const isAdmin = $(this).is(":checked");
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/users/username/${encodeURIComponent(username)}/admin`,
             method: "PUT",
-            headers: { Authorization: "Bearer " + token },
+            headers: { Authorization: "Bearer " + localStorage.getItem("jwt_token") },
             contentType: "application/json",
             data: JSON.stringify({ is_admin: isAdmin }),
             success: fetchUsers
@@ -85,10 +128,10 @@ $(function() {
     $(document).on("change", ".active-toggle", function() {
         const username = $(this).data("username");
         const isActive = $(this).is(":checked");
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/users/username/${encodeURIComponent(username)}/active`,
             method: "PUT",
-            headers: { Authorization: "Bearer " + token },
+            headers: { Authorization: "Bearer " + localStorage.getItem("jwt_token") },
             contentType: "application/json",
             data: JSON.stringify({ is_active: isActive }),
             success: fetchUsers
@@ -99,10 +142,10 @@ $(function() {
     $(document).on("click", ".delete-btn", function() {
         if (!confirm("Are you sure you want to delete this user?")) return;
         const username = $(this).data("username");
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/users/username/${encodeURIComponent(username)}`,
             method: "DELETE",
-            headers: { Authorization: "Bearer " + token },
+            headers: { Authorization: "Bearer " + localStorage.getItem("jwt_token") },
             success: fetchUsers
         });
     });
@@ -124,10 +167,10 @@ $(function() {
             alert('Username and new password required.');
             return;
         }
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/users/username/${encodeURIComponent(username)}/password`,
             method: 'PUT',
-            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            headers: { Authorization: 'Bearer ' + localStorage.getItem("jwt_token"), 'Content-Type': 'application/json' },
             data: JSON.stringify({ password: newPassword }),
             success: function() {
                 $('#updatePasswordModal').modal('hide');
@@ -150,10 +193,10 @@ $(function() {
             alert("All fields are required.");
             return;
         }
-        $.ajax({
+        ajaxWithRefresh({
             url: "/api/users",
             method: "POST",
-            headers: { Authorization: "Bearer " + token, 'Content-Type': 'application/json' },
+            headers: { Authorization: "Bearer " + localStorage.getItem("jwt_token"), 'Content-Type': 'application/json' },
             data: JSON.stringify({ username, email, password, is_admin: isAdmin }),
             success: function() {
                 $("#addUserForm")[0].reset();
