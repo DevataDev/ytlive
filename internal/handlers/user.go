@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"windsorf-youtube-live/internal/auth"
 	"windsorf-youtube-live/internal/models"
@@ -70,8 +71,26 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		return
 	}
 
+	// Pagination params
+	page := 1
+	perPage := 10
+	if p := c.Query("page"); p != "" {
+		if n, err := strconv.Atoi(p); err == nil && n > 0 {
+			page = n
+		}
+	}
+	if pp := c.Query("per_page"); pp != "" {
+		if n, err := strconv.Atoi(pp); err == nil && n > 0 {
+			perPage = n
+		}
+	}
+	offset := (page - 1) * perPage
+
+	var total int64
+	h.DB.Model(&models.User{}).Count(&total)
+
 	var users []models.User
-	if err := h.DB.Find(&users).Error; err != nil {
+	if err := h.DB.Limit(perPage).Offset(offset).Find(&users).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 		return
 	}
@@ -86,7 +105,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 			"is_active": u.IsActive,
 		})
 	}
-	c.JSON(http.StatusOK, gin.H{"users": result})
+	c.JSON(http.StatusOK, gin.H{"users": result, "page": page, "per_page": perPage, "total": total})
 }
 
 // PUT /api/users/username/:username/password - update a user's password (admin only)

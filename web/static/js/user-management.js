@@ -55,16 +55,18 @@ $(function() {
     }
 
     // Fetch users and render table
-    function fetchUsers() {
+    function fetchUsers(page = 1, perPage = 6) {
         ajaxWithRefresh({
-            url: "/api/users",
+            url: `/api/users?page=${page}&per_page=${perPage}`,
             method: "GET",
             headers: { Authorization: "Bearer " + localStorage.getItem("jwt_token") },
             success: function(data) {
                 renderUserTable(data.users);
+                renderPagination(data);
             },
             error: function() {
                 $("#userTable tbody").html('<tr><td colspan="5" class="text-center text-danger">Failed to load users.</td></tr>');
+                $("#pagination").empty();
             }
         });
     }
@@ -109,6 +111,45 @@ $(function() {
             `);
         });
     }
+
+    function renderPagination(data) {
+        const pag = $("#pagination");
+        pag.empty();
+        const page = data.page || 1;
+        const perPage = data.per_page || 10;
+        const total = data.total || 0;
+        const totalPages = Math.ceil(total / perPage);
+        if (totalPages <= 1) return;
+
+        // Total items info
+        pag.append(`<li class="page-item disabled"><span class="page-link">Total: ${total} users</span></li>`);
+
+        // First & Prev
+        pag.append(`<li class="page-item${page === 1 ? ' disabled' : ''}"><a class="page-link" href="#" data-page="1">First</a></li>`);
+        pag.append(`<li class="page-item${page === 1 ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${page - 1}">Prev</a></li>`);
+
+        // Numbered pages (show up to 5 pages around current)
+        let start = Math.max(1, page - 2);
+        let end = Math.min(totalPages, page + 2);
+        if (page <= 3) end = Math.min(5, totalPages);
+        if (page >= totalPages - 2) start = Math.max(1, totalPages - 4);
+        for (let i = start; i <= end; i++) {
+            pag.append(`<li class="page-item${i === page ? ' active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`);
+        }
+
+        // Next & Last
+        pag.append(`<li class="page-item${page === totalPages ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${page + 1}">Next</a></li>`);
+        pag.append(`<li class="page-item${page === totalPages ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${totalPages}">Last</a></li>`);
+    }
+
+    // Pagination click handler
+    $(document).on("click", "#pagination .page-link", function(e) {
+        e.preventDefault();
+        const page = parseInt($(this).data("page"));
+        if (!isNaN(page)) {
+            fetchUsers(page);
+        }
+    });
 
     // Toggle admin rights
     $(document).on("change", ".admin-toggle", function() {
@@ -222,5 +263,6 @@ $(function() {
         }
     });
 
+    // Initial fetch
     fetchUsers();
 });
