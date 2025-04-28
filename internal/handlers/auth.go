@@ -46,6 +46,35 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }
 
+// POST /api/refresh-token - refresh JWT token
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		token = c.Query("token")
+	}
+	if strings.HasPrefix(token, "Bearer ") {
+		token = strings.TrimPrefix(token, "Bearer ")
+	}
+	claims, err := auth.ParseJWTAllowExpired(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+	// Optionally, you might want to check if user still exists/is active
+	var user models.User
+	if err := h.DB.First(&user, "id = ?", claims.UserID).Error; err != nil || !user.IsActive {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found or inactive"})
+		return
+	}
+	// Issue new token
+	tokenStr, err := auth.GenerateJWT(user.ID, user.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"token": tokenStr})
+}
+
 func JWTMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.GetHeader("Authorization")

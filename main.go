@@ -340,6 +340,7 @@ func main() {
 	authHandler := &handlers.AuthHandler{DB: db}
 	r.POST("/api/login", authHandler.Login)
 	r.POST("/api/logout", authHandler.Logout)
+	r.POST("/api/refresh-token", authHandler.RefreshToken)
 
 	// Stream handler
 	streamHandler := &handlers.StreamHandler{DB: db}

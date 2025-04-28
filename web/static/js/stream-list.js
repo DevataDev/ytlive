@@ -1,3 +1,43 @@
+// Helper: Refresh JWT token
+function refreshToken(callback, onFail) {
+    const token = localStorage.getItem("jwt_token");
+    $.ajax({
+        url: "/api/refresh-token",
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+        success: function(data) {
+            if (data.token) {
+                localStorage.setItem("jwt_token", data.token);
+                if (callback) callback();
+            } else {
+                if (onFail) onFail();
+            }
+        },
+        error: function() {
+            if (onFail) onFail();
+        }
+    });
+}
+
+function ajaxWithRefresh(options) {
+    var origError = options.error;
+    options.error = function(xhr, status, err) {
+        if (xhr.status === 401) {
+            refreshToken(function() {
+                options.headers = options.headers || {};
+                options.headers.Authorization = "Bearer " + localStorage.getItem("jwt_token");
+                $.ajax(options);
+            }, function() {
+                localStorage.removeItem("jwt_token");
+                window.location.href = "/";
+            });
+        } else if (origError) {
+            origError(xhr, status, err);
+        }
+    };
+    $.ajax(options);
+}
+
 $(function() {
     // Auth check and logout
     if (!localStorage.getItem("jwt_token")) {
@@ -159,10 +199,11 @@ $(function() {
     }
 
     function fetchStreams(page = 1) {
-        $.ajax({
+        const token = localStorage.getItem("jwt_token");
+        ajaxWithRefresh({
             url: `/api/streams?page=${page}&per_page=10`,
             method: "GET",
-            headers: { Authorization: "Bearer " + localStorage.getItem("jwt_token") },
+            headers: { Authorization: "Bearer " + token },
             success: function(data) {
                 $("#countLive").text(data.countLive || 0);
                 $("#countScheduled").text(data.countScheduled || 0);
@@ -243,7 +284,7 @@ $(function() {
         const id = $(this).data("id");
         const newKey = $('#streamkey-input').val();
         const token = localStorage.getItem("jwt_token");
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/streams/${id}/streamkey`,
             method: "PUT",
             headers: { Authorization: "Bearer " + token },
@@ -267,7 +308,7 @@ $(function() {
         const newBitrate = prompt("Enter max bitrate in kbps (leave empty to unset):", currentBitrate);
         if (newBitrate === null) return;
         const token = localStorage.getItem("jwt_token");
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/streams/${id}/maxbitrate`,
             method: "PUT",
             headers: { Authorization: "Bearer " + token, 'Content-Type': 'application/json' },
@@ -297,7 +338,7 @@ $(function() {
             return;
         }
         btn.prop("disabled", true);
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/streams/${id}/start`,
             method: "POST",
             headers: { Authorization: "Bearer " + token },
@@ -318,7 +359,7 @@ $(function() {
         const token = localStorage.getItem("jwt_token");
         const btn = $(this);
         btn.prop("disabled", true);
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/streams/${id}/stop`,
             method: "POST",
             headers: { Authorization: "Bearer " + token },
@@ -344,7 +385,7 @@ $(function() {
         if (!confirm("Are you sure you want to delete this stream?")) return;
         const id = $(this).data("id");
         const token = localStorage.getItem("jwt_token");
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/streams/${id}`,
             method: "DELETE",
             headers: { Authorization: "Bearer " + token },
@@ -385,7 +426,7 @@ $(function() {
             alert('Please select start and end time.');
             return;
         }
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/streams/${streamId}/schedule`,
             method: 'PUT',
             headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -418,7 +459,7 @@ $(function() {
             alert('Please enter a new file name.');
             return;
         }
-        $.ajax({
+        ajaxWithRefresh({
             url: `/api/streams/${streamId}/rename`,
             method: 'PUT',
             headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -454,7 +495,7 @@ $(function() {
                 return;
             }
             const token = localStorage.getItem('jwt_token');
-            $.ajax({
+            ajaxWithRefresh({
                 url: `/api/streams/${streamId}/duration`,
                 method: 'PUT',
                 headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },

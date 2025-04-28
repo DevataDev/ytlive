@@ -1,4 +1,44 @@
 $(function() {
+    // Helper: Refresh JWT token
+    function refreshToken(callback, onFail) {
+        const token = localStorage.getItem("jwt_token");
+        $.ajax({
+            url: "/api/refresh-token",
+            method: "POST",
+            headers: { Authorization: "Bearer " + token },
+            success: function(data) {
+                if (data.token) {
+                    localStorage.setItem("jwt_token", data.token);
+                    if (callback) callback();
+                } else {
+                    if (onFail) onFail();
+                }
+            },
+            error: function() {
+                if (onFail) onFail();
+            }
+        });
+    }
+
+    function ajaxWithRefresh(options) {
+        var origError = options.error;
+        options.error = function(xhr, status, err) {
+            if (xhr.status === 401) {
+                refreshToken(function() {
+                    options.headers = options.headers || {};
+                    options.headers.Authorization = "Bearer " + localStorage.getItem("jwt_token");
+                    $.ajax(options);
+                }, function() {
+                    localStorage.removeItem("jwt_token");
+                    window.location.href = "/";
+                });
+            } else if (origError) {
+                origError(xhr, status, err);
+            }
+        };
+        $.ajax(options);
+    }
+
     function isLoggedIn() {
         return !!localStorage.getItem("jwt_token");
     }
@@ -14,7 +54,7 @@ $(function() {
 
     function fetchDashboardStreams() {
         const token = localStorage.getItem("jwt_token");
-        $.ajax({
+        ajaxWithRefresh({
             url: "/api/dashboard/streams",
             method: "GET",
             headers: { Authorization: "Bearer " + token },

@@ -58,3 +58,28 @@ func ParseJWT(tokenStr string) (*Claims, error) {
 	}
 	return claims, nil
 }
+
+// ParseJWTAllowExpired parses a JWT and returns claims even if expired
+func ParseJWTAllowExpired(tokenStr string) (*Claims, error) {
+	parser := &jwt.Parser{SkipClaimsValidation: true}
+	token, _, err := parser.ParseUnverified(tokenStr, &Claims{})
+	if err != nil {
+		return nil, err
+	}
+	claims, ok := token.Claims.(*Claims)
+	if !ok {
+		return nil, errors.New("invalid token claims")
+	}
+	// Now verify signature
+	token, err = jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return jwtSecret, nil
+	})
+	if err != nil && !errors.Is(err, jwt.ErrTokenExpired) {
+		return nil, err
+	}
+	claims, ok = token.Claims.(*Claims)
+	if !ok {
+		return nil, errors.New("invalid token")
+	}
+	return claims, nil
+}
