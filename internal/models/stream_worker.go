@@ -37,9 +37,11 @@ type StreamStats struct {
 }
 
 var (
-	Workers     = make(map[string]*StreamWorker)
-	WorkersMu   sync.RWMutex
-	RestartLock sync.Mutex
+	Workers          = make(map[string]*StreamWorker)
+	WorkersMu        sync.RWMutex
+	RestartLock      sync.Mutex
+	driveProgressMu  sync.RWMutex
+	driveProgressMap = make(map[string]map[string]interface{}) // driveLink -> progress/status map
 )
 
 // AddWorker safely adds a worker to the map
@@ -353,4 +355,45 @@ func isProcessAliveAndNotDefunct(pid int) bool {
 		return false
 	}
 	return true
+}
+
+// SetDriveProgress sets the progress or status for a drive link
+func SetDriveProgress(driveLink string, progress map[string]interface{}) {
+	driveProgressMu.Lock()
+	defer driveProgressMu.Unlock()
+	fmt.Println("Setting drive progress for", driveLink, progress)
+	driveProgressMap[driveLink] = progress
+	fmt.Println("Drive progress set for", driveProgressMap)
+}
+
+// GetDriveProgress gets the progress/status for a drive link
+func GetDriveProgress(driveLink string) (map[string]interface{}, bool) {
+	driveProgressMu.RLock()
+	defer driveProgressMu.RUnlock()
+	fmt.Println("Getting drive progress for", driveLink, driveProgressMap)
+	if driveProgressMap == nil {
+		fmt.Println("Drive progress map is nil")
+		return nil, false
+	}
+	if _, ok := driveProgressMap[driveLink]; !ok {
+		fmt.Println("Drive progress not found for", driveLink)
+		return nil, false
+	}
+	progress, ok := driveProgressMap[driveLink]
+
+	if ok {
+		fmt.Println("Drive progress found for", driveLink, progress)
+		if progress == nil {
+			fmt.Println("Drive progress is nil for", driveLink)
+			return nil, false
+		}
+	}
+	return progress, ok
+}
+
+// ClearDriveProgress clears the progress/status for a drive link
+func ClearDriveProgress(driveLink string) {
+	driveProgressMu.Lock()
+	defer driveProgressMu.Unlock()
+	delete(driveProgressMap, driveLink)
 }

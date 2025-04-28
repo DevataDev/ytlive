@@ -77,22 +77,22 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 	resp := make([]map[string]interface{}, 0, len(streams))
 	for _, s := range streams {
 		item := map[string]interface{}{
-			"ID": s.ID,
-			"FileName": s.FileName,
-			"FilePath": s.FilePath,
-			"Status": s.Status,
-			"GoogleDriveLink": s.GoogleDriveLink,
-			"ScheduledAt": s.ScheduledAt,
+			"ID":               s.ID,
+			"FileName":         s.FileName,
+			"FilePath":         s.FilePath,
+			"Status":           s.Status,
+			"GoogleDriveLink":  s.GoogleDriveLink,
+			"ScheduledAt":      s.ScheduledAt,
 			"ScheduledStartAt": s.ScheduledStartAt,
-			"ScheduledEndAt": s.ScheduledEndAt,
-			"StartedAt": s.StartedAt,
-			"StoppedAt": s.StoppedAt,
-			"StreamKey": s.StreamKey,
-			"MaxBitrate": s.MaxBitrate,
-			"UserId": s.UserId,
+			"ScheduledEndAt":   s.ScheduledEndAt,
+			"StartedAt":        s.StartedAt,
+			"StoppedAt":        s.StoppedAt,
+			"StreamKey":        s.StreamKey,
+			"MaxBitrate":       s.MaxBitrate,
+			"UserId":           s.UserId,
 		}
 		if s.FilePath != nil && *s.FilePath != "" {
-			if fs, ok := c.Get("file_size_"+s.ID); ok {
+			if fs, ok := c.Get("file_size_" + s.ID); ok {
 				item["FileSizeBytes"] = fs
 			}
 		}
@@ -317,4 +317,26 @@ func (h *StreamHandler) ServeVideoPreviewByID(c *gin.Context) {
 		return
 	}
 	c.File(videoPath)
+}
+
+// GET /api/streams/upload/progress
+// Register the progress endpoint in your router setup (main.go):
+// router.GET("/api/streams/upload/progress", streamHandler.GetDriveUploadProgress)
+func (h *StreamHandler) GetDriveUploadProgress(c *gin.Context) {
+	driveLink := c.Query("driveLink")
+	if driveLink == "" {
+		driveLink = c.PostForm("driveLink")
+	}
+	if driveLink == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing driveLink param"})
+		return
+	}
+	// Use a simple in-memory map for demo; replace with Redis/db for production
+	progress, ok := models.GetDriveProgress(driveLink)
+	fmt.Println("Getting drive progress for", driveLink, progress, ok)
+	if !ok {
+		c.JSON(http.StatusOK, gin.H{"progress": 0, "status": "Starting..."})
+		return
+	}
+	c.JSON(http.StatusOK, progress)
 }

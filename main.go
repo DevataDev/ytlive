@@ -53,13 +53,59 @@ func extractDriveFileID(link string) string {
 	return ""
 }
 
+// Custom reader to track download progress
+type ProgressReader struct {
+	io.Reader
+	TotalSize int64
+	BytesRead int64
+	url       string
+}
+
+// Read method to update progress
+func (pr *ProgressReader) Read(p []byte) (int, error) {
+	n, err := pr.Reader.Read(p)
+	pr.BytesRead += int64(n)
+	pr.printProgress()
+	return n, err
+}
+
+// Print download progress
+func (pr *ProgressReader) printProgress() {
+	if pr.TotalSize > 0 {
+		percentage := float64(pr.BytesRead) / float64(pr.TotalSize) * 100
+		models.SetDriveProgress(pr.url, map[string]interface{}{"status": "Downloading...", "progress": percentage})
+		if percentage >= 100 {
+			// delay 2 seconds
+			time.Sleep(2 * time.Second)
+			models.SetDriveProgress(pr.url, map[string]interface{}{"status": "Done", "progress": 100})
+			models.ClearDriveProgress(pr.url)
+		}
+		fmt.Printf("\rDownloading... %.2f%% (%d/%d bytes)", percentage, pr.BytesRead, pr.TotalSize)
+	} else {
+		fmt.Printf("\rDownloading... %d bytes", pr.BytesRead)
+	}
+}
+
 // Downloads a public Google Drive file using its file ID
-func downloadDriveFile(client *http.Client, url string, destPath string) error {
+func downloadDriveFile(client *http.Client, url string, destPath string, driveLink string) error {
+	models.SetDriveProgress(driveLink, map[string]interface{}{"status": "Download Starting...", "progress": 1})
 	resp, err := client.Get(url)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
+	// Get content length
+	totalSize := resp.ContentLength
+
+	// Create progress reader
+	progressReader := &ProgressReader{
+		Reader:    resp.Body,
+		TotalSize: totalSize,
+		BytesRead: 0,
+		url:       driveLink,
+	}
+
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("error : Google Drive file not accessible (status %d)", resp.StatusCode)
 	}
@@ -70,11 +116,12 @@ func downloadDriveFile(client *http.Client, url string, destPath string) error {
 	}
 
 	out, err := os.Create(destPath)
+
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-	_, err = io.Copy(out, resp.Body)
+	_, err = io.Copy(out, progressReader)
 	return err
 }
 
@@ -399,41 +446,62 @@ func main() {
 		var googleDriveLink *string
 		var filePath *string
 		if driveLink != "" {
-			googleDriveLink = &driveLink
-			fileID := extractDriveFileID(driveLink)
-			if fileID != "" {
+			models.SetDriveProgress(driveLink, map[string]interface{}{"status": "Starting...", "progress": 0})
+			// Offload Google Drive download to background goroutine
+			go func(userID string, driveLink string) {
+				fileID := extractDriveFileID(driveLink)
+				if fileID == "" {
+					models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Invalid Google Drive link", "progress": 0})
+					return
+				}
 				srv, err := drive.NewService(ctx, option.WithAPIKey(cfg.Google.ApiKey))
 				if err != nil {
-					c.JSON(500, gin.H{"error": "error : Google Drive file not accessible"})
+					models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Google Drive API error", "progress": 0})
 					return
 				}
-
 				file, err := srv.Files.Get(fileID).Do()
 				if err != nil {
-					c.JSON(500, gin.H{"error": "error : Google Drive file not accessible"})
+					models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Google Drive file not accessible", "progress": 0})
 					return
 				}
-
 				client := http.DefaultClient
 				downloadUrl, err := generateDownloadUrl(client, file)
 				if err != nil {
-					c.JSON(500, gin.H{"error": "error : Google Drive file not accessible, failed to generate download URL"})
+					models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate download URL", "progress": 0})
 					return
 				}
-
 				fileNameWithoutExtension := strings.ReplaceAll(file.OriginalFilename, file.FileExtension, "")
 				downloadName := fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(fileNameWithoutExtension))
 				destPath := "./uploads/" + downloadName
-				if err := downloadDriveFile(client, downloadUrl, destPath); err != nil {
-					c.JSON(500, gin.H{"error": err.Error()})
+				if err := downloadDriveFile(client, downloadUrl, destPath, driveLink); err != nil {
+					models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Download failed: " + err.Error(), "progress": 0})
 					return
 				}
-				fileName = downloadName
-				filePath = &destPath
-			} else {
-				c.JSON(400, gin.H{"error": "Google Drive link format not recognized. Please use a valid Google Drive share link."})
-				return
-			}
+				// Register the stream in the DB after download completes
+				entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+				ms := ulid.Timestamp(time.Now())
+				id, err := ulid.New(ms, entropy)
+				if err != nil {
+					models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate ID", "progress": 100})
+					return
+				}
+				stream := models.Stream{
+					ID:              id.String(),
+					FileName:        downloadName,
+					FilePath:        &destPath,
+					GoogleDriveLink: &driveLink,
+					Status:          "stopped",
+					UserId:          userID,
+				}
+				if err := db.Create(&stream).Error; err != nil {
+					models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to register stream", "progress": 100})
+					return
+				}
+				models.SetDriveProgress(driveLink, map[string]interface{}{"message": "Done", "progress": 100})
+			}(userID.(string), driveLink)
+			// Respond immediately so UI is not blocked
+			c.JSON(http.StatusOK, gin.H{"message": "Google Drive download started"})
+			return
 		}
 		if fileHeaderErr == nil {
 			// Save file to disk (uploads folder)
@@ -472,6 +540,8 @@ func main() {
 		}
 		c.JSON(200, gin.H{"message": "Upload successful!"})
 	})
+
+	r.GET("/api/streams/upload/progress", streamHandler.GetDriveUploadProgress)
 
 	// Download uploaded video by stream ID
 	r.GET("/api/streams/:id/download", handlers.JWTMiddleware(), func(c *gin.Context) {

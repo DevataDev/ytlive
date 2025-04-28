@@ -60,14 +60,51 @@ $(function() {
             });
         } else {
             // Only drive link, no file, simple POST
+            $("#uploadStatus").html('<div class="progress"><div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%">Starting...</div></div>');
+            let checkProgressInterval = null;
             $.ajax({
                 url: "/api/streams/upload",
                 method: "POST",
                 headers: { Authorization: "Bearer " + localStorage.getItem("jwt_token") },
                 data: { driveLink },
                 success: function(data) {
-                    $("#uploadStatus").html('<span class="text-success">Video registered!</span>');
-                    setTimeout(() => window.location.href = "/stream", 1000);
+                    // Start polling for progress
+                    checkProgressInterval = setInterval(function() {
+                        $.ajax({
+                            url: "/api/streams/upload/progress",
+                            method: "GET",
+                            headers: { Authorization: "Bearer " + localStorage.getItem("jwt_token") },
+                            data: { driveLink },
+                            success: function(res) {
+                                let percent = res.progress || 0;
+                                let status = res.status || res.message || res.error || "";
+                                $("#progressBar").css('width', percent + '%').text(percent + '%');
+                                if (status) $("#progressBar").text(status);
+                                // When done, show success and redirect
+                                if (percent === 100 && (status === "Done" || status === "done" || res.message === "Done")) {
+                                    clearInterval(checkProgressInterval);
+                                    $("#uploadStatus").html('<span class="text-success">Video registered!</span>');
+                                    setTimeout(() => window.location.href = "/stream", 1000);
+                                }
+                                // Handle error state
+                                if (res.error) {
+                                    clearInterval(checkProgressInterval);
+                                    $("#uploadStatus").html('<span class="text-danger">' + res.error + '</span>');
+                                }
+                            },
+                            error: function(xhr) {
+                                clearInterval(checkProgressInterval);
+                                let msg = xhr.responseJSON?.error || "Upload failed.";
+                                if (msg.includes("Google Drive file not accessible")) {
+                                    msg += '<br><span class="small">Make sure your Google Drive link is public and accessible to anyone with the link.</span>';
+                                }
+                                if (msg.includes("Google Drive link format not recognized")) {
+                                    msg += '<br><span class="small">Please use a valid Google Drive share link, e.g. https://drive.google.com/file/d/FILE_ID/view?usp=sharing</span>';
+                                }
+                                $("#uploadStatus").html('<span class="text-danger">' + msg + '</span>');
+                            }
+                        });
+                    }, 2000); // poll every 2s
                 },
                 error: function(xhr) {
                     let msg = xhr.responseJSON?.error || "Upload failed.";
