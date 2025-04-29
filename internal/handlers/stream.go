@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -62,8 +61,6 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 			perPage = n
 		}
 	}
-
-	fmt.Println(page, perPage)
 
 	var total int64
 	h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Count(&total)
@@ -352,7 +349,6 @@ func (h *StreamHandler) GetDriveUploadProgress(c *gin.Context) {
 	}
 	// Use a simple in-memory map for demo; replace with Redis/db for production
 	progress, ok := models.GetDriveProgress(driveLink)
-	fmt.Println("Getting drive progress for", driveLink, progress, ok)
 	if !ok {
 		c.JSON(http.StatusOK, gin.H{"progress": 0, "status": "Starting..."})
 		return

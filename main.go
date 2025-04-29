@@ -904,8 +904,10 @@ func main() {
 						continue
 					}
 				}
+				models.RestartLock.Lock()
 				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
 				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, database)
+				models.RestartLock.Unlock()
 				if err != nil {
 					fmt.Println("Failed to restart stream", stream.ID, ":", err)
 					continue

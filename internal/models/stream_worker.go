@@ -127,6 +127,7 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 func StopStreamWorker(streamID string) error {
 	worker, ok := GetWorker(streamID)
 	if !ok {
+		worker.Status = "stopped"
 		return nil // Already stopped
 	}
 
