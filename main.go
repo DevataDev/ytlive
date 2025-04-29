@@ -853,7 +853,9 @@ func main() {
 					fmt.Println("Stream", stream.ID, "has not started yet, skipping. start time:", stream.ScheduledStartAt)
 					continue
 				}
+				models.RestartLock.Lock()
 				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, db)
+				models.RestartLock.Unlock()
 				if err == nil {
 					fmt.Println("Stream", stream.ID, "started successfully.")
 					db.Model(&stream).Updates(map[string]interface{}{
@@ -872,7 +874,9 @@ func main() {
 			for _, stream := range streamsToStop {
 				// check end time
 				if stream.ScheduledEndAt.Before(now) {
+					models.RestartLock.Lock()
 					_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
+					models.RestartLock.Unlock()
 					database.Model(&stream).Updates(map[string]interface{}{
 						"Status":    "stopped",
 						"StoppedAt": now,
