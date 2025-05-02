@@ -349,8 +349,14 @@ func buildFfmpegArgs(maxBitrate *int, loopVideo bool, filePath string, streamKey
 	args = append(args, "ffmpeg")
 	args = append(args, "-re")
 	args = append(args, "-nostdin")
+	var loopingCount int
 	if loopVideo {
-		args = append(args, "-stream_loop", fmt.Sprintf("%d", *loopCount))
+		if loopCount == nil {
+			loopingCount = (-1)
+		} else {
+			loopingCount = *loopCount
+		}
+		args = append(args, "-stream_loop", fmt.Sprintf("%d", loopingCount))
 	}
 	args = append(args, "-threads", "1")
 	args = append(args, "-i", filePath)
