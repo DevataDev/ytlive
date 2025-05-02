@@ -367,6 +367,29 @@ func (h *StreamHandler) SetLoopCount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Loop count updated"})
 }
 
+// PUT /api/streams/:id/rtmpurl
+func (h *StreamHandler) SetRTMPUrl(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		RTMPUrl string `json:"RTMPUrl"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
+		return
+	}
+	stream.RTMPUrl = req.RTMPUrl
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set RTMP URL"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "RTMP URL updated"})
+}
+
 // ServeVideoPreview serves a video file for preview, requires JWT auth
 func (h *StreamHandler) ServeVideoPreview(c *gin.Context) {
 	// Authenticate user via JWT (middleware should already do this)

@@ -21,11 +21,11 @@ type Stream struct {
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
-	RTMPUrl          string         `gorm:"column:rtmp_url" json:"RTMPUrl"`
-	LoopVideo        bool           `gorm:"column:loop_video,default:true" json:"LoopVideo"`
+	RTMPUrl          string         `gorm:"column:rtmp_url;default:'rtmp://a.rtmp.youtube.com/live2/'" json:"RTMPUrl"`
+	LoopVideo        bool           `gorm:"column:loop_video;default:true" json:"LoopVideo"`
 	StreamKey        string         `gorm:"column:stream_key" json:"StreamKey"`
 	MaxBitrate       *int           `gorm:"column:max_bitrate" json:"MaxBitrate,omitempty"`
-	LoopCount        *int           `gorm:"column:loop_count,default:-1" json:"LoopCount,omitempty"`
+	LoopCount        *int           `gorm:"column:loop_count;default:-1" json:"LoopCount,omitempty"`
 	UserId           string         `gorm:"not null;index" json:"UserId"` // New field for user reference
 	FileSizeBytes    int64          `gorm:"-" json:"FileSizeBytes,omitempty"`
 }
