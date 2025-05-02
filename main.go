@@ -399,6 +399,7 @@ func main() {
 	r.PUT("/api/streams/:id/rename", handlers.JWTMiddleware(), streamHandler.RenameFile)
 	r.PUT("/api/streams/:id/duration", handlers.JWTMiddleware(), streamHandler.SetDuration)
 	r.GET("/api/streams/preview/:id", streamHandler.ServeVideoPreviewByID)
+	r.PUT("/api/streams/:id/loop", handlers.JWTMiddleware(), streamHandler.SetLoopVideo)
 
 	r.GET("/stream", func(c *gin.Context) {
 		// replace it with static embedded file stream-list.html
@@ -470,7 +471,7 @@ func main() {
 					models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate download URL", "progress": 0})
 					return
 				}
-				fileNameWithoutExtension := strings.ReplaceAll(file.OriginalFilename, file.FileExtension, "")
+				fileNameWithoutExtension := strings.ReplaceAll(file.OriginalFilename, "."+file.FileExtension, "")
 				downloadName := fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(fileNameWithoutExtension))
 				destPath := "./uploads/" + downloadName
 				if err := downloadDriveFile(client, downloadUrl, destPath, driveLink); err != nil {
@@ -505,7 +506,11 @@ func main() {
 		}
 		if fileHeaderErr == nil {
 			// Save file to disk (uploads folder)
-			fileName = fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(file.Filename))
+			// remove extension from filename
+			fileNameWithoutExtension := strings.ReplaceAll(file.Filename, "."+file.Filename[strings.LastIndex(file.Filename, "."):], "")
+			//remove space from filename
+			fileNameWithoutExtension = strings.ReplaceAll(fileNameWithoutExtension, " ", "-")
+			fileName = fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(fileNameWithoutExtension))
 			uploadPath := "./uploads/" + fileName
 			if err := c.SaveUploadedFile(file, uploadPath); err != nil {
 				fmt.Println(err)
@@ -630,8 +635,8 @@ func main() {
 			}
 		}
 		// Start FFmpeg goroutine (using models.AddWorker)
-		go func(streamID, filePath, streamKey string, maxBitrate *int) {
-			worker, pid, err := models.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, db)
+		go func(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, db *gorm.DB) {
+			worker, pid, err := models.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, db)
 			if err == nil {
 				fmt.Println("FFmpeg started for stream", streamID, "with PID", pid)
 				fmt.Println("FFmpeg PID stored in worker", worker.FfmpegPID)
@@ -647,7 +652,7 @@ func main() {
 					handlers.BroadcastDashboardStreams(db, userID.(string))
 				}()
 			}
-		}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate)
+		}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, db)
 		c.JSON(200, gin.H{"success": true})
 	})
 
@@ -854,7 +859,7 @@ func main() {
 					continue
 				}
 				models.RestartLock.Lock()
-				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, db)
+				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, db)
 				models.RestartLock.Unlock()
 				if err == nil {
 					fmt.Println("Stream", stream.ID, "started successfully.")
@@ -910,7 +915,7 @@ func main() {
 				}
 				models.RestartLock.Lock()
 				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
-				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, database)
+				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, database)
 				models.RestartLock.Unlock()
 				if err != nil {
 					fmt.Println("Failed to restart stream", stream.ID, ":", err)
@@ -940,8 +945,11 @@ func main() {
 			}
 			// lock
 			models.RestartLock.Lock()
-			_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
-			_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, database)
+			if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
+				fmt.Println("Stopping stream", stream.ID, "with PID", *stream.FfmpegPID)
+				models.StopStreamWorker(stream.ID)
+			}
+			_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, database)
 			models.RestartLock.Unlock()
 
 			if err != nil {
