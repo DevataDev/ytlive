@@ -56,81 +56,63 @@ $(function() {
     });
 
     function renderStreamsTable(data) {
-        const tbody = $("#streamTable tbody");
-        tbody.empty();
+        const cardContainer = $("#stream-list-cards");
+        cardContainer.empty();
         if (!data.streams || data.streams.length === 0) {
-            tbody.append('<tr><td colspan="7" class="text-center text-muted">No streams found.</td></tr>');
+            cardContainer.append('<div class="col-12 text-center text-muted">No streams found.</div>');
             return;
         }
         data.streams.forEach(stream => {
-            let liveIndicator = '';
-            if (stream.Status === 'live') {
-                liveIndicator = '<span class="live-indicator"></span>';
-            }
-            // Disable start button if no StreamKey or if already live
-            let startDisabled = (!stream.StreamKey || stream.Status === 'live') ? 'disabled' : '';
+            let liveIndicator = stream.Status === 'live' ? '<span class="live-indicator"></span>' : '';
             let stopDisabled = (stream.Status !== 'live') ? 'disabled' : '';
-            let downloadBtn = stream.FilePath ? `<button class="btn btn-sm btn-success download-btn" data-id="${stream.ID}"><i class="fa-solid fa-download"></i></button>` : '';
-            let streamKeyBtn = `<button class="btn btn-sm btn-secondary streamkey-btn" data-id="${stream.ID}" data-streamkey="${stream.StreamKey || ''}"><i class="fa-solid fa-key"></i></button>`;
-            let setBitrateBtn = `<button class="btn btn-sm btn-warning set-bitrate-btn" data-id="${stream.ID}" data-bitrate="${stream.MaxBitrate || ''}"><i class="fa-solid fa-gauge"></i></button>`;
-            let scheduleBtn = `<button class="btn btn-sm btn-info schedule-btn" data-id="${stream.ID}" title="Schedule Stream"><i class="fa-solid fa-clock"></i></button>`;
-            let renameBtn = `<button class="btn btn-sm btn-secondary rename-btn" data-id="${stream.ID}" title="Rename File"><i class="fa-solid fa-pen-to-square"></i></button>`;
-            let deleteBtn = `<button class="btn btn-sm btn-outline-danger delete-btn" data-id="${stream.ID}" title="Delete"><i class="fa-solid fa-trash"></i></button>`;
-            let gearBtn = `<button class="btn btn-sm btn-secondary duration-btn" data-id="${stream.ID}" title="Set Duration"><i class="fa-solid fa-gear"></i></button>`;
-            let previewVideoBtn = `<button class="btn btn-sm btn-outline-primary preview-video-btn" data-file="${stream.FilePath}" title="Preview Video"><i class="fa-solid fa-tv"></i></button>`;
-            let maxBitrateCol = stream.MaxBitrate && stream.MaxBitrate > 0 ? stream.MaxBitrate + ' kbps' : '-';
-            let statusText = stream.Status;
-            let startedAtAttr = '';
-            let startedAtDisplay = '';
-            if (stream.Status === 'live' && stream.StartedAt) {
-                startedAtAttr = ` data-started-at='${stream.StartedAt}'`;
-                startedAtDisplay = ` <span class="started-at-rel"></span>`;
-            }
-            let fileSizeHtml = '';
-            if (stream.FileSizeBytes !== undefined && stream.FileSizeBytes !== null) {
-                let size = stream.FileSizeBytes;
-                let sizeStr = '';
-                if (size >= 1024 * 1024 * 1024) {
-                    sizeStr = (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-                } else if (size >= 1024 * 1024) {
-                    sizeStr = (size / (1024 * 1024)).toFixed(2) + ' MB';
-                } else if (size >= 1024) {
-                    sizeStr = (size / 1024).toFixed(1) + ' KB';
-                } else {
-                    sizeStr = size + ' bytes';
-                }
-                fileSizeHtml = `<div class='file-size-container'><span class='file-size-ellipsize'>${sizeStr}</span></div>`;
-            }
-            tbody.append(`
-                <tr data-id="${stream.ID}"${startedAtAttr} data-scheduled-at="${stream.ScheduledStartAt || ''}" data-scheduled-end="${stream.ScheduledEndAt || ''}">
-                    <td>${liveIndicator}</td>
-                    <td>
-                        <div>${stream.FileName || '-'}</div>
-                        ${fileSizeHtml}
-                    </td>
-                    <td>${statusText}${startedAtDisplay}</td>
-                    <td>${maxBitrateCol}</td>
-                    <td class="scheduled"><span class="scheduled-at-rel"></span></td>
-                    <td><span class="cpu-usage"></span><br/><span class="memory-usage"></span></td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" data-id="${stream.ID}" data-action="start" ${startDisabled}><i class="fa-solid fa-play"></i></button>
-                        <button class="btn btn-sm btn-danger" data-id="${stream.ID}" data-action="stop" ${stopDisabled}><i class="fa-solid fa-stop"></i></button>
-                        ${downloadBtn}
-                        ${streamKeyBtn}
-                        ${setBitrateBtn}
-                        ${scheduleBtn}
-                        ${gearBtn}
-                        ${renameBtn}
+            let loopChecked = stream.LoopVideo ? 'checked' : '';
+            let previewUrl = stream.FilePath ? `/api/streams/preview/${stream.ID}` : '';
+            let passwordField = `<input type="password" class="form-control form-control-sm stream-password" value="${stream.Password || ''}" readonly style="max-width:180px;display:inline-block;">`;
+            let showPasswordBtn = `<button class="btn btn-outline-secondary btn-sm ms-1 stream-password-toggle" title="Show/Hide"><i class="fa fa-eye"></i></button>`;
+            let rtmpUrl = `<input type="text" class="form-control form-control-sm stream-rtmp-url" value="${stream.RTMPUrl || ''}" readonly style="max-width:260px;">`;
+            let bitrate = `<input type="number" class="form-control form-control-sm stream-bitrate" value="${stream.MaxBitrate || 3000}" min="100" max="20000" style="width:90px;display:inline-block;">`;
+            let resOptions = ['1080p','720p','480p','360p'].map(r => `<option${stream.Resolution===r?' selected':''}>${r}</option>`).join('');
+            let resolution = `<select class="form-select form-select-sm stream-resolution" style="width:90px;display:inline-block;">${resOptions}</select>`;
+            let fpsOptions = ['30fps','60fps'].map(f => `<option${stream.FPS===f?' selected':''}>${f}</option>`).join('');
+            let fps = `<select class="form-select form-select-sm stream-fps" style="width:90px;display:inline-block;">${fpsOptions}</select>`;
+            let stopBtn = `<button class="btn btn-danger btn-sm stream-stop" data-id="${stream.ID}" ${stopDisabled}>Stop</button>`;
+            let deleteBtn = `<button class="btn btn-secondary btn-sm stream-delete ms-2" data-id="${stream.ID}">Hapus Video</button>`;
+            let liveBadge = stream.Status === 'live' ? '<span class="badge bg-danger ms-2">LIVE</span>' : '';
+            let card = `
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="stream-card card shadow-sm rounded-4 p-3 position-relative mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold fs-5">${stream.Title || stream.FileName || 'Live Stream'}</span>
+                        <button class="btn-close stream-delete" data-id="${stream.ID}" aria-label="Close"></button>
+                    </div>
+                    <div class="ratio ratio-16x9 mb-2">
+                        <video src="${previewUrl}" class="w-100 rounded-3" ${stream.LoopVideo ? 'loop' : ''} controls poster="/static/img/preview.jpg" style="background:#000;"></video>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input stream-loop-toggle" type="checkbox" id="loopSwitch${stream.ID}" data-id="${stream.ID}" ${loopChecked}>
+                        <label class="form-check-label" for="loopSwitch${stream.ID}">Loop Video</label>
+                    </div>
+                    <div class="mb-2 d-flex align-items-center">
+                        ${passwordField}
+                        ${showPasswordBtn}
+                    </div>
+                    <div class="mb-2">
+                        ${rtmpUrl}
+                    </div>
+                    <div class="mb-2 d-flex align-items-center gap-2">
+                        <label class="me-1">Bitrate</label>${bitrate}
+                        <label class="ms-2 me-1">Resolusi</label>${resolution}
+                        <label class="ms-2 me-1">FPS</label>${fps}
+                    </div>
+                    <div class="d-flex align-items-center">
+                        ${stopBtn}
                         ${deleteBtn}
-                        ${previewVideoBtn}
-                    </td>
-                </tr>
-            `);
+                        ${liveBadge}
+                    </div>
+                </div>
+            </div>`;
+            cardContainer.append(card);
         });
-        // After rendering, update all started-at relative times
-        updateAllStartedAtRel();
-        // After rendering, update all scheduled times
-        updateAllScheduled();
     }
 
     function updateAllStartedAtRel() {
