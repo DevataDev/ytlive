@@ -144,7 +144,7 @@ func (c *Client) CheckRoomIsAlive(roomID string) (bool, error) {
 	}
 
 	data, err := c.Get(url)
-	fmt.Println(url)
+
 	if err != nil {
 		fmt.Println("Failed to get room info for room", roomID, "with error", err)
 		return false, err
@@ -173,8 +173,6 @@ func (c *Client) CheckRoomIsAlive(roomID string) (bool, error) {
 		fmt.Println("Failed to unmarshal room info for room", roomID, "with error", err)
 		return false, err
 	}
-
-	fmt.Println("Room info for room", roomID, "is", response)
 
 	if _, ok := response["data"]; !ok {
 		fmt.Println("Data not found for room", roomID)
@@ -399,17 +397,15 @@ func (c *Client) GetRoomAndUserFromUrl(liveUrl string) (string, string, error) {
 			return "", "", errors.New("user not found")
 		}
 		userID = matches[0][1]
-		fmt.Println("Got user ID from redirect:", userID)
 	}
 
 	// if status code is OK
 	matches := regexp.MustCompile("https?://(?:www.)?tiktok.com/@([^/]+)/live").FindAllStringSubmatch(string(body), -1)
 	if len(matches) < 1 {
 		return "", "", errors.New("user not found")
+	} else {
+		userID = matches[0][1]
 	}
-	userID = matches[0][1]
-
-	fmt.Println("Got user ID:", userID)
 
 	if userID == "" {
 		return "", "", errors.New("user not found")

@@ -181,12 +181,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 					broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
 					return
 				}
-				// restart stream worker
-				// how to prevent double restart?
-				// check if worker is already restarting
-				// lock
-				// restart only for live stream
-				// fmt.Println("Restarting stream", w.StreamID, "with status", w.Status)
+				fmt.Println("Restarting stream From Monitoring", w.StreamID, "with status", w.Status)
 				if w.Status != "live" {
 					return
 				}

@@ -67,7 +67,8 @@ func (c *Client) Get(url string) (*req.Response, error) {
 		c.httpClient.SetCommonHeader("Cookie", c.cookie)
 	}
 
-	c.httpClient.SetCommonHeader("Content-Type", "application/json")
+	c.httpClient.ImpersonateChrome()
+
 	c.httpClient.SetCommonHeader("Accept", "application/json")
 	c.httpClient.SetCommonHeader("Accept-Language", "en-US")
 	c.httpClient.SetCommonHeader("Accept-Encoding", "gzip, deflate, br")
