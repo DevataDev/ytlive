@@ -31,6 +31,8 @@ import (
 	"google.golang.org/api/option"
 
 	"embed"
+
+	"windsorf-youtube-live/internal/broadcast"
 )
 
 //go:embed web/static/* web/static
@@ -372,6 +374,10 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	broadcast.Bus.AddListener("default", broadcast.RefreshStream, func(e broadcast.Event) {
+		handlers.BroadcastStreamListUpdate()
+	})
+
 	r := gin.Default()
 
 	// Replace static file serving with embedded static files
@@ -400,6 +406,7 @@ func main() {
 	r.PUT("/api/streams/:id/duration", handlers.JWTMiddleware(), streamHandler.SetDuration)
 	r.GET("/api/streams/preview/:id", streamHandler.ServeVideoPreviewByID)
 	r.PUT("/api/streams/:id/loop", handlers.JWTMiddleware(), streamHandler.SetLoopVideo)
+	r.PUT("/api/streams/:id/loopcount", handlers.JWTMiddleware(), streamHandler.SetLoopCount)
 
 	r.GET("/stream", func(c *gin.Context) {
 		// replace it with static embedded file stream-list.html
@@ -527,6 +534,8 @@ func main() {
 			c.JSON(500, gin.H{"error": "Failed to generate ID."})
 			return
 		}
+
+		defaultLoopCount := -1
 		// Create new Stream DB entry
 		stream := models.Stream{
 			ID:              id.String(),
@@ -538,6 +547,7 @@ func main() {
 			UpdatedAt:       time.Now(),
 			LoopVideo:       true,
 			RTMPUrl:         "rtmp://a.rtmp.youtube.com/live2/",
+			LoopCount:       &defaultLoopCount,
 			UserId:          userID.(string),
 		}
 		if err := db.Create(&stream).Error; err != nil {
@@ -637,8 +647,8 @@ func main() {
 			}
 		}
 		// Start FFmpeg goroutine (using models.AddWorker)
-		go func(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, db *gorm.DB) {
-			worker, pid, err := models.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, db)
+		go func(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, db *gorm.DB) {
+			worker, pid, err := models.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, db)
 			if err == nil {
 				fmt.Println("FFmpeg started for stream", streamID, "with PID", pid)
 				fmt.Println("FFmpeg PID stored in worker", worker.FfmpegPID)
@@ -656,7 +666,7 @@ func main() {
 					}
 				}()
 			}
-		}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, db)
+		}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, db)
 		c.JSON(200, gin.H{"success": true})
 	})
 
@@ -863,7 +873,7 @@ func main() {
 					continue
 				}
 				models.RestartLock.Lock()
-				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, db)
+				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, db)
 				models.RestartLock.Unlock()
 				if err == nil {
 					fmt.Println("Stream", stream.ID, "started successfully.")
@@ -922,7 +932,7 @@ func main() {
 				}
 				models.RestartLock.Lock()
 				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
-				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, database)
+				_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, database)
 				models.RestartLock.Unlock()
 				if err != nil {
 					fmt.Println("Failed to restart stream", stream.ID, ":", err)
@@ -956,7 +966,7 @@ func main() {
 				fmt.Println("Stopping stream", stream.ID, "with PID", *stream.FfmpegPID)
 				models.StopStreamWorker(stream.ID)
 			}
-			_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, database)
+			_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, database)
 			models.RestartLock.Unlock()
 
 			if err != nil {

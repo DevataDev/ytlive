@@ -201,6 +201,7 @@ document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT
               <option value="LIVE">LIVE</option>
               <option value="SCHEDULER">SCHEDULER</option>
               <option value="DURATION">DURATION</option>
+              <option value="LOOPCOUNT">LOOPCOUNT</option>
             </select>
           </div>
           <div id="schedulerFields" style="display:none;">
@@ -219,6 +220,11 @@ document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT
               <input type="number" class="form-control" id="settingsDuration" min="0" max="24" value="0">
             </div>
           </div>
+          <div class="mb-3" id="loopCountGroup" style="display:none;">
+            <label for="settingsLoopCount" class="form-label">Loop Count</label>
+            <input type="number" class="form-control" id="settingsLoopCount" value="-1" min="-1">
+            <div class="form-text">-1 means infinite loop. Minimum value is -1.</div>
+          </div>
         </form>
       </div>
       <div class="modal-footer">
@@ -228,6 +234,31 @@ document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT
     </div>
   </div>
 </div>
+
+<script>
+// Show/hide scheduler fields based on mode
+$('#settingsMode').on('change', function() {
+    if ($(this).val() === 'SCHEDULER') {
+        $('#schedulerFields').show();
+        $('#durationField').hide();
+        $('#loopCountGroup').hide();
+    } else if ($(this).val() === 'DURATION') {
+        $('#schedulerFields').hide();
+        $('#durationField').show();
+        $('#loopCountGroup').hide();
+    } else if ($(this).val() === 'LOOPCOUNT') {
+        $('#schedulerFields').hide();
+        $('#durationField').hide();
+        $('#loopCountGroup').show();
+    } else {
+        $('#schedulerFields').hide();
+        $('#durationField').hide();
+        $('#loopCountGroup').hide();
+    }
+});
+// Ensure default value
+$('#settingsLoopCount').val('-1');
+</script>
 
 </body>
 </html>

@@ -110,6 +110,7 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 			"UserId":           s.UserId,
 			"RTMPUrl":          s.RTMPUrl,
 			"LoopVideo":        s.LoopVideo,
+			"LoopCount":        s.LoopCount,
 			"FfmpegPID":        s.FfmpegPID,
 			"CreatedAt":        s.CreatedAt,
 			"FileSizeBytes":    s.FileSizeBytes,
@@ -327,6 +328,38 @@ func (h *StreamHandler) SetLoopVideo(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Loop video setting updated"})
+}
+
+// PUT /api/streams/:id/loopcount
+func (h *StreamHandler) SetLoopCount(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		LoopCount int `json:"LoopCount"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+	if req.LoopCount < -1 {
+		req.LoopCount = -1
+	}
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
+		return
+	}
+	stream.LoopCount = &req.LoopCount
+	stream.LoopVideo = true
+	// remove scheduled start and end
+	stream.ScheduledStartAt = nil
+	stream.ScheduledEndAt = nil
+	stream.ScheduledAt = nil
+
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set loop count"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Loop count updated"})
 }
 
 // ServeVideoPreview serves a video file for preview, requires JWT auth

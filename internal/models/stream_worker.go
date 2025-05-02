@@ -14,6 +14,8 @@ import (
 
 	"github.com/shirou/gopsutil/v3/process"
 	"gorm.io/gorm"
+
+	"windsorf-youtube-live/internal/broadcast"
 )
 
 type StreamWorker struct {
@@ -30,6 +32,7 @@ type StreamWorker struct {
 	MaxBitrate *int
 	RTMPUrl    string
 	LoopVideo  bool
+	LoopCount  *int
 	DB         *gorm.DB
 }
 
@@ -66,63 +69,6 @@ func GetWorker(streamID string) (*StreamWorker, bool) {
 	defer WorkersMu.RUnlock()
 	w, ok := Workers[streamID]
 	return w, ok
-}
-
-// StartStreamWorker starts an FFmpeg process for the stream and registers the worker.
-func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*StreamWorker, int, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	worker := &StreamWorker{
-		StreamID:   streamID,
-		CancelFunc: cancel,
-		Status:     "live",
-	}
-
-	var cmd *exec.Cmd
-	if maxBitrate != nil {
-		//ffmpeg -re -stream_loop -1 -i ombay.mp4 -c copy -f flv -drop_pkts_on_overflow 1 -attempt_recovery 1 -recover_any_error 1
-		cmd = exec.CommandContext(ctx, "ffmpeg",
-			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
-			"-threads", "1",
-			"-c:v", "copy",
-			"-c:a", "copy",
-			"-preset", "ultrafast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
-			"-f", "flv",
-			"-drop_pkts_on_overflow", "1", "-attempt_recovery", "1", "-recover_any_error", "1",
-			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
-		)
-	} else {
-		cmd = exec.CommandContext(ctx, "ffmpeg",
-			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1",
-			"-i", filePath,
-			"-c:v", "copy",
-			"-c:a", "copy",
-			"-threads", "1",
-			"-preset", "ultrafast",
-			"-f", "flv",
-			"-drop_pkts_on_overflow", "1", "-attempt_recovery", "1", "-recover_any_error", "1",
-			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
-		)
-	}
-
-	worker.Cmd = cmd
-	err := cmd.Start()
-	if err != nil {
-		fmt.Println("Failed to start FFmpeg:", err)
-		return nil, 0, err
-	}
-
-	worker.FfmpegPID = &cmd.Process.Pid
-
-	// Start stats monitor goroutine
-	stopChan := make(chan struct{})
-	worker.StopChan = stopChan
-	go func() {
-		worker.MonitorFFmpegStats(stopChan)
-	}()
-
-	AddWorker(worker)
-	// Return immediately after spawning goroutine
-	return worker, cmd.Process.Pid, nil
 }
 
 // StopStreamWorker stops the FFmpeg process for the stream and removes the worker.
@@ -222,7 +168,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 		default:
 			// check if process is still running
 			if !isProcessAliveAndNotDefunct(pid) {
-				fmt.Println("FFmpeg process stopped for stream", w.StreamID)
+				fmt.Println("FFmpeg process stopped for stream from monitoring", w.StreamID)
 				if !w.LoopVideo {
 					// update stream status to stopped
 					w.DB.Model(&Stream{}).Where("id = ?", w.StreamID).Updates(map[string]interface{}{
@@ -232,6 +178,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 					StopStreamWorker(w.StreamID)
 					RemoveWorker(w.StreamID)
 					RestartLock.Unlock()
+					broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
 					return
 				}
 				// restart stream worker
@@ -245,8 +192,9 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				}
 				RestartLock.Lock()
 				StopStreamWorker(w.StreamID)
-				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.DB)
+				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.LoopCount, w.DB)
 				RestartLock.Unlock()
+				broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
 				return
 			}
 			cpu, _ := proc.CPUPercent()
@@ -260,7 +208,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	}
 }
 
-func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, database *gorm.DB) (*StreamWorker, int, error) {
+func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, database *gorm.DB) (*StreamWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	worker := &StreamWorker{
 		StreamID:   streamID,
@@ -273,7 +221,7 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	}
 
 	var cmd *exec.Cmd
-	args := buildFfmpegArgs(maxBitrate, loopVideo, filePath, streamKey, rtmpUrl)
+	args := buildFfmpegArgs(maxBitrate, loopVideo, filePath, streamKey, rtmpUrl, loopCount)
 
 	cmd = exec.CommandContext(ctx, args[0], args[1:]...)
 
@@ -386,7 +334,7 @@ func GetDriveProgress(driveLink string) (map[string]interface{}, bool) {
 	return progress, ok
 }
 
-func buildFfmpegArgs(maxBitrate *int, loopVideo bool, filePath string, streamKey string, rtmpUrl string) []string {
+func buildFfmpegArgs(maxBitrate *int, loopVideo bool, filePath string, streamKey string, rtmpUrl string, loopCount *int) []string {
 	var args []string
 	var fullRtmpUrl string
 	if rtmpUrl != "" {
@@ -402,7 +350,7 @@ func buildFfmpegArgs(maxBitrate *int, loopVideo bool, filePath string, streamKey
 	args = append(args, "-re")
 	args = append(args, "-nostdin")
 	if loopVideo {
-		args = append(args, "-stream_loop", "-1")
+		args = append(args, "-stream_loop", fmt.Sprintf("%d", *loopCount))
 	}
 	args = append(args, "-threads", "1")
 	args = append(args, "-i", filePath)

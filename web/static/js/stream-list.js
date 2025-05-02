@@ -770,8 +770,10 @@ $(function() {
         }
         if (scheduleStartAt) {
             $('#settingsMode').val('SCHEDULER');
-        } else if (scheduleEndAt && scheduleStartAt == null) {
+        } else if (scheduleEndAt && scheduleStartAt == null && stream.LoopCount !== undefined && stream.LoopCount !== null && stream.LoopCount < 0) {
             $('#settingsMode').val('DURATION');
+        }  else if (stream.LoopCount !== undefined && stream.LoopCount !== null && stream.LoopCount > 0) {
+            $('#settingsMode').val('LOOPCOUNT');
         } else {
             $('#settingsMode').val('LIVE');
         }
@@ -786,6 +788,31 @@ $(function() {
         const mode = $(this).val();
         $('#schedulerFields').toggle(mode === 'SCHEDULER');
         $('#durationField').toggle(mode === 'DURATION');
+        $('#loopCountField').toggle(mode === 'LOOPCOUNT');
+        $('#loopCountGroup').toggle(mode === 'LOOPCOUNT');
+    });
+
+    // Set loop count value in modal when LOOPCOUNT mode is selected
+    $(document).on('click', '.stream-settings-btn', function() {
+        const streamId = $(this).data('id');
+        const streams = window.lastStreams || [];
+        const stream = streams.find(s => s.ID === streamId);
+        if (!stream) return;
+        let loopCount = -1;
+        if (stream.LoopCount !== undefined && stream.LoopCount !== null) {
+            loopCount = stream.LoopCount;
+        }
+        $('#settingsLoopCount').val(loopCount);
+        if (stream.ScheduledStartAt == null && stream.ScheduledEndAt) {
+            $('#settingsMode').val('DURATION');
+        } else if (stream.ScheduledStartAt) {
+            $('#settingsMode').val('SCHEDULER');
+        } else if (stream.LoopCount !== undefined && stream.LoopCount !== null) {
+            $('#settingsMode').val('LOOPCOUNT');
+        } else {
+            $('#settingsMode').val('LIVE');
+        }
+        $('#settingsMode').trigger('change');
     });
 
     // Save settings with validation
@@ -825,7 +852,7 @@ $(function() {
                 url: `/api/streams/${streamId}/schedule`,
                 type: 'PUT',
                 contentType: 'application/json',
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { Authorization: 'Bearer ' + token },
                 data: JSON.stringify({ ScheduledAt: start, StoppedAt: end || null, Timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
                 success: function() { 
                     $('#settingsModal').modal('hide'); 
@@ -872,6 +899,25 @@ $(function() {
                     }
                 });
             }
+        } else if (mode === 'LOOPCOUNT') {
+            let loopCount = parseInt($('#settingsLoopCount').val(), 10);
+            if (isNaN(loopCount)) loopCount = -1;
+            if (loopCount < -1) loopCount = -1;
+            $.ajax({
+                url: `/api/streams/${streamId}/loopcount`,
+                type: 'PUT',
+                contentType: 'application/json',
+                headers: { Authorization: `Bearer ${token}` },
+                data: JSON.stringify({ LoopCount: loopCount }),
+                success: function() {
+                    $('#settingsModal').modal('hide');
+                    showStreamToast("Stream loop count set successfully", "success");
+                    fetchStreams();
+                },
+                error: function(xhr) {
+                    showStreamToast("Failed to set loop count: " + (xhr.responseJSON?.error || xhr.statusText), "error");
+                }
+            });
         }
     });
 
