@@ -651,7 +651,9 @@ func main() {
 				userID, _ := c.Get("user_id")
 				go func() {
 					handlers.BroadcastStreamListUpdate()
-					handlers.BroadcastDashboardStreams(db, userID.(string))
+					if userID != nil {
+						handlers.BroadcastDashboardStreams(db, userID.(string))
+					}
 				}()
 			}
 		}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, db)

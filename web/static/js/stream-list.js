@@ -646,6 +646,8 @@ $(function() {
                 success: function(resp) {
                     tooltip.remove();
                     fetchStreams();
+                    // start stream
+                    startStream(streamId);
                     alert('Stream duration updated successfully.');
                 },
                 error: function(xhr) {
@@ -735,6 +737,7 @@ $(function() {
         $('#settingsStreamId').val(streamId);
         let scheduleStartAt = null;
         let scheduleEndAt = null;
+        let durationHours = 0;
         if (stream.ScheduledStartAt) { 
             scheduleStartAt = stream.ScheduledStartAt; 
             $('#settingsStart').val(toDatetimeLocal(scheduleStartAt));
@@ -747,9 +750,23 @@ $(function() {
         } else {
             $('#settingsEnd').val('');
         }
-        if (stream.ScheduledStartAt == null && stream.ScheduledEndAt == null) {
+        if (stream.ScheduledStartAt == null && stream.ScheduledEndAt) {
             $('#settingsStart').val('');
             $('#settingsEnd').val('');
+            let scheduleAt = null;
+            let scheduleEndAt = null;
+            let durationHours = 0;
+            if (stream.ScheduledEndAt) {
+                scheduleAt = stream.ScheduledAt ? stream.ScheduledAt : new Date();
+                scheduleEndAt = stream.ScheduledEndAt;
+                scheduleAtMilliseconds = new Date(scheduleAt).getTime();
+                scheduleEndAtMilliseconds = new Date(scheduleEndAt).getTime();
+                let gapHour = scheduleEndAtMilliseconds - scheduleAtMilliseconds;
+                durationHours = gapHour / (1000 * 60 * 60);
+                $('#settingsDuration').val(durationHours);
+            } else {
+                $('#settingsDuration').val(0);
+            }
         }
         if (scheduleStartAt) {
             $('#settingsMode').val('SCHEDULER');
@@ -758,7 +775,7 @@ $(function() {
         } else {
             $('#settingsMode').val('LIVE');
         }
-        $('#settingsDuration').val(0);
+
         var modal = new bootstrap.Modal(document.getElementById('settingsModal'));
         modal.show();
         $('#settingsMode').trigger('change');
@@ -784,8 +801,14 @@ $(function() {
                 contentType: 'application/json',
                 headers: { Authorization: `Bearer ${token}` },
                 data: JSON.stringify({ ScheduledAt: null, StoppedAt: null, Timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-                success: function() { $('#settingsModal').modal('hide'); reloadStreams(); },
-                error: function(xhr) { alert("Failed to set mode: " + (xhr.responseJSON?.error || xhr.statusText)); }
+                success: function() { 
+                    $('#settingsModal').modal('hide'); 
+                    showStreamToast("Stream mode set to live", "success");
+                    fetchStreams(); 
+                },
+                error: function(xhr) { 
+                    showStreamToast("Failed to set mode: " + (xhr.responseJSON?.error || xhr.statusText), "error");
+                }
             });
         } else if (mode === 'SCHEDULER') {
             const start = $('#settingsStart').val();
@@ -804,8 +827,14 @@ $(function() {
                 contentType: 'application/json',
                 headers: { Authorization: `Bearer ${token}` },
                 data: JSON.stringify({ ScheduledAt: start, StoppedAt: end || null, Timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-                success: function() { $('#settingsModal').modal('hide'); reloadStreams(); },
-                error: function(xhr) { alert("Failed to set schedule: " + (xhr.responseJSON?.error || xhr.statusText)); }
+                success: function() { 
+                    $('#settingsModal').modal('hide'); 
+                    showStreamToast("Stream schedule set successfully", "success");
+                    fetchStreams(); 
+                },
+                error: function(xhr) { 
+                    showStreamToast("Failed to set schedule: " + (xhr.responseJSON?.error || xhr.statusText), "error");
+                }
             });
         } else if (mode === 'DURATION') {
             let duration = parseInt($('#settingsDuration').val(), 10);
@@ -817,8 +846,14 @@ $(function() {
                     contentType: 'application/json',
                     headers: { Authorization: `Bearer ${token}` },
                     data: JSON.stringify({ ScheduledAt: null, StoppedAt: null, Timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-                    success: function() { $('#settingsModal').modal('hide'); reloadStreams(); },
-                    error: function(xhr) { alert("Failed to set mode: " + (xhr.responseJSON?.error || xhr.statusText)); }
+                    success: function() { 
+                        $('#settingsModal').modal('hide'); 
+                        showStreamToast("Stream mode set to live", "success");
+                        fetchStreams(); 
+                    },
+                    error: function(xhr) { 
+                        showStreamToast("Failed to set mode: " + (xhr.responseJSON?.error || xhr.statusText), "error");
+                    }
                 });
             } else {
                 $.ajax({
@@ -827,8 +862,14 @@ $(function() {
                     contentType: 'application/json',
                     headers: { Authorization: `Bearer ${token}` },
                     data: JSON.stringify({ DurationHours: duration }),
-                    success: function() { $('#settingsModal').modal('hide'); reloadStreams(); },
-                    error: function(xhr) { alert("Failed to set duration: " + (xhr.responseJSON?.error || xhr.statusText)); }
+                    success: function() {       
+                        $('#settingsModal').modal('hide'); 
+                        showStreamToast("Stream duration set successfully", "success");
+                        startStream(streamId);
+                    },
+                    error: function(xhr) { 
+                        showStreamToast("Failed to set duration: " + (xhr.responseJSON?.error || xhr.statusText), "error");
+                    }
                 });
             }
         }
@@ -949,4 +990,24 @@ function toDatetimeLocal(dt) {
         pad(date.getDate()) + 'T' +
         pad(date.getHours()) + ':' +
         pad(date.getMinutes());
+}
+
+// --- Start Stream ---
+function startStream(streamId) {
+    const token = localStorage.getItem("jwt_token");
+    $.ajax({
+        url: `/api/streams/${streamId}/start`,
+        type: "POST",
+        contentType: "application/json",
+        headers: { Authorization: "Bearer " + token },
+        success: function(resp) {
+            fetchStreams();
+            showStreamToast('Stream started successfully.', 'success');
+        },
+        error: function(xhr) {
+            let msg = 'Failed to start stream.';
+            if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
+            showStreamToast(msg, 'error');
+        }
+    });
 }

@@ -272,6 +272,9 @@ func (h *StreamHandler) SetDuration(c *gin.Context) {
 	} else {
 		end := time.Now().UTC().Add(time.Duration(req.DurationHours) * time.Hour)
 		stream.ScheduledEndAt = &end
+		stream.ScheduledStartAt = nil
+		current := time.Now().UTC()
+		stream.ScheduledAt = &current
 	}
 	if err := h.DB.Save(&stream).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set duration"})
