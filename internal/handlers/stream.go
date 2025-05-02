@@ -200,6 +200,8 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 		stream.ScheduledStartAt = nil
 		stream.ScheduledEndAt = nil
 		stream.ScheduledAt = nil
+		defaultLoopCount := -1
+		stream.LoopCount = &defaultLoopCount
 		if err := h.DB.Save(&stream).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stream"})
 			return
@@ -239,7 +241,8 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 	stream.ScheduledStartAt = &start
 	stream.ScheduledEndAt = &end
 	stream.ScheduledAt = &scheduledAt
-
+	defaultLoopCount := -1
+	stream.LoopCount = &defaultLoopCount
 	stream.Status = "scheduled"
 	if err := h.DB.Save(&stream).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to schedule stream"})
@@ -276,6 +279,8 @@ func (h *StreamHandler) SetDuration(c *gin.Context) {
 		stream.ScheduledStartAt = nil
 		current := time.Now().UTC()
 		stream.ScheduledAt = &current
+		defaultLoopCount := -1
+		stream.LoopCount = &defaultLoopCount
 	}
 	if err := h.DB.Save(&stream).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set duration"})
