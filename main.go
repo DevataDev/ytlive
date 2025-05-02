@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"windsorf-youtube-live/internal/auth"
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/tiktok"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
@@ -364,6 +366,12 @@ func main() {
 	err = db.AutoMigrate(&models.Stream{})
 	if err != nil {
 		log.Fatalf("failed to migrate stream table: %v", err)
+	}
+
+	// Auto-migrate mirror table
+	err = db.AutoMigrate(&models.Mirror{})
+	if err != nil {
+		log.Fatalf("failed to migrate mirror table: %v", err)
 	}
 
 	// Create default user if not exists
@@ -811,44 +819,97 @@ func main() {
 		c.JSON(200, gin.H{"success": true})
 	})
 
-	// Create a context that is cancelled on SIGINT/SIGTERM
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	// Mirror page
+	r.GET("/mirror", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/mirror-list.html", http.FS(staticFs))
+	})
 
-	r.GET("/ws", func(c *gin.Context) {
-		// WebSocket: check JWT token in query param
-		token := c.Query("token")
-		_, err := auth.ParseJWT(token)
-		if err != nil {
-			c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
+	tiktokUserAgent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+	// Mirror API
+	tiktokClient := tiktok.NewClient()
+	tiktokClient.WithRegion("id")
+	tiktokClient.WithUserAgent(tiktokUserAgent)
+	tiktokClient.WithCookie("_ttp=2RXXS98uv8ncnof1n6vKoBOxd86; uid_tt=e2cbefe681f1984db548da6a2e8e94f564984e89e143dd03677c8da264cafc65; uid_tt_ss=e2cbefe681f1984db548da6a2e8e94f564984e89e143dd03677c8da264cafc65; sid_tt=5c988c6c78e2480c2327cc31c7e5477a; sessionid=5c988c6c78e2480c2327cc31c7e5477a; sessionid_ss=5c988c6c78e2480c2327cc31c7e5477a; store-idc=alisg; store-country-code=sg; store-country-code-src=uid; tt-target-idc=alisg; tt-target-idc-sign=Wl_MMyb3O-ibTt87T7P81W24Pa7IAzkbhLDhqGAI2YPqI-sjU0NYihxBtUWd4KU6hKquUx_1eWDPcjFnr_8DTTVD6UDLR50qQDUuLOkwod7oD9OC-LAsiiC1LLpUr1TodauIypiDjirY9HZzvTg3tblNgbXm0L8W6mrT24M5YgYakogsEMErYGzK2rBeYm5BHTC0TnaxDa1kJk8eDz9xuKH-arNJgt_7UURe7vAkrJ9zChgF84qqxtCd-WbN-U4m_zZb416KxHbplmjpx0jM69tqPcvOo_UcACRa9UppzoTxzKjmy0WEJFSJFMARWrDudcMxKIZAtmeLmsCqXd7x_KTqIw_Ez_EJ7MQQJIUBfMtR-lwMrvLu3j2CTwjyG6X1jpYXQ0X-aWz-jIG4GSoxpXqEodYptiaKZmJ0Ul8DBPF4dD2JeGCDKAU7LfqMWfSgHIVSA1HCQYvf-QTMAqtPxYm9bNmqRHAhBwLs1xGsfaHKzrVGPfrR5XYZ70L_4A10; cookie-consent={%22ga%22:false%2C%22af%22:false%2C%22fbp%22:false%2C%22lip%22:false%2C%22bing%22:false%2C%22ttads%22:false%2C%22reddit%22:false%2C%22hubspot%22:false%2C%22version%22:%22v10%22}; sid_guard=5c988c6c78e2480c2327cc31c7e5477a%7C1743846715%7C15552000%7CThu%2C+02-Oct-2025+09%3A51%3A55+GMT; sid_ucp_v1=1.0.0-KDY1MTdmY2NhNTE4OTM3ZTMzNjE5YTliMTc2YWM5ZmU2MjNjZTRhOTAKIQiGiLyQk5jA1mYQu_rDvwYYswsgDDDegbS1BjgIQBJIBBADGgJteSIgNWM5ODhjNmM3OGUyNDgwYzIzMjdjYzMxYzdlNTQ3N2E; ssid_ucp_v1=1.0.0-KDY1MTdmY2NhNTE4OTM3ZTMzNjE5YTliMTc2YWM5ZmU2MjNjZTRhOTAKIQiGiLyQk5jA1mYQu_rDvwYYswsgDDDegbS1BjgIQBJIBBADGgJteSIgNWM5ODhjNmM3OGUyNDgwYzIzMjdjYzMxYzdlNTQ3N2E; tt_chain_token=dyxVZ1iE8lBMbKiCjcXomA==; tt_csrf_token=1KnqNjcZ-QhSJ7KT8ORkqP8og8FLHUWywfRc; csrf_session_id=c956da3baecacb4607f8954167c21789; csrfToken=MMD4coMg-9rf9zr9Nq-aaekqkceme8rb92Rw; s_v_web_id=verify_ma77nsaf_mdGnKeO6_F70F_40GO_AfyC_QctUcllQD6Lz; ttwid=1%7C9dJ8467F4wdFJocWRlAD_LAgZ5C9dXfIgA7uG4OMYzo%7C1746218214%7Cdc6b012e94b03fd3fd83b8ca45d76866929df86be15915eec0fce2974cc95282; store-country-sign=MEIEDPEsOBo7pHtdg2__9gQg7Ej_xwQovZ-_35AJTcDxH_kEyB24dMvnETW9XvEYANwEEONEK-4PTWAAYQtRKEJ7R9Q; odin_tt=b92b4e8138a1ba8ef9404e4fa23e43f3576489a3a2341e6878a09eba6bd42a113d1dcb9251453c4f8b465615124b0b096586aa37d8ec396b479301fa735b9f942c17ad7627350c11d023754e76f028a7; msToken=wE4f4j5CaOpHQ7hggc3TI5gYO4-V_BtEMRCzsi6mkbilZn-uDBLWEg4w23bzyWjfOUFCc84Dov66GJuF8YP-xqr9aJD6g0NbxCgnTdDjA3Lj3cCs53PtNa9dtiebOg2fM8IqqJqhjir-hTppgvQpN0hg")
+	mirrorHandler := handlers.MirrorHandler{DB: db, TikTok: tiktokClient}
+	r.GET("/api/mirrors", handlers.JWTMiddleware(), mirrorHandler.ListMirrors)
+	r.POST("/api/mirrors", handlers.JWTMiddleware(), mirrorHandler.AddMirror)
+	r.POST("/api/mirrors/:id/start", handlers.JWTMiddleware(), mirrorHandler.StartMirror)
+	r.POST("/api/mirrors/:id/stop", handlers.JWTMiddleware(), mirrorHandler.StopMirror)
+	r.DELETE("/api/mirrors/:id", handlers.JWTMiddleware(), mirrorHandler.DeleteMirror)
+	r.PUT("/api/mirrors/:id/rtmp-url", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorRTMPUrl)
+	r.PUT("/api/mirrors/:id/stream-key", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorStreamKey)
+
+	// -- Tiktok Start --
+	r.GET("/api/tiktok/get-room-from-user", func(c *gin.Context) {
+		user := c.Query("user")
+		if user == "" {
+			c.JSON(400, gin.H{"error": "user is required"})
 			return
 		}
-		handlers.WebSocketHandlerWithContext(ctx, c)
+
+		roomID, err := tiktokClient.GetRoomIdFromUser(user)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"room_id": roomID})
 	})
 
-	r.GET("/", func(c *gin.Context) {
-		// check if user is logged in
-		_, exists := c.Get("user_id")
-		if exists {
-			// redirect to dashboard
-			c.Redirect(http.StatusSeeOther, "/dashboard")
-		} else {
-			// redirect to login
-			c.Redirect(http.StatusSeeOther, "/login")
+	r.GET("/api/tiktok/room-info", func(c *gin.Context) {
+		roomID := c.Query("room_id")
+		if roomID == "" {
+			c.JSON(400, gin.H{"error": "room_id is required"})
+			return
 		}
+
+		roomInfo, err := tiktokClient.GetRoomInfo(roomID)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, roomInfo)
 	})
 
-	r.GET("/login", func(c *gin.Context) {
-		// check if user is logged in
-		_, exists := c.Get("user_id")
-		if exists {
-			// redirect to dashboard
-			c.Redirect(http.StatusSeeOther, "/dashboard")
-		} else {
-			staticFs, _ := fs.Sub(StaticFiles, "web/static")
-			c.FileFromFS("/login.html", http.FS(staticFs))
+	r.GET("/api/tiktok/check-room-is-alive", func(c *gin.Context) {
+		roomID := c.Query("room_id")
+		if roomID == "" {
+			c.JSON(400, gin.H{"error": "room_id is required"})
+			return
 		}
+
+		isAlive, err := tiktokClient.CheckRoomIsAlive(roomID)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"is_alive": isAlive})
 	})
+
+	r.GET("/api/tiktok/get-live-url", func(c *gin.Context) {
+		roomID := c.Query("room_id")
+		if roomID == "" {
+			c.JSON(400, gin.H{"error": "room_id is required"})
+			return
+		}
+
+		liveUrl, err := tiktokClient.GetLiveUrl(roomID)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		fmt.Println("Live URL:", liveUrl)
+		// how to decode \u0026
+		liveUrl = strings.ReplaceAll(liveUrl, "\\u0026", "&")
+		urlDecoded, err := url.QueryUnescape(liveUrl)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		fmt.Println("Live URL Decoded:", urlDecoded)
+		c.JSON(200, gin.H{"live_url": urlDecoded})
+	})
+	// -- Tiktok End --
 
 	// Periodically broadcast server metrics to all websocket clients
 	go func() {
@@ -991,6 +1052,94 @@ func main() {
 			fmt.Println("Stream", stream.ID, "restarted successfully.")
 		}
 	}()
+
+	// check room is alive
+	go func() {
+		fmt.Println("Starting mirror room is alive checker...")
+		for {
+			time.Sleep(1 * time.Minute)
+			fmt.Println("Checking room is alive...")
+			var streamsToCheck []models.Mirror
+			database.Where("(status = ? or status = ?) AND room_id IS NOT NULL", "live", "stopped").Find(&streamsToCheck)
+			fmt.Println("Found", len(streamsToCheck), "mirror to check.")
+			roomIds := make([]string, len(streamsToCheck))
+			for i, stream := range streamsToCheck {
+				roomIds[i] = stream.RoomId
+			}
+			isAliveMap, err := tiktokClient.CheckMultipleRoomIsAlive(roomIds)
+			if err != nil {
+				fmt.Println("Failed to check room is alive for room", roomIds, ":", err)
+				continue
+			}
+
+			// update database
+			for _, stream := range streamsToCheck {
+				if isAliveMap[stream.RoomId] {
+					database.Model(&stream).Updates(map[string]interface{}{
+						"status":   "live",
+						"is_alive": true,
+					})
+				} else {
+					// stop stream worker
+					if stream.Status == "stopped" {
+						database.Model(&stream).Updates(map[string]interface{}{
+							"is_alive": false,
+						})
+						continue
+					}
+					models.MirrorRestartLock.Lock()
+					_ = models.StopMirrorWorkerWithDatabase(stream.ID, database) // Ensures ffmpeg is killed
+					models.MirrorRestartLock.Unlock()
+					database.Model(&stream).Updates(map[string]interface{}{
+						"status":   "stopped",
+						"is_alive": false,
+					})
+				}
+			}
+
+			// send websocket message
+			handlers.BroadcastMirrorRoomIsAliveUpdate(isAliveMap)
+		}
+	}()
+
+	// Create a context that is cancelled on SIGINT/SIGTERM
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	r.GET("/ws", func(c *gin.Context) {
+		// WebSocket: check JWT token in query param
+		token := c.Query("token")
+		_, err := auth.ParseJWT(token)
+		if err != nil {
+			c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
+			return
+		}
+		handlers.WebSocketHandlerWithContext(ctx, c)
+	})
+
+	r.GET("/", func(c *gin.Context) {
+		// check if user is logged in
+		_, exists := c.Get("user_id")
+		if exists {
+			// redirect to dashboard
+			c.Redirect(http.StatusSeeOther, "/dashboard")
+		} else {
+			// redirect to login
+			c.Redirect(http.StatusSeeOther, "/login")
+		}
+	})
+
+	r.GET("/login", func(c *gin.Context) {
+		// check if user is logged in
+		_, exists := c.Get("user_id")
+		if exists {
+			// redirect to dashboard
+			c.Redirect(http.StatusSeeOther, "/dashboard")
+		} else {
+			staticFs, _ := fs.Sub(StaticFiles, "web/static")
+			c.FileFromFS("/login.html", http.FS(staticFs))
+		}
+	})
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port),

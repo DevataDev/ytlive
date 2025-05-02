@@ -167,7 +167,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 			return
 		default:
 			// check if process is still running
-			if !isProcessAliveAndNotDefunct(pid) {
+			if !IsProcessAliveAndNotDefunct(pid) {
 				fmt.Println("FFmpeg process stopped for stream from monitoring", w.StreamID)
 				if !w.LoopVideo {
 					// update stream status to stopped
@@ -262,7 +262,7 @@ func IsProcessRunning(pid int) bool {
 	if process, err := os.FindProcess(pid); err == nil && process != nil {
 		// check if process is exists
 		if err := process.Signal(syscall.Signal(0)); err == nil {
-			return isProcessAliveAndNotDefunct(pid)
+			return IsProcessAliveAndNotDefunct(pid)
 		}
 		return false
 	}
@@ -280,7 +280,7 @@ func isDefunct(pid int) (bool, error) {
 }
 
 // Returns true if the process exists, is running, and is NOT defunct/zombie
-func isProcessAliveAndNotDefunct(pid int) bool {
+func IsProcessAliveAndNotDefunct(pid int) bool {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		// Process does not exist

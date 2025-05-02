@@ -8,13 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"windsorf-youtube-live/internal/models"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
 	"gorm.io/gorm"
-	"windsorf-youtube-live/internal/models"
 )
 
 var upgrader = websocket.Upgrader{
@@ -49,9 +50,9 @@ func BroadcastDashboardStreams(db *gorm.DB, userID string) {
 }
 
 var (
-	lastNetBytesSent   uint64
-	lastNetBytesRecv   uint64
-	lastNetSampleTime  int64
+	lastNetBytesSent  uint64
+	lastNetBytesRecv  uint64
+	lastNetSampleTime int64
 )
 
 // Broadcast server metrics to all clients
@@ -79,10 +80,10 @@ func BroadcastDashboardMetrics() {
 	}
 
 	metrics := map[string]interface{}{
-		"type":    "dashboard_metrics",
-		"cpu":     0.0,
-		"memory":  0.0,
-		"upload":  uploadMbps,
+		"type":     "dashboard_metrics",
+		"cpu":      0.0,
+		"memory":   0.0,
+		"upload":   uploadMbps,
 		"download": downloadMbps,
 	}
 	if len(cpuPercent) > 0 {
@@ -375,4 +376,12 @@ func WebSocketHandlerWithContext(ctx context.Context, c *gin.Context) {
 			// conn.WriteMessage(websocket.TextMessage, msg)
 		}
 	}
+}
+
+func BroadcastMirrorRoomIsAliveUpdate(isAliveMap map[string]bool) {
+	streamListClientsMu.Lock()
+	for c := range streamListClients {
+		c.WriteJSON(map[string]interface{}{"type": "mirror_room_is_alive_update", "is_alive_map": isAliveMap})
+	}
+	streamListClientsMu.Unlock()
 }

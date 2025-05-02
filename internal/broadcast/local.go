@@ -7,6 +7,7 @@ type EventType string
 const (
 	RefreshStream EventType = "refresh_stream"
 	StopStream    EventType = "stop_stream"
+	RefreshMirror EventType = "refresh_mirror"
 )
 
 type Event struct {
