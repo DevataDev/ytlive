@@ -371,7 +371,7 @@ func (h *StreamHandler) SetLoopCount(c *gin.Context) {
 func (h *StreamHandler) SetRTMPUrl(c *gin.Context) {
 	id := c.Param("id")
 	var req struct {
-		RTMPUrl string `json:"RTMPUrl"`
+		RTMPUrl string `json:"rtmp_url"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
