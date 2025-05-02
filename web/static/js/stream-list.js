@@ -81,6 +81,7 @@ $(function() {
                 mainBtn = `<button class="btn btn-success btn-sm stream-start" data-id="${stream.ID}" ${startDisabled}>Start</button>`;
             }
             let deleteBtn = `<button class="btn btn-secondary btn-sm stream-delete ms-2" data-id="${stream.ID}">Hapus Video</button>`;
+            let cloneBtn = `<button class="btn btn-info btn-sm stream-clone ms-2" data-id="${stream.ID}"><i class="fa fa-clone"></i> Clone</button>`;
 
             // --- File size formatting ---
             let fileSizeStr = '';
@@ -146,6 +147,7 @@ $(function() {
                     <div class="d-flex align-items-center">
                         ${mainBtn}
                         ${deleteBtn}
+                        ${cloneBtn}
                         ${liveBadge}
                     </div>
                     ${settingsBtn}
@@ -477,6 +479,27 @@ $(function() {
             },
             error: function() {
                 alert('Failed to delete stream.');
+            }
+        });
+    });
+
+    // Clone stream handler
+    $(document).on("click", ".stream-clone", function(e) {
+        e.preventDefault();
+        const id = $(this).data("id");
+        const token = localStorage.getItem("jwt_token");
+        ajaxWithRefresh({
+            url: `/api/streams/${id}/clone`,
+            method: "POST",
+            headers: { Authorization: "Bearer " + token },
+            success: function() {
+                showStreamToast('Stream cloned successfully!', 'success');
+                fetchStreams();
+            },
+            error: function(xhr) {
+                let msg = 'Failed to clone stream.';
+                if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
+                showStreamToast(msg, 'error');
             }
         });
     });

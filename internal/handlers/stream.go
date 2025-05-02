@@ -390,6 +390,32 @@ func (h *StreamHandler) SetRTMPUrl(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "RTMP URL updated"})
 }
 
+// POST /api/streams/:id/clone
+func (h *StreamHandler) CloneStream(c *gin.Context) {
+	id := c.Param("id")
+	var orig models.Stream
+	if err := h.DB.First(&orig, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
+		return
+	}
+	clone := orig
+	clone.ID = ""
+	clone.CreatedAt = time.Now()
+	clone.UpdatedAt = time.Now()
+	clone.DeletedAt = gorm.DeletedAt{}
+	clone.Status = "stopped"
+	// Optionally, clear fields like StreamKey, ScheduledAt, ScheduledStartAt, ScheduledEndAt, etc.
+	clone.StreamKey = ""
+	clone.ScheduledAt = nil
+	clone.ScheduledStartAt = nil
+	clone.ScheduledEndAt = nil
+	if err := h.DB.Create(&clone).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clone stream"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Stream cloned", "id": clone.ID})
+}
+
 // ServeVideoPreview serves a video file for preview, requires JWT auth
 func (h *StreamHandler) ServeVideoPreview(c *gin.Context) {
 	// Authenticate user via JWT (middleware should already do this)

@@ -418,6 +418,7 @@ func main() {
 	r.PUT("/api/streams/:id/loop", handlers.JWTMiddleware(), streamHandler.SetLoopVideo)
 	r.PUT("/api/streams/:id/loopcount", handlers.JWTMiddleware(), streamHandler.SetLoopCount)
 	r.PUT("/api/streams/:id/rtmpurl", handlers.JWTMiddleware(), streamHandler.SetRTMPUrl)
+	r.POST("/api/streams/:id/clone", handlers.JWTMiddleware(), streamHandler.CloneStream)
 
 	r.GET("/stream", func(c *gin.Context) {
 		// replace it with static embedded file stream-list.html
