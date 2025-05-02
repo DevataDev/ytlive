@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"fmt"
+	"io"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,6 +14,7 @@ import (
 	"windsorf-youtube-live/internal/models"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
 )
 
@@ -398,8 +402,16 @@ func (h *StreamHandler) CloneStream(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
 		return
 	}
+
+	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+	ms := ulid.Timestamp(time.Now())
+	newId, err := ulid.New(ms, entropy)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate ID"})
+		return
+	}
 	clone := orig
-	clone.ID = ""
+	clone.ID = newId.String()
 	clone.CreatedAt = time.Now()
 	clone.UpdatedAt = time.Now()
 	clone.DeletedAt = gorm.DeletedAt{}
@@ -412,6 +424,18 @@ func (h *StreamHandler) CloneStream(c *gin.Context) {
 	clone.FfmpegPID = nil
 	clone.StartedAt = nil
 	clone.StoppedAt = nil
+
+	// copy the file
+	if orig.FilePath != nil {
+		newFileName := fmt.Sprintf("clone-%d-%s.mp4", time.Now().UnixMilli(), sanitizeFileName(orig.FileName))
+		newFilePath := "./uploads/" + newFileName
+		if err := copyFile(*orig.FilePath, newFilePath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to copy file"})
+			return
+		}
+		clone.FilePath = &newFilePath
+	}
+
 	if err := h.DB.Create(&clone).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clone stream"})
 		return
@@ -491,4 +515,29 @@ func (h *StreamHandler) GetDriveUploadProgress(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, progress)
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
+}
+
+func sanitizeFileName(fileName string) string {
+	normalized := strings.ReplaceAll(fileName, " ", "-")
+	normalized = strings.ReplaceAll(normalized, "/", "-")
+	normalized = strings.ReplaceAll(normalized, "\\", "-")
+	normalized = strings.ReplaceAll(normalized, ".mp4", "")
+	return normalized
 }
