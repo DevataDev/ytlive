@@ -84,6 +84,7 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 				}
 				if fs, ok := fi.Size(), true; ok {
 					c.Set("file_size_"+s.ID, fs)
+					streams[i].FileSizeBytes = fs
 				}
 			}
 		}
@@ -107,6 +108,11 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 			"StreamKey":        s.StreamKey,
 			"MaxBitrate":       s.MaxBitrate,
 			"UserId":           s.UserId,
+			"RTMPUrl":          s.RTMPUrl,
+			"LoopVideo":        s.LoopVideo,
+			"FfmpegPID":        s.FfmpegPID,
+			"CreatedAt":        s.CreatedAt,
+			"FileSizeBytes":    s.FileSizeBytes,
 		}
 		if s.FilePath != nil && *s.FilePath != "" {
 			if fs, ok := c.Get("file_size_" + s.ID); ok {
@@ -143,6 +149,8 @@ func (h *StreamHandler) CreateStream(c *gin.Context) {
 		Status:          "stopped",
 		MaxBitrate:      req.MaxBitrate,
 		UserId:          userID.(string),
+		LoopVideo:       true,
+		RTMPUrl:         "rtmp://a.rtmp.youtube.com/live2/",
 	}
 	if err := h.DB.Create(&stream).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create stream"})
@@ -183,6 +191,19 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 	var stream models.Stream
 	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
+		return
+	}
+
+	if req.ScheduledAt == "" || req.StoppedAt == "" {
+		// update stream scheduledStartAt and scheduledEndAt to null
+		stream.ScheduledStartAt = nil
+		stream.ScheduledEndAt = nil
+		stream.ScheduledAt = nil
+		if err := h.DB.Save(&stream).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stream"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Stream scheduler removed"})
 		return
 	}
 
@@ -251,6 +272,9 @@ func (h *StreamHandler) SetDuration(c *gin.Context) {
 	} else {
 		end := time.Now().UTC().Add(time.Duration(req.DurationHours) * time.Hour)
 		stream.ScheduledEndAt = &end
+		stream.ScheduledStartAt = nil
+		current := time.Now().UTC()
+		stream.ScheduledAt = &current
 	}
 	if err := h.DB.Save(&stream).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set duration"})
@@ -280,6 +304,29 @@ func (h *StreamHandler) RenameFile(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "File renamed"})
+}
+
+// PUT /api/streams/:id/loop
+func (h *StreamHandler) SetLoopVideo(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		LoopVideo bool `json:"LoopVideo"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
+		return
+	}
+	stream.LoopVideo = req.LoopVideo
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update loop video setting"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Loop video setting updated"})
 }
 
 // ServeVideoPreview serves a video file for preview, requires JWT auth

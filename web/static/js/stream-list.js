@@ -56,82 +56,122 @@ $(function() {
     });
 
     function renderStreamsTable(data) {
-        const tbody = $("#streamTable tbody");
-        tbody.empty();
+        const cardContainer = $("#stream-list-cards");
+        cardContainer.empty();
         if (!data.streams || data.streams.length === 0) {
-            tbody.append('<tr><td colspan="7" class="text-center text-muted">No streams found.</td></tr>');
+            cardContainer.append('<div class="col-12 text-center text-muted">No streams found.</div>');
             return;
         }
         data.streams.forEach(stream => {
-            let liveIndicator = '';
-            if (stream.Status === 'live') {
-                liveIndicator = '<span class="live-indicator"></span>';
-            }
-            // Disable start button if no StreamKey or if already live
-            let startDisabled = (!stream.StreamKey || stream.Status === 'live') ? 'disabled' : '';
+            let liveIndicator = stream.Status === 'live' ? '<span class="live-indicator"></span>' : '';
             let stopDisabled = (stream.Status !== 'live') ? 'disabled' : '';
-            let downloadBtn = stream.FilePath ? `<button class="btn btn-sm btn-success download-btn" data-id="${stream.ID}"><i class="fa-solid fa-download"></i></button>` : '';
-            let streamKeyBtn = `<button class="btn btn-sm btn-secondary streamkey-btn" data-id="${stream.ID}" data-streamkey="${stream.StreamKey || ''}"><i class="fa-solid fa-key"></i></button>`;
-            let setBitrateBtn = `<button class="btn btn-sm btn-warning set-bitrate-btn" data-id="${stream.ID}" data-bitrate="${stream.MaxBitrate || ''}"><i class="fa-solid fa-gauge"></i></button>`;
-            let scheduleBtn = `<button class="btn btn-sm btn-info schedule-btn" data-id="${stream.ID}" title="Schedule Stream"><i class="fa-solid fa-clock"></i></button>`;
-            let renameBtn = `<button class="btn btn-sm btn-secondary rename-btn" data-id="${stream.ID}" title="Rename File"><i class="fa-solid fa-pen-to-square"></i></button>`;
-            let deleteBtn = `<button class="btn btn-sm btn-outline-danger delete-btn" data-id="${stream.ID}" title="Delete"><i class="fa-solid fa-trash"></i></button>`;
-            let gearBtn = `<button class="btn btn-sm btn-secondary duration-btn" data-id="${stream.ID}" title="Set Duration"><i class="fa-solid fa-gear"></i></button>`;
-            let previewVideoBtn = `<button class="btn btn-sm btn-outline-primary preview-video-btn" data-file="${stream.FilePath}" title="Preview Video"><i class="fa-solid fa-tv"></i></button>`;
-            let maxBitrateCol = stream.MaxBitrate && stream.MaxBitrate > 0 ? stream.MaxBitrate + ' kbps' : '-';
-            let statusText = stream.Status;
-            let startedAtAttr = '';
-            let startedAtDisplay = '';
-            if (stream.Status === 'live' && stream.StartedAt) {
-                startedAtAttr = ` data-started-at='${stream.StartedAt}'`;
-                startedAtDisplay = ` <span class="started-at-rel"></span>`;
+            let loopChecked = stream.LoopVideo ? 'checked' : '';
+            let previewUrl = stream.FilePath ? `/api/streams/preview/${stream.ID}` : '';
+            let streamKeyField = `<input type="password" class="form-control form-control-sm stream-password" id="streamkey-input-${stream.ID}" value="${stream.StreamKey || ''}" style="max-width:180px;display:inline-block;">`;
+            let streamKeySaveBtn = `<button class="btn btn-outline-success btn-sm ms-1 streamkey-save" data-id="${stream.ID}" title="Save Stream Key"><i class="fa fa-save"></i></button>`;
+            let showPasswordBtn = `<button class="btn btn-outline-secondary btn-sm ms-1 stream-password-toggle" title="Show/Hide"><i class="fa fa-eye"></i></button>`;
+            let rtmpUrlField = `<input type="text" class="form-control form-control-sm stream-rtmp-url w-100" id="rtmpurl-input-${stream.ID}" value="${stream.RTMPUrl || 'https://a.rtmp.youtube.com/live2/'}" style="min-width:200px;max-width:100%;display:inline-block;" />`;
+            let rtmpUrlSaveBtn = `<button class="btn btn-outline-success btn-sm ms-2 rtmpurl-save" data-id="${stream.ID}" title="Save RTMP URL"><i class="fa fa-save"></i></button>`;
+            let streamKeyIsSet = !!(stream.StreamKey && stream.StreamKey.trim().length > 0);
+            let startDisabled = streamKeyIsSet ? '' : 'disabled';
+            let mainBtn = '';
+            if (stream.Status === 'live') {
+                mainBtn = `<button class="btn btn-danger btn-sm stream-stop" data-id="${stream.ID}">Stop</button>`;
+            } else {
+                mainBtn = `<button class="btn btn-success btn-sm stream-start" data-id="${stream.ID}" ${startDisabled}>Start</button>`;
             }
-            let fileSizeHtml = '';
-            if (stream.FileSizeBytes !== undefined && stream.FileSizeBytes !== null) {
-                let size = stream.FileSizeBytes;
-                let sizeStr = '';
+            let deleteBtn = `<button class="btn btn-secondary btn-sm stream-delete ms-2" data-id="${stream.ID}">Hapus Video</button>`;
+
+            // --- File size formatting ---
+            let fileSizeStr = '';
+            if (stream.FileSizeBytes != null) {
+                const size = stream.FileSizeBytes;
                 if (size >= 1024 * 1024 * 1024) {
-                    sizeStr = (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+                    fileSizeStr = (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
                 } else if (size >= 1024 * 1024) {
-                    sizeStr = (size / (1024 * 1024)).toFixed(2) + ' MB';
+                    fileSizeStr = (size / (1024 * 1024)).toFixed(2) + ' MB';
                 } else if (size >= 1024) {
-                    sizeStr = (size / 1024).toFixed(1) + ' KB';
+                    fileSizeStr = (size / 1024).toFixed(2) + ' KB';
                 } else {
-                    sizeStr = size + ' bytes';
+                    fileSizeStr = size + ' bytes';
                 }
-                fileSizeHtml = `<div class='file-size-container'><span class='file-size-ellipsize'>${sizeStr}</span></div>`;
             }
-            tbody.append(`
-                <tr data-id="${stream.ID}"${startedAtAttr} data-scheduled-at="${stream.ScheduledStartAt || ''}" data-scheduled-end="${stream.ScheduledEndAt || ''}">
-                    <td>${liveIndicator}</td>
-                    <td>
-                        <div>${stream.FileName || '-'}</div>
-                        ${fileSizeHtml}
-                    </td>
-                    <td>${statusText}${startedAtDisplay}</td>
-                    <td>${maxBitrateCol}</td>
-                    <td class="scheduled"><span class="scheduled-at-rel"></span></td>
-                    <td><span class="cpu-usage"></span><br/><span class="memory-usage"></span></td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" data-id="${stream.ID}" data-action="start" ${startDisabled}><i class="fa-solid fa-play"></i></button>
-                        <button class="btn btn-sm btn-danger" data-id="${stream.ID}" data-action="stop" ${stopDisabled}><i class="fa-solid fa-stop"></i></button>
-                        ${downloadBtn}
-                        ${streamKeyBtn}
-                        ${setBitrateBtn}
-                        ${scheduleBtn}
-                        ${gearBtn}
-                        ${renameBtn}
+            // --- Uploaded time formatting ---
+            let uploadedTimeStr = '';
+            if (stream.CreatedAt) {
+                const uploadedDate = new Date(stream.CreatedAt);
+                uploadedTimeStr = uploadedDate.toLocaleString();
+            }
+            let infoBlock = '';
+            if (fileSizeStr || uploadedTimeStr) {
+                infoBlock = `<div class="text-muted small mt-1">${fileSizeStr ? 'Size: ' + fileSizeStr : ''}${fileSizeStr && uploadedTimeStr ? ' | ' : ''}${uploadedTimeStr ? 'Uploaded: ' + uploadedTimeStr : ''}</div>`;
+            }
+
+            let liveBadge = stream.Status === 'live' ? '<span class="badge bg-danger ms-2">LIVE</span>' : '';
+            let title = `${stream.Title || stream.FileName || 'Live Stream'}`;
+            let renameBtn = `<button class="btn btn-link p-0 ms-2 stream-rename-btn" data-id="${stream.ID}" title="Rename File Name"><i class="fa fa-pencil-alt"></i></button>`;
+            let settingsBtn = `<button class="btn btn-outline-warning btn-sm stream-settings-btn position-absolute" style="bottom:16px;right:16px;z-index:10;" data-id="${stream.ID}" title="Stream Settings"><i class="fa fa-gear"></i></button>`;
+            let cardHeader = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold fs-5 stream-title-ellipsis" title="${title}">${title}</span>
+                    <div class="d-flex justify-content-end align-items-center gap-1">
+                        <button class="btn btn-sm btn-outline-primary stream-rename-btn me-1" data-id="${stream.ID}" title="Rename"><i class="fa fa-pencil-alt"></i></button>
+                        <button class="btn-close stream-delete-x" data-id="${stream.ID}" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            let card = `
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="stream-card card shadow-sm rounded-4 p-3 position-relative mb-3">
+                    ${cardHeader}
+                    ${infoBlock}
+                    <div class="ratio ratio-16x9 mb-2">
+                        <video src="${previewUrl}" class="w-100 rounded-3" ${stream.LoopVideo ? 'loop' : ''} controls poster="/static/img/preview.jpg" style="background:#000;"></video>
+                    </div>
+                    <div class="mb-2 d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            ${streamKeyField}
+                            ${streamKeySaveBtn}
+                            ${showPasswordBtn}
+                        </div>
+                        <div class="form-check form-switch ms-2">
+                            <input class="form-check-input stream-loop-toggle" type="checkbox" id="loopSwitch${stream.ID}" data-id="${stream.ID}" ${loopChecked}>
+                            <label class="form-check-label" for="loopSwitch${stream.ID}">Loop Video</label>
+                        </div>
+                    </div>
+                    <div class="mb-2 d-flex align-items-center">
+                        ${rtmpUrlField}
+                        ${rtmpUrlSaveBtn}
+                    </div>
+                    <div class="d-flex align-items-center">
+                        ${mainBtn}
                         ${deleteBtn}
-                        ${previewVideoBtn}
-                    </td>
-                </tr>
-            `);
+                        ${liveBadge}
+                    </div>
+                    ${settingsBtn}
+                </div>
+            </div>`;
+            cardContainer.append(card);
         });
-        // After rendering, update all started-at relative times
-        updateAllStartedAtRel();
-        // After rendering, update all scheduled times
-        updateAllScheduled();
     }
+
+    function attachSinglePlayHandler() {
+        $("#stream-list-cards video").each(function() {
+            this.onplay = function(e) {
+                $("#stream-list-cards video").each(function() {
+                    if (this !== e.target && !this.paused) {
+                        this.pause();
+                    }
+                });
+            };
+        });
+    }
+
+    const origRenderStreamsTable = renderStreamsTable;
+    renderStreamsTable = function(data) {
+        origRenderStreamsTable.apply(this, arguments);
+        attachSinglePlayHandler();
+    };
 
     function updateAllStartedAtRel() {
         const now = Date.now();
@@ -207,7 +247,7 @@ $(function() {
         const pag = $("#pagination");
         pag.empty();
         const page = data.page || 1;
-        const perPage = data.per_page || 5;
+        const perPage = data.per_page || 6;
         const total = data.total || 0;
         const totalPages = Math.ceil(total / perPage);
         if (totalPages <= 1) return;
@@ -233,7 +273,7 @@ $(function() {
         pag.append(`<li class="page-item${page === totalPages ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${totalPages}">Last</a></li>`);
     }
 
-    function fetchStreams(page = 1, per_page = 5) {
+    function fetchStreams(page = 1, per_page = 6) {
         const token = localStorage.getItem("jwt_token");
         ajaxWithRefresh({
             url: `/api/streams?page=${page}&per_page=${per_page}`,
@@ -317,7 +357,7 @@ $(function() {
     // Save stream key
     $(document).on("click", ".streamkey-save", function() {
         const id = $(this).data("id");
-        const newKey = $('#streamkey-input').val();
+        const newKey = $(`#streamkey-input-${id}`).val();
         const token = localStorage.getItem("jwt_token");
         ajaxWithRefresh({
             url: `/api/streams/${id}/streamkey`,
@@ -326,11 +366,30 @@ $(function() {
             contentType: "application/json",
             data: JSON.stringify({ stream_key: newKey }),
             success: function() {
-                $('.streamkey-tooltip').remove();
                 fetchStreams();
             },
             error: function() {
-                alert("Failed to update stream key.");
+                alert('Failed to update stream key.');
+            }
+        });
+    });
+
+    // Save RTMP URL
+    $(document).on("click", ".rtmpurl-save", function() {
+        const id = $(this).data("id");
+        const newUrl = $(`#rtmpurl-input-${id}`).val();
+        const token = localStorage.getItem("jwt_token");
+        ajaxWithRefresh({
+            url: `/api/streams/${id}/rtmpurl`,
+            method: "PUT",
+            headers: { Authorization: "Bearer " + token },
+            contentType: "application/json",
+            data: JSON.stringify({ rtmp_url: newUrl }),
+            success: function() {
+                fetchStreams();
+            },
+            error: function() {
+                alert('Failed to update RTMP URL.');
             }
         });
     });
@@ -358,37 +417,25 @@ $(function() {
     });
 
     // Start stream handler
-    $(document).on("click", "button[data-action='start']", function(e) {
-        e.preventDefault();
+    $(document).on("click", ".stream-start", function() {
         const id = $(this).data("id");
         const token = localStorage.getItem("jwt_token");
-        const btn = $(this);
-        // Validation: Prevent starting if stream is scheduled
-        let stream = null;
-        if (window.lastStreams && Array.isArray(window.lastStreams)) {
-            stream = window.lastStreams.find(s => s.ID === id);
-        }
-        if (stream && stream.Status === "scheduled") {
-            alert("This stream has been scheduled and cannot be started manually.");
-            return;
-        }
-        btn.prop("disabled", true);
         ajaxWithRefresh({
             url: `/api/streams/${id}/start`,
             method: "POST",
             headers: { Authorization: "Bearer " + token },
             success: function() {
+                showStreamToast('Stream started successfully!', 'success');
                 fetchStreams();
             },
-            error: function(xhr) {
-                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : "Failed to start stream.");
-                btn.prop("disabled", false);
+            error: function() {
+                showStreamToast('Failed to start stream.');
             }
         });
     });
 
     // Stop stream handler
-    $(document).on("click", "button[data-action='stop']", function(e) {
+    $(document).on("click", ".stream-stop", function(e) {
         e.preventDefault();
         const id = $(this).data("id");
         const token = localStorage.getItem("jwt_token");
@@ -399,6 +446,7 @@ $(function() {
             method: "POST",
             headers: { Authorization: "Bearer " + token },
             success: function() {
+                showStreamToast('Stream stopped successfully!', 'success');
                 // If using websocket, the list will be refreshed by ws event
                 // Otherwise, fallback to fetchStreams
                 if (window.streamListSocket && window.streamListSocket.readyState === 1) {
@@ -414,8 +462,8 @@ $(function() {
         });
     });
 
-    // Delete stream handler
-    $(document).on("click", ".delete-btn", function(e) {
+    // Delete stream handler (trash/x button and main delete button)
+    $(document).on("click", ".delete-btn, .stream-delete-x, .stream-delete", function(e) {
         e.preventDefault();
         if (!confirm("Are you sure you want to delete this stream?")) return;
         const id = $(this).data("id");
@@ -427,8 +475,8 @@ $(function() {
             success: function() {
                 fetchStreams();
             },
-            error: function(xhr) {
-                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : "Failed to delete stream.");
+            error: function() {
+                alert('Failed to delete stream.');
             }
         });
     });
@@ -468,10 +516,11 @@ $(function() {
             data: JSON.stringify({ ScheduledAt: start, StoppedAt: end, Timezone: timezone }),
             success: function() {
                 $('#scheduleModal').modal('hide');
+                showStreamToast('Stream scheduled successfully!', 'success');
                 fetchStreams();
             },
             error: function(xhr) {
-                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to schedule stream.');
+                showStreamToast(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to schedule stream.', 'error');
             }
         });
     });
@@ -504,12 +553,68 @@ $(function() {
             data: JSON.stringify({ FileName: newName }),
             success: function() {
                 $('#renameModal').modal('hide');
+                showStreamToast('File renamed successfully!', 'success');
                 fetchStreams();
             },
             error: function(xhr) {
-                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to rename file.');
+                showStreamToast(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to rename file.', 'error');
             }
         });
+    });
+
+    // Rename handler (modal)
+    let renameStreamId = null;
+    $(document).on("click", ".stream-rename-btn", function() {
+        renameStreamId = $(this).data("id");
+        const currentTitle = $(this).closest('.stream-card').find('.fw-bold.fs-5').text();
+        // Add modal markup if not present
+        if ($('#renameModal').length === 0) {
+            $('body').append(`
+            <div class="modal fade" id="renameModal" tabindex="-1" aria-labelledby="renameModalLabel" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title" id="renameModalLabel">Rename File Name</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <input type="text" class="form-control" id="renameModalInput" />
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="renameModalSave">Save</button>
+                  </div>
+                </div>
+              </div>
+            </div>`);
+        }
+        $('#renameModalInput').val(currentTitle);
+        const renameModal = new bootstrap.Modal(document.getElementById('renameModal'));
+        renameModal.show();
+    });
+
+    $(document).on("click", "#renameModalSave", function() {
+        const newTitle = $('#renameModalInput').val();
+        if (!renameStreamId) return;
+        const currentTitle = $(`button[data-id='${renameStreamId}'].stream-rename-btn`).closest('.stream-card').find('.fw-bold.fs-5').text();
+        if (newTitle && newTitle.trim() !== "" && newTitle !== currentTitle) {
+            const token = localStorage.getItem("jwt_token");
+            ajaxWithRefresh({
+                url: `/api/streams/${renameStreamId}/rename`,
+                method: "PUT",
+                headers: { Authorization: "Bearer " + token },
+                contentType: "application/json",
+                data: JSON.stringify({ filename: newTitle }),
+                success: function() {
+                    fetchStreams();
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('renameModal'));
+                    modal.hide();
+                },
+                error: function() {
+                    alert('Failed to rename file.');
+                }
+            });
+        }
     });
 
     // Duration button handler (gear icon)
@@ -532,7 +637,7 @@ $(function() {
                 alert('Please enter a value between 0 and 24.');
                 return;
             }
-            const token = localStorage.getItem('jwt_token');
+            const token = localStorage.getItem("jwt_token");
             ajaxWithRefresh({
                 url: `/api/streams/${streamId}/duration`,
                 method: 'PUT',
@@ -541,6 +646,8 @@ $(function() {
                 success: function(resp) {
                     tooltip.remove();
                     fetchStreams();
+                    // start stream
+                    startStream(streamId);
                     alert('Stream duration updated successfully.');
                 },
                 error: function(xhr) {
@@ -581,6 +688,203 @@ $(function() {
             $('#videoPreviewSource').attr('src', '');
             video.load();
         }
+    });
+
+    // Loop toggle handler
+    $(document).on("change", ".stream-loop-toggle", function(e) {
+        const id = $(this).data("id");
+        const checked = $(this).is(":checked");
+        const token = localStorage.getItem("jwt_token");
+        $.ajax({
+            url: `/api/streams/${id}/loop`,
+            type: "PUT",
+            contentType: "application/json",
+            data: JSON.stringify({ LoopVideo: checked }),
+            headers: { Authorization: `Bearer ${token}` },
+            success: function(res) {
+                // Optionally show a toast/notification
+                // reloadStreams(); // Optionally reload stream list
+            },
+            error: function(xhr) {
+                alert("Failed to update loop setting: " + (xhr.responseJSON?.error || xhr.statusText));
+            }
+        });
+    });
+
+    // Toggle stream key password visibility
+    $(document).on('click', '.stream-password-toggle', function() {
+        // Find the input just before this button
+        var $input = $(this).closest('.d-flex').find('.stream-password');
+        if ($input.length) {
+            if ($input.attr('type') === 'password') {
+                $input.attr('type', 'text');
+                $(this).find('i').removeClass('fa-eye').addClass('fa-eye-slash');
+            } else {
+                $input.attr('type', 'password');
+                $(this).find('i').removeClass('fa-eye-slash').addClass('fa-eye');
+            }
+        }
+    });
+
+    // Settings modal logic
+    $(document).on('click', '.stream-settings-btn', function() {
+        // Always show modal using Bootstrap's JS API for reliability
+        // Use the global stream list for modal population
+        const streamId = $(this).data('id');
+        const streams = window.lastStreams || [];
+        const stream = streams.find(s => s.ID === streamId);
+        if (!stream) return;
+        $('#settingsStreamId').val(streamId);
+        let scheduleStartAt = null;
+        let scheduleEndAt = null;
+        let durationHours = 0;
+        if (stream.ScheduledStartAt) { 
+            scheduleStartAt = stream.ScheduledStartAt; 
+            $('#settingsStart').val(toDatetimeLocal(scheduleStartAt));
+        } else {
+            $('#settingsStart').val('');
+        }
+        if (stream.ScheduledEndAt) { 
+            scheduleEndAt = stream.ScheduledEndAt;
+            $('#settingsEnd').val(toDatetimeLocal(scheduleEndAt));
+        } else {
+            $('#settingsEnd').val('');
+        }
+        if (stream.ScheduledStartAt == null && stream.ScheduledEndAt) {
+            $('#settingsStart').val('');
+            $('#settingsEnd').val('');
+            let scheduleAt = null;
+            let scheduleEndAt = null;
+            let durationHours = 0;
+            if (stream.ScheduledEndAt) {
+                scheduleAt = stream.ScheduledAt ? stream.ScheduledAt : new Date();
+                scheduleEndAt = stream.ScheduledEndAt;
+                scheduleAtMilliseconds = new Date(scheduleAt).getTime();
+                scheduleEndAtMilliseconds = new Date(scheduleEndAt).getTime();
+                let gapHour = scheduleEndAtMilliseconds - scheduleAtMilliseconds;
+                durationHours = gapHour / (1000 * 60 * 60);
+                $('#settingsDuration').val(durationHours);
+            } else {
+                $('#settingsDuration').val(0);
+            }
+        }
+        if (scheduleStartAt) {
+            $('#settingsMode').val('SCHEDULER');
+        } else if (scheduleEndAt && scheduleStartAt == null) {
+            $('#settingsMode').val('DURATION');
+        } else {
+            $('#settingsMode').val('LIVE');
+        }
+
+        var modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+        modal.show();
+        $('#settingsMode').trigger('change');
+    });
+
+    // Show/hide modal fields based on mode
+    $('#settingsMode').off('change').on('change', function() {
+        const mode = $(this).val();
+        $('#schedulerFields').toggle(mode === 'SCHEDULER');
+        $('#durationField').toggle(mode === 'DURATION');
+    });
+
+    // Save settings with validation
+    $('#saveSettingsBtn').off('click').on('click', function(e) {
+        e.preventDefault();
+        const streamId = $('#settingsStreamId').val();
+        const mode = $('#settingsMode').val();
+        const token = localStorage.getItem('jwt_token');
+        if (mode === 'LIVE') {
+            $.ajax({
+                url: `/api/streams/${streamId}/schedule`,
+                type: 'PUT',
+                contentType: 'application/json',
+                headers: { Authorization: `Bearer ${token}` },
+                data: JSON.stringify({ ScheduledAt: null, StoppedAt: null, Timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+                success: function() { 
+                    $('#settingsModal').modal('hide'); 
+                    showStreamToast("Stream mode set to live", "success");
+                    fetchStreams(); 
+                },
+                error: function(xhr) { 
+                    showStreamToast("Failed to set mode: " + (xhr.responseJSON?.error || xhr.statusText), "error");
+                }
+            });
+        } else if (mode === 'SCHEDULER') {
+            const start = $('#settingsStart').val();
+            const end = $('#settingsEnd').val();
+            const now = new Date();
+            if (!start) { alert('Please set start time.'); return; }
+            const startDate = new Date(start);
+            if (startDate < now) { alert('Start time cannot be earlier than current time.'); return; }
+            if (end) {
+                const endDate = new Date(end);
+                if (endDate <= startDate) { alert('End time must be after start time.'); return; }
+            }
+            $.ajax({
+                url: `/api/streams/${streamId}/schedule`,
+                type: 'PUT',
+                contentType: 'application/json',
+                headers: { Authorization: `Bearer ${token}` },
+                data: JSON.stringify({ ScheduledAt: start, StoppedAt: end || null, Timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+                success: function() { 
+                    $('#settingsModal').modal('hide'); 
+                    showStreamToast("Stream schedule set successfully", "success");
+                    fetchStreams(); 
+                },
+                error: function(xhr) { 
+                    showStreamToast("Failed to set schedule: " + (xhr.responseJSON?.error || xhr.statusText), "error");
+                }
+            });
+        } else if (mode === 'DURATION') {
+            let duration = parseInt($('#settingsDuration').val(), 10);
+            if (isNaN(duration) || duration < 0 || duration > 24) { alert('Duration must be 0-24 hours.'); return; }
+            if (duration === 0) {
+                $.ajax({
+                    url: `/api/streams/${streamId}/schedule`,
+                    type: 'PUT',
+                    contentType: 'application/json',
+                    headers: { Authorization: `Bearer ${token}` },
+                    data: JSON.stringify({ ScheduledAt: null, StoppedAt: null, Timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+                    success: function() { 
+                        $('#settingsModal').modal('hide'); 
+                        showStreamToast("Stream mode set to live", "success");
+                        fetchStreams(); 
+                    },
+                    error: function(xhr) { 
+                        showStreamToast("Failed to set mode: " + (xhr.responseJSON?.error || xhr.statusText), "error");
+                    }
+                });
+            } else {
+                $.ajax({
+                    url: `/api/streams/${streamId}/duration`,
+                    type: 'PUT',
+                    contentType: 'application/json',
+                    headers: { Authorization: `Bearer ${token}` },
+                    data: JSON.stringify({ DurationHours: duration }),
+                    success: function() {       
+                        $('#settingsModal').modal('hide'); 
+                        showStreamToast("Stream duration set successfully", "success");
+                        startStream(streamId);
+                    },
+                    error: function(xhr) { 
+                        showStreamToast("Failed to set duration: " + (xhr.responseJSON?.error || xhr.statusText), "error");
+                    }
+                });
+            }
+        }
+    });
+
+    // Global settings button (bottom right)
+    $('#globalSettingsBtn').off('click').on('click', function() {
+        $('#settingsStreamId').val('');
+        $('#settingsMode').val('LIVE');
+        $('#settingsStart').val('');
+        $('#settingsEnd').val('');
+        $('#settingsDuration').val(0);
+        var modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+        modal.show();
+        $('#settingsMode').trigger('change');
     });
 
     // --- WebSocket for stream list updates ---
@@ -658,3 +962,52 @@ $(function() {
     // Initial load
     fetchStreams();
 });
+
+// --- Toast Notification Helper ---
+function showStreamToast(message, type = 'danger') {
+    const toastEl = document.getElementById('streamToast');
+    const toastBody = document.getElementById('streamToastBody');
+    if (!toastEl || !toastBody) return;
+    toastBody.textContent = message;
+    toastEl.classList.remove('text-bg-danger', 'text-bg-success');
+    if (type === 'success') {
+        toastEl.classList.add('text-bg-success');
+    } else {
+        toastEl.classList.add('text-bg-danger');
+    }
+    const toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+    toast.show();
+}
+
+// -- To Date Time Local ----
+function toDatetimeLocal(dt) {
+    // dt: Date object or ISO string
+    const date = dt instanceof Date ? dt : new Date(dt);
+    // Pad with zeros for single digits
+    const pad = n => n < 10 ? '0' + n : n;
+    return date.getFullYear() + '-' +
+        pad(date.getMonth() + 1) + '-' +
+        pad(date.getDate()) + 'T' +
+        pad(date.getHours()) + ':' +
+        pad(date.getMinutes());
+}
+
+// --- Start Stream ---
+function startStream(streamId) {
+    const token = localStorage.getItem("jwt_token");
+    $.ajax({
+        url: `/api/streams/${streamId}/start`,
+        type: "POST",
+        contentType: "application/json",
+        headers: { Authorization: "Bearer " + token },
+        success: function(resp) {
+            fetchStreams();
+            showStreamToast('Stream started successfully.', 'success');
+        },
+        error: function(xhr) {
+            let msg = 'Failed to start stream.';
+            if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
+            showStreamToast(msg, 'error');
+        }
+    });
+}

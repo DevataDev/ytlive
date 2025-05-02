@@ -28,6 +28,8 @@ type StreamWorker struct {
 	FilePath   string
 	StreamKey  string
 	MaxBitrate *int
+	RTMPUrl    string
+	LoopVideo  bool
 	DB         *gorm.DB
 }
 
@@ -127,12 +129,13 @@ func StartStreamWorker(streamID, filePath, streamKey string, maxBitrate *int) (*
 func StopStreamWorker(streamID string) error {
 	worker, ok := GetWorker(streamID)
 	if !ok {
-		worker.Status = "stopped"
+		fmt.Println("Stream", streamID, "not found.")
 		return nil // Already stopped
 	}
 
 	// update worker status
 	worker.Status = "stopped" // prevent double restart
+	fmt.Println("Stopping stream", streamID, "with status", worker.Status)
 	// chceck if context still active
 	if worker.CancelFunc != nil {
 		fmt.Println("Cancelling context for stream", streamID)
@@ -220,17 +223,29 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 			// check if process is still running
 			if !isProcessAliveAndNotDefunct(pid) {
 				fmt.Println("FFmpeg process stopped for stream", w.StreamID)
+				if !w.LoopVideo {
+					// update stream status to stopped
+					w.DB.Model(&Stream{}).Where("id = ?", w.StreamID).Updates(map[string]interface{}{
+						"Status": "stopped",
+					})
+					RestartLock.Lock()
+					StopStreamWorker(w.StreamID)
+					RemoveWorker(w.StreamID)
+					RestartLock.Unlock()
+					return
+				}
 				// restart stream worker
 				// how to prevent double restart?
 				// check if worker is already restarting
 				// lock
 				// restart only for live stream
+				// fmt.Println("Restarting stream", w.StreamID, "with status", w.Status)
 				if w.Status != "live" {
 					return
 				}
 				RestartLock.Lock()
 				StopStreamWorker(w.StreamID)
-				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.DB)
+				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.DB)
 				RestartLock.Unlock()
 				return
 			}
@@ -245,7 +260,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	}
 }
 
-func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitrate *int, database *gorm.DB) (*StreamWorker, int, error) {
+func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, database *gorm.DB) (*StreamWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	worker := &StreamWorker{
 		StreamID:   streamID,
@@ -258,30 +273,9 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	}
 
 	var cmd *exec.Cmd
-	if maxBitrate != nil {
-		cmd = exec.CommandContext(ctx, "ffmpeg",
-			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1", "-i", filePath,
-			"-threads", "1",
-			"-c:v", "copy",
-			"-c:a", "copy",
-			"-preset", "ultrafast", "-maxrate", fmt.Sprintf("%dk", *maxBitrate), "-bufsize", fmt.Sprintf("%dk", 2*(*maxBitrate)),
-			"-f", "flv",
-			"-drop_pkts_on_overflow", "1", "-attempt_recovery", "1", "-recover_any_error", "1",
-			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
-		)
-	} else {
-		cmd = exec.CommandContext(ctx, "ffmpeg",
-			"-re", "-nostdin", "-stream_loop", "-1", "-threads", "1",
-			"-i", filePath,
-			"-c:v", "copy",
-			"-c:a", "copy",
-			"-threads", "1",
-			"-preset", "ultrafast",
-			"-f", "flv",
-			"-drop_pkts_on_overflow", "1", "-attempt_recovery", "1", "-recover_any_error", "1",
-			"rtmp://a.rtmp.youtube.com/live2/"+streamKey,
-		)
-	}
+	args := buildFfmpegArgs(maxBitrate, loopVideo, filePath, streamKey, rtmpUrl)
+
+	cmd = exec.CommandContext(ctx, args[0], args[1:]...)
 
 	worker.Cmd = cmd
 	// start cmd
@@ -390,6 +384,38 @@ func GetDriveProgress(driveLink string) (map[string]interface{}, bool) {
 		}
 	}
 	return progress, ok
+}
+
+func buildFfmpegArgs(maxBitrate *int, loopVideo bool, filePath string, streamKey string, rtmpUrl string) []string {
+	var args []string
+	var fullRtmpUrl string
+	if rtmpUrl != "" {
+		if rtmpUrl[len(rtmpUrl)-1] != '/' {
+			fullRtmpUrl = rtmpUrl + "/" + streamKey
+		} else {
+			fullRtmpUrl = rtmpUrl + streamKey
+		}
+	} else {
+		fullRtmpUrl = "rtmp://a.rtmp.youtube.com/live2/" + streamKey
+	}
+	args = append(args, "ffmpeg")
+	args = append(args, "-re")
+	args = append(args, "-nostdin")
+	if loopVideo {
+		args = append(args, "-stream_loop", "-1")
+	}
+	args = append(args, "-threads", "1")
+	args = append(args, "-i", filePath)
+	args = append(args, "-c:v", "copy")
+	args = append(args, "-c:a", "copy")
+	args = append(args, "-threads", "1")
+	args = append(args, "-preset", "ultrafast")
+	args = append(args, "-f", "flv")
+	args = append(args, "-drop_pkts_on_overflow", "1")
+	args = append(args, "-attempt_recovery", "1")
+	args = append(args, "-recover_any_error", "1")
+	args = append(args, fullRtmpUrl)
+	return args
 }
 
 // ClearDriveProgress clears the progress/status for a drive link
