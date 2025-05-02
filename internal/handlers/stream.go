@@ -409,6 +409,9 @@ func (h *StreamHandler) CloneStream(c *gin.Context) {
 	clone.ScheduledAt = nil
 	clone.ScheduledStartAt = nil
 	clone.ScheduledEndAt = nil
+	clone.FfmpegPID = nil
+	clone.StartedAt = nil
+	clone.StoppedAt = nil
 	if err := h.DB.Create(&clone).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clone stream"})
 		return
