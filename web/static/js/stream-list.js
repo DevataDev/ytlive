@@ -425,10 +425,11 @@ $(function() {
             method: "POST",
             headers: { Authorization: "Bearer " + token },
             success: function() {
+                showStreamToast('Stream started successfully!', 'success');
                 fetchStreams();
             },
             error: function() {
-                alert('Failed to start stream.');
+                showStreamToast('Failed to start stream.');
             }
         });
     });
@@ -445,6 +446,7 @@ $(function() {
             method: "POST",
             headers: { Authorization: "Bearer " + token },
             success: function() {
+                showStreamToast('Stream stopped successfully!', 'success');
                 // If using websocket, the list will be refreshed by ws event
                 // Otherwise, fallback to fetchStreams
                 if (window.streamListSocket && window.streamListSocket.readyState === 1) {
@@ -514,10 +516,11 @@ $(function() {
             data: JSON.stringify({ ScheduledAt: start, StoppedAt: end, Timezone: timezone }),
             success: function() {
                 $('#scheduleModal').modal('hide');
+                showStreamToast('Stream scheduled successfully!', 'success');
                 fetchStreams();
             },
             error: function(xhr) {
-                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to schedule stream.');
+                showStreamToast(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to schedule stream.', 'error');
             }
         });
     });
@@ -550,10 +553,11 @@ $(function() {
             data: JSON.stringify({ FileName: newName }),
             success: function() {
                 $('#renameModal').modal('hide');
+                showStreamToast('File renamed successfully!', 'success');
                 fetchStreams();
             },
             error: function(xhr) {
-                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to rename file.');
+                showStreamToast(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Failed to rename file.', 'error');
             }
         });
     });
@@ -917,3 +921,32 @@ $(function() {
     // Initial load
     fetchStreams();
 });
+
+// --- Toast Notification Helper ---
+function showStreamToast(message, type = 'danger') {
+    const toastEl = document.getElementById('streamToast');
+    const toastBody = document.getElementById('streamToastBody');
+    if (!toastEl || !toastBody) return;
+    toastBody.textContent = message;
+    toastEl.classList.remove('text-bg-danger', 'text-bg-success');
+    if (type === 'success') {
+        toastEl.classList.add('text-bg-success');
+    } else {
+        toastEl.classList.add('text-bg-danger');
+    }
+    const toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+    toast.show();
+}
+
+// -- To Date Time Local ----
+function toDatetimeLocal(dt) {
+    // dt: Date object or ISO string
+    const date = dt instanceof Date ? dt : new Date(dt);
+    // Pad with zeros for single digits
+    const pad = n => n < 10 ? '0' + n : n;
+    return date.getFullYear() + '-' +
+        pad(date.getMonth() + 1) + '-' +
+        pad(date.getDate()) + 'T' +
+        pad(date.getHours()) + ':' +
+        pad(date.getMinutes());
+}

@@ -884,9 +884,12 @@ func main() {
 					models.RestartLock.Lock()
 					_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
 					models.RestartLock.Unlock()
+					// remove scheduled_at and scheduled_end_at
 					database.Model(&stream).Updates(map[string]interface{}{
-						"Status":    "stopped",
-						"StoppedAt": now,
+						"Status":         "stopped",
+						"StoppedAt":      now,
+						"ScheduledAt":    nil,
+						"ScheduledEndAt": nil,
 					})
 					// send websocket message
 					handlers.BroadcastStreamListUpdate()
@@ -904,7 +907,7 @@ func main() {
 		for {
 			<-ticker.C
 			var streamsToRestart []models.Stream
-			database.Where("status = ? AND (started_at IS NOT NULL OR scheduled_start_at <= ?)", "live", time.Now().UTC()).Find(&streamsToRestart)
+			database.Where("status = ? AND (started_at IS NOT NULL OR scheduled_start_at <= ?) AND (scheduled_end_at IS NULL OR scheduled_end_at > ?)", "live", time.Now().UTC(), time.Now().UTC()).Find(&streamsToRestart)
 			fmt.Println("Found", len(streamsToRestart), "streams to restart.")
 			for _, stream := range streamsToRestart {
 				// check if ffmpeg is running by the pid

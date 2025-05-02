@@ -272,11 +272,8 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 		DB:         database,
 	}
 
-	fmt.Println("Starting FFmpeg process for stream", streamID, "with file", filePath, "and stream key", streamKey, "and max bitrate", maxBitrate, "and rtmp url", rtmpUrl, "and loop video", loopVideo)
-
 	var cmd *exec.Cmd
 	args := buildFfmpegArgs(maxBitrate, loopVideo, filePath, streamKey, rtmpUrl)
-	fmt.Println("FFmpeg args:", args)
 
 	cmd = exec.CommandContext(ctx, args[0], args[1:]...)
 
