@@ -341,6 +341,16 @@ func main() {
 
 	database = db
 
+	// fix column typo for stream table
+	// check if column `loop_count,default:-1` exists
+	if db.Migrator().HasColumn(&models.Stream{}, "loop_count,default:-1") {
+		db.Migrator().RenameColumn(&models.Stream{}, "loop_count,default:-1", "loop_count")
+	}
+	// check if column `loop_video,default:true` exists
+	if db.Migrator().HasColumn(&models.Stream{}, "loop_video,default:true") && !db.Migrator().HasColumn(&models.Stream{}, "loop_video") {
+		db.Migrator().RenameColumn(&models.Stream{}, "loop_video,default:true", "loop_video")
+	}
+
 	if dbErr != nil {
 		log.Fatalf("failed to connect to DB: %v", err)
 	}
