@@ -12,6 +12,14 @@ const (
 	BaseURL    = "https://www.tiktok.com"
 )
 
+type TikTokClientIface interface {
+	GetRoomIdFromUser(username string) (string, error)
+	GetRoomInfo(roomID string) (map[string]interface{}, error)
+	CheckRoomIsAlive(roomID string) (bool, error)
+	GetUserAgent() string
+	ParseRoomInfoForLiveUrl(roomInfo map[string]interface{}) (string, error)
+}
+
 type Client struct {
 	httpClient *req.Client
 	userAgent  string

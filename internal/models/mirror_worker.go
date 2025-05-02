@@ -26,7 +26,7 @@ type MirrorWorker struct {
 	RoomID       string
 	Cmd          *exec.Cmd
 	StopChan     chan struct{}
-	TiktokClient tiktok.Client
+	TiktokClient tiktok.TikTokClientIface
 }
 
 var (
@@ -87,7 +87,7 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				// check
 				MirrorRestartLock.Lock()
 				StopMirrorWorkerWithDatabase(w.MirrorID, w.DB)
-				StartMirrorWorkerWithDatabase(w.MirrorID, w.DB)
+				StartMirrorWorkerWithDatabase(w.MirrorID, w.TiktokClient, w.DB)
 				MirrorRestartLock.Unlock()
 				broadcast.Bus.Broadcast(broadcast.RefreshMirror, nil)
 				return
@@ -98,7 +98,7 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	}
 }
 
-func StartMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB) (*MirrorWorker, int, error) {
+func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokClientIface, database *gorm.DB) (*MirrorWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// get mirror from database
 	var mirror Mirror
@@ -111,15 +111,16 @@ func StartMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB) (*MirrorW
 	}
 
 	worker := &MirrorWorker{
-		MirrorID:   mirrorID,
-		CancelFunc: cancel,
-		Status:     "live",
-		DB:         database,
-		RTMPUrl:    mirror.RtmpUrl,
-		StreamKey:  mirror.StreamKey,
-		LiveUrl:    mirror.LiveUrl,
-		UserAgent:  mirror.UserAgent,
-		RoomID:     mirror.RoomId,
+		MirrorID:     mirrorID,
+		CancelFunc:   cancel,
+		Status:       "live",
+		DB:           database,
+		RTMPUrl:      mirror.RtmpUrl,
+		StreamKey:    mirror.StreamKey,
+		LiveUrl:      mirror.LiveUrl,
+		UserAgent:    mirror.UserAgent,
+		RoomID:       mirror.RoomId,
+		TiktokClient: tiktokClient,
 	}
 
 	var cmd *exec.Cmd

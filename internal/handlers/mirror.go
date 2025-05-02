@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/tiktok"
 
 	"github.com/gin-gonic/gin"
 	"github.com/oklog/ulid/v2"
@@ -15,15 +16,7 @@ import (
 
 type MirrorHandler struct {
 	DB     *gorm.DB
-	TikTok TikTokClientIface
-}
-
-type TikTokClientIface interface {
-	GetRoomIdFromUser(username string) (string, error)
-	GetRoomInfo(roomID string) (map[string]interface{}, error)
-	CheckRoomIsAlive(roomID string) (bool, error)
-	GetUserAgent() string
-	ParseRoomInfoForLiveUrl(roomInfo map[string]interface{}) (string, error)
+	TikTok tiktok.TikTokClientIface
 }
 
 func checkAllNumber(str string) bool {
@@ -159,7 +152,7 @@ func (h *MirrorHandler) StartMirror(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Cannot start: StreamKey missing or mirror is not alive"})
 		return
 	}
-	_, _, err := models.StartMirrorWorkerWithDatabase(mirror.ID, h.DB)
+	_, _, err := models.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
