@@ -84,6 +84,7 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 				}
 				if fs, ok := fi.Size(), true; ok {
 					c.Set("file_size_"+s.ID, fs)
+					streams[i].FileSizeBytes = fs
 				}
 			}
 		}
@@ -110,6 +111,8 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 			"RTMPUrl":          s.RTMPUrl,
 			"LoopVideo":        s.LoopVideo,
 			"FfmpegPID":        s.FfmpegPID,
+			"CreatedAt":        s.CreatedAt,
+			"FileSizeBytes":    s.FileSizeBytes,
 		}
 		if s.FilePath != nil && *s.FilePath != "" {
 			if fs, ok := c.Get("file_size_" + s.ID); ok {
@@ -146,6 +149,8 @@ func (h *StreamHandler) CreateStream(c *gin.Context) {
 		Status:          "stopped",
 		MaxBitrate:      req.MaxBitrate,
 		UserId:          userID.(string),
+		LoopVideo:       true,
+		RTMPUrl:         "rtmp://a.rtmp.youtube.com/live2/",
 	}
 	if err := h.DB.Create(&stream).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create stream"})

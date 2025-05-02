@@ -81,17 +81,50 @@ $(function() {
                 mainBtn = `<button class="btn btn-success btn-sm stream-start" data-id="${stream.ID}" ${startDisabled}>Start</button>`;
             }
             let deleteBtn = `<button class="btn btn-secondary btn-sm stream-delete ms-2" data-id="${stream.ID}">Hapus Video</button>`;
+
+            // --- File size formatting ---
+            let fileSizeStr = '';
+            if (stream.FileSizeBytes != null) {
+                const size = stream.FileSizeBytes;
+                if (size >= 1024 * 1024 * 1024) {
+                    fileSizeStr = (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+                } else if (size >= 1024 * 1024) {
+                    fileSizeStr = (size / (1024 * 1024)).toFixed(2) + ' MB';
+                } else if (size >= 1024) {
+                    fileSizeStr = (size / 1024).toFixed(2) + ' KB';
+                } else {
+                    fileSizeStr = size + ' bytes';
+                }
+            }
+            // --- Uploaded time formatting ---
+            let uploadedTimeStr = '';
+            if (stream.CreatedAt) {
+                const uploadedDate = new Date(stream.CreatedAt);
+                uploadedTimeStr = uploadedDate.toLocaleString();
+            }
+            let infoBlock = '';
+            if (fileSizeStr || uploadedTimeStr) {
+                infoBlock = `<div class="text-muted small mt-1">${fileSizeStr ? 'Size: ' + fileSizeStr : ''}${fileSizeStr && uploadedTimeStr ? ' | ' : ''}${uploadedTimeStr ? 'Uploaded: ' + uploadedTimeStr : ''}</div>`;
+            }
+
             let liveBadge = stream.Status === 'live' ? '<span class="badge bg-danger ms-2">LIVE</span>' : '';
             let title = `${stream.Title || stream.FileName || 'Live Stream'}`;
             let renameBtn = `<button class="btn btn-link p-0 ms-2 stream-rename-btn" data-id="${stream.ID}" title="Rename File Name"><i class="fa fa-pencil-alt"></i></button>`;
             let settingsBtn = `<button class="btn btn-outline-warning btn-sm stream-settings-btn position-absolute" style="bottom:16px;right:16px;z-index:10;" data-id="${stream.ID}" title="Stream Settings"><i class="fa fa-gear"></i></button>`;
+            let cardHeader = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold fs-5 stream-title-ellipsis" title="${title}">${title}</span>
+                    <div class="d-flex justify-content-end align-items-center gap-1">
+                        <button class="btn btn-sm btn-outline-primary stream-rename-btn me-1" data-id="${stream.ID}" title="Rename"><i class="fa fa-pencil-alt"></i></button>
+                        <button class="btn-close stream-delete-x" data-id="${stream.ID}" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
             let card = `
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="stream-card card shadow-sm rounded-4 p-3 position-relative mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="fw-bold fs-5">${title}</span>${renameBtn}
-                        <button class="btn-close stream-delete-x" data-id="${stream.ID}" aria-label="Close"></button>
-                    </div>
+                    ${cardHeader}
+                    ${infoBlock}
                     <div class="ratio ratio-16x9 mb-2">
                         <video src="${previewUrl}" class="w-100 rounded-3" ${stream.LoopVideo ? 'loop' : ''} controls poster="/static/img/preview.jpg" style="background:#000;"></video>
                     </div>
@@ -121,6 +154,24 @@ $(function() {
             cardContainer.append(card);
         });
     }
+
+    function attachSinglePlayHandler() {
+        $("#stream-list-cards video").each(function() {
+            this.onplay = function(e) {
+                $("#stream-list-cards video").each(function() {
+                    if (this !== e.target && !this.paused) {
+                        this.pause();
+                    }
+                });
+            };
+        });
+    }
+
+    const origRenderStreamsTable = renderStreamsTable;
+    renderStreamsTable = function(data) {
+        origRenderStreamsTable.apply(this, arguments);
+        attachSinglePlayHandler();
+    };
 
     function updateAllStartedAtRel() {
         const now = Date.now();
@@ -196,7 +247,7 @@ $(function() {
         const pag = $("#pagination");
         pag.empty();
         const page = data.page || 1;
-        const perPage = data.per_page || 5;
+        const perPage = data.per_page || 6;
         const total = data.total || 0;
         const totalPages = Math.ceil(total / perPage);
         if (totalPages <= 1) return;
@@ -222,7 +273,7 @@ $(function() {
         pag.append(`<li class="page-item${page === totalPages ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${totalPages}">Last</a></li>`);
     }
 
-    function fetchStreams(page = 1, per_page = 5) {
+    function fetchStreams(page = 1, per_page = 6) {
         const token = localStorage.getItem("jwt_token");
         ajaxWithRefresh({
             url: `/api/streams?page=${page}&per_page=${per_page}`,
@@ -654,16 +705,20 @@ $(function() {
         });
     });
 
-    // Helper to format date for datetime-local input
-    function toDatetimeLocal(dt) {
-        const date = dt instanceof Date ? dt : new Date(dt);
-        const pad = n => n < 10 ? '0' + n : n;
-        return date.getFullYear() + '-' +
-            pad(date.getMonth() + 1) + '-' +
-            pad(date.getDate()) + 'T' +
-            pad(date.getHours()) + ':' +
-            pad(date.getMinutes());
-    }
+    // Toggle stream key password visibility
+    $(document).on('click', '.stream-password-toggle', function() {
+        // Find the input just before this button
+        var $input = $(this).closest('.d-flex').find('.stream-password');
+        if ($input.length) {
+            if ($input.attr('type') === 'password') {
+                $input.attr('type', 'text');
+                $(this).find('i').removeClass('fa-eye').addClass('fa-eye-slash');
+            } else {
+                $input.attr('type', 'password');
+                $(this).find('i').removeClass('fa-eye-slash').addClass('fa-eye');
+            }
+        }
+    });
 
     // Settings modal logic
     $(document).on('click', '.stream-settings-btn', function() {

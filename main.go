@@ -536,6 +536,8 @@ func main() {
 			Status:          "stopped",
 			CreatedAt:       time.Now(),
 			UpdatedAt:       time.Now(),
+			LoopVideo:       true,
+			RTMPUrl:         "rtmp://a.rtmp.youtube.com/live2/",
 			UserId:          userID.(string),
 		}
 		if err := db.Create(&stream).Error; err != nil {
