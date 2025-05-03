@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	WebcastURL = "https://webcast.tiktok.com"
-	BaseURL    = "https://www.tiktok.com"
+	WebcastURL   = "https://webcast.tiktok.com"
+	TikTokAppURL = "https://www.tiktok.com"
+	SignerURL    = "https://ttsigner.yuklive.my.id"
 )
 
 type TikTokClientIface interface {
@@ -18,6 +19,7 @@ type TikTokClientIface interface {
 	CheckRoomIsAlive(roomID string) (bool, error)
 	GetUserAgent() string
 	ParseRoomInfoForLiveUrl(roomInfo map[string]interface{}) (string, error)
+	GetRoomIdFromUserWithAPI(username string) (string, error)
 }
 
 type Client struct {

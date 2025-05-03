@@ -30,8 +30,13 @@ func checkAllNumber(str string) bool {
 
 // GET /api/mirrors
 func (h *MirrorHandler) ListMirrors(c *gin.Context) {
+	var userId string
+	if c.GetString("user_id") != "" {
+		userId = c.GetString("user_id")
+	}
+
 	var mirrors []models.Mirror
-	if err := h.DB.Find(&mirrors).Error; err != nil {
+	if err := h.DB.Where("user_id = ?", userId).Find(&mirrors).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch mirrors"})
 		return
 	}
@@ -61,7 +66,7 @@ func (h *MirrorHandler) AddMirror(c *gin.Context) {
 		}
 
 		// Get RoomId from TikTok API (call tiktok.GetRoomIdFromUser)
-		extractedRoomId, err := h.TikTok.GetRoomIdFromUser(username)
+		extractedRoomId, err := h.TikTok.GetRoomIdFromUserWithAPI(username)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get Room ID: " + err.Error()})
 			return

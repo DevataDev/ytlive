@@ -13,6 +13,63 @@ import (
 	"github.com/andybalholm/brotli"
 )
 
+func (c *Client) GetRoomIdFromUserWithAPI(username string) (string, error) {
+	if username == "" {
+		return "", errors.New("username is empty")
+	}
+
+	url := fmt.Sprintf("%s/api-live/user/room?aid=1988&region=%s&uniqueId=%s&sourceType=54", TikTokAppURL, c.region, username)
+
+	fmt.Println(url)
+	data, err := c.Get(url)
+	if err != nil {
+		return "", err
+	}
+	var reader io.ReadCloser
+
+	switch data.Header.Get("Content-Encoding") {
+	case "gzip":
+		reader, _ = gzip.NewReader(data.Body)
+	case "br":
+		reader = io.NopCloser(brotli.NewReader(data.Body))
+	default:
+		reader = data.Body
+	}
+
+	defer reader.Close()
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return "", err
+	}
+
+	if strings.Contains(string(body), "This account is private") {
+		return "", errors.New("this account is private")
+	}
+
+	if strings.Contains(string(body), "user_not_found") {
+		return "", errors.New("user not found")
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", err
+	}
+
+	if _, ok := response["data"]; !ok {
+		return "", errors.New("data not found")
+	}
+
+	dataBody := response["data"].(map[string]interface{})
+	if dataBody == nil {
+		return "", errors.New("data is empty")
+	}
+	if _, ok := dataBody["user"]; !ok {
+		return "", errors.New("user not found")
+	}
+
+	return dataBody["user"].(map[string]interface{})["roomId"].(string), nil
+}
+
 func (c *Client) GetRoomInfo(roomID string) (map[string]interface{}, error) {
 	if roomID == "" {
 		return nil, errors.New("room id is empty")
@@ -39,8 +96,6 @@ func (c *Client) GetRoomInfo(roomID string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println(string(body))
 
 	var response map[string]interface{}
 	if err := json.Unmarshal(body, &response); err != nil {
@@ -446,14 +501,9 @@ func (c *Client) GetRoomIdFromUser(user string) (string, error) {
 		return "", err
 	}
 
-	fmt.Println(string(body))
-
 	if strings.Contains(string(body), "Please wait") {
 		return "", errors.New("got tiktok waf")
 	}
-
-	fmt.Println("Checking room id from user", user)
-	fmt.Println(string(body))
 
 	pattern := regexp.MustCompile(`(?s)<script id="SIGI_STATE" type="application/json">(.*?)</script>`)
 	match := pattern.FindStringSubmatch(string(body))

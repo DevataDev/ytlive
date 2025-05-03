@@ -378,6 +378,9 @@ func main() {
 		log.Fatalf("failed to migrate mirror table: %v", err)
 	}
 
+	// Init device presets
+	tiktok.InitDevicePresets()
+
 	// Create default user if not exists
 	var defaultUser models.User
 	if err := db.Where("email = ?", "admin@yuklive.id").First(&defaultUser).Error; err == gorm.ErrRecordNotFound {
@@ -1090,7 +1093,6 @@ func main() {
 			for _, stream := range streamsToCheck {
 				if isAliveMap[stream.RoomId] {
 					database.Model(&stream).Updates(map[string]interface{}{
-						"status":   "live",
 						"is_alive": true,
 					})
 				} else {
