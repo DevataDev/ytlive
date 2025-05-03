@@ -57,8 +57,6 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				// how to prevent double restart?
 				// check if worker is already restarting
 				// lock
-				// restart only for live stream
-				// fmt.Println("Restarting stream", w.StreamID, "with status", w.Status)
 				if w.Status != "live" {
 					return
 				}
@@ -72,15 +70,11 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				}
 				if !isAlive {
 					fmt.Println("Room is not alive for mirror", w.MirrorID)
-					return
-				}
-				// restart stream worker
-				// how to prevent double restart?
-				// check if worker is already restarting
-				// lock
-				// restart only for live stream
-				// fmt.Println("Restarting stream", w.StreamID, "with status", w.Status)
-				if w.Status != "live" {
+					w.Status = "stopped"
+					// Delete from database
+					w.DB.Delete(&Mirror{}, w.MirrorID)
+					StopMirrorWorkerWithDatabase(w.MirrorID, w.DB)
+					RemoveMirrorWorker(w.MirrorID)
 					return
 				}
 

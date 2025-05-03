@@ -19,6 +19,16 @@ header.sticky-top {
 }
 .dashboard-container {
     margin-top: 2rem !important;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+#mirror-list-cards {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+    margin-bottom: 1rem;
 }
 footer {
     flex-shrink: 0;

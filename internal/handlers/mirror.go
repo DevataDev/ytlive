@@ -125,6 +125,7 @@ func (h *MirrorHandler) AddMirror(c *gin.Context) {
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 		StreamKey:   "",
+		Status:      "stopped",
 		UserId:      c.GetString("user_id"),
 		UserAgent:   h.TikTok.GetUserAgent(),
 	}

@@ -1099,15 +1099,26 @@ func main() {
 						database.Model(&stream).Updates(map[string]interface{}{
 							"is_alive": false,
 						})
+						// delete from database
+						database.Delete(&stream)
+						models.MirrorRestartLock.Lock()
+						models.StopMirrorWorkerWithDatabase(stream.ID, database)
+						models.RemoveMirrorWorker(stream.ID)
+						models.MirrorRestartLock.Unlock()
+						// send websocket message
+						handlers.BroadcastMirrorRoomIsAliveUpdate(isAliveMap)
 						continue
 					}
 					models.MirrorRestartLock.Lock()
 					_ = models.StopMirrorWorkerWithDatabase(stream.ID, database) // Ensures ffmpeg is killed
+					models.RemoveMirrorWorker(stream.ID)
 					models.MirrorRestartLock.Unlock()
 					database.Model(&stream).Updates(map[string]interface{}{
 						"status":   "stopped",
 						"is_alive": false,
 					})
+					// delete from database
+					database.Delete(&stream)
 				}
 			}
 
