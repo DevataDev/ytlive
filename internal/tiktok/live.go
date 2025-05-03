@@ -18,10 +18,23 @@ func (c *Client) GetRoomIdFromUserWithAPI(username string) (string, error) {
 		return "", errors.New("username is empty")
 	}
 
-	url := fmt.Sprintf("%s/api-live/user/room?aid=1988&region=%s&uniqueId=%s&sourceType=54", TikTokAppURL, c.region, username)
+	devicePreset := GetRandomDevicePreset()
+	locationPreset, _ := GetLocationPreset(c.region)
+	screenPreset := GetRandomScreenPreset()
 
-	fmt.Println(url)
-	data, err := c.Get(url)
+	c.WithUserAgent(devicePreset.UserAgent)
+
+	queryParams := fmt.Sprintf("aid=1988&region=%s&uniqueId=%s&sourceType=54&app_name=tiktok_web&browser_language=%s&browser_name=%s&browser_version=%s&os=%s&screen_height=%d&screen_width=%d", c.region, username, locationPreset.Lang, devicePreset.BrowserName, devicePreset.BrowserVersion, devicePreset.OS, screenPreset.ScreenHeight, screenPreset.ScreenWidth)
+
+	url := fmt.Sprintf("%s/api-live/user/room?%s", TikTokAppURL, queryParams)
+
+	signedUrl, err := c.Sign(url)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println(signedUrl)
+	data, err := c.Get(signedUrl)
 	if err != nil {
 		return "", err
 	}

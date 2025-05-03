@@ -10,7 +10,7 @@ import (
 const (
 	WebcastURL   = "https://webcast.tiktok.com"
 	TikTokAppURL = "https://www.tiktok.com"
-	SignerURL    = "https://ttsigner.yuklive.my.id"
+	SignerURL    = "https://ttsign.yuklive.my.id"
 )
 
 type TikTokClientIface interface {
