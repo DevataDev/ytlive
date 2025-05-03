@@ -262,14 +262,14 @@ func (c *Client) ParseRoomInfoForLiveUrl(roomInfo map[string]interface{}) (strin
 
 	fullHD1, ok := flvPullUrl["FULL_HD1"].(string)
 	if !ok {
-		return "", errors.New("full hd1 is not string")
+		fullHD1 = ""
 	}
 	liveUrl = fullHD1
 	// if FULL_HD1 is not available, use HD1
 	if liveUrl == "" {
 		hd1, ok := flvPullUrl["HD1"].(string)
 		if !ok {
-			return "", errors.New("hd1 is not string")
+			hd1 = ""
 		}
 		liveUrl = hd1
 	}
@@ -277,7 +277,7 @@ func (c *Client) ParseRoomInfoForLiveUrl(roomInfo map[string]interface{}) (strin
 	if liveUrl == "" {
 		sd2, ok := flvPullUrl["SD2"].(string)
 		if !ok {
-			return "", errors.New("sd2 is not string")
+			sd2 = ""
 		}
 		liveUrl = sd2
 	}
@@ -285,7 +285,7 @@ func (c *Client) ParseRoomInfoForLiveUrl(roomInfo map[string]interface{}) (strin
 	if liveUrl == "" {
 		sd1, ok := flvPullUrl["SD1"].(string)
 		if !ok {
-			return "", errors.New("sd1 is not string")
+			sd1 = ""
 		}
 		liveUrl = sd1
 	}
@@ -293,7 +293,7 @@ func (c *Client) ParseRoomInfoForLiveUrl(roomInfo map[string]interface{}) (strin
 	if liveUrl == "" {
 		rtmpPullUrl := streamUrl["rtmp_pull_url"].(string)
 		if rtmpPullUrl == "" {
-			return "", errors.New("rtmp pull url is empty")
+			rtmpPullUrl = ""
 		}
 		liveUrl = rtmpPullUrl
 	}
@@ -301,7 +301,7 @@ func (c *Client) ParseRoomInfoForLiveUrl(roomInfo map[string]interface{}) (strin
 	if liveUrl == "" {
 		hlsPullUrl := streamUrl["hls_pull_url"].(string)
 		if hlsPullUrl == "" {
-			return "", errors.New("hls pull url is empty")
+			hlsPullUrl = ""
 		}
 		liveUrl = hlsPullUrl
 	}
