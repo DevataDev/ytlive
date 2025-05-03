@@ -33,7 +33,6 @@ func (c *Client) GetRoomIdFromUserWithAPI(username string) (string, error) {
 		return "", err
 	}
 
-	fmt.Println(signedUrl)
 	data, err := c.Get(signedUrl)
 	if err != nil {
 		return "", err
