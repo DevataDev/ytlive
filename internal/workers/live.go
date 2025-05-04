@@ -72,9 +72,9 @@ func (w *LiveWorker) StartUserMonitoring() {
 					w.MonitorSetMu.RUnlock()
 					continue
 				}
-				// if last checked is below than 1 hour, skip
-				if monitor.LastCheckedAt != nil && monitor.LastCheckedAt.Add(1*time.Hour).After(time.Now()) {
-					fmt.Println("Skipping monitor", monitor.UniqueId, "because last checked is below than 1 hour")
+				// if last checked is below than 5 minutes, skip
+				if monitor.LastCheckedAt != nil && monitor.LastCheckedAt.Add(5*time.Minute).After(time.Now()) {
+					fmt.Println("Skipping monitor", monitor.UniqueId, "because last checked is below than 5 minutes")
 					w.MonitorSetMu.RUnlock()
 					continue
 				}
