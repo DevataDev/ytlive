@@ -18,4 +18,5 @@ type Monitor struct {
 	RtmpUrl       string `gorm:"default:null" json:"RtmpUrl"`
 	StreamKey     string `gorm:"default:null" json:"StreamKey"`
 	UserId        string `gorm:"not null;index" json:"UserId"`
+	IsLive        bool   `gorm:"default:false" json:"IsLive"`
 }
