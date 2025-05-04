@@ -43,14 +43,17 @@ func (w *LiveWorker) StartUserMonitoring() {
 					continue
 				}
 				w.MonitorSet[monitor.UniqueId] = struct{}{}
-				w.StartLiveMonitoring(monitor.UniqueId, monitor.UserId)
+				if monitor.RtmpUrl == "" || monitor.StreamKey == "" {
+					continue
+				}
+				w.StartLiveMonitoring(monitor.UniqueId, monitor.UserId, monitor.RtmpUrl, monitor.StreamKey)
 			}
 			time.Sleep(1 * time.Minute)
 		}
 	}()
 }
 
-func (w *LiveWorker) StartLiveMonitoring(username string, userID string) {
+func (w *LiveWorker) StartLiveMonitoring(username string, userID string, rtmpUrl string, streamKey string) {
 	fmt.Println("Starting live monitoring for user", username)
 	go func() {
 		for {
@@ -63,8 +66,10 @@ func (w *LiveWorker) StartLiveMonitoring(username string, userID string) {
 				fmt.Println("User is live for user", username)
 				w.Bus.Broadcast(broadcast.AddToMirror, broadcast.Event{
 					Data: map[string]interface{}{
-						"username": username,
-						"user_id":  userID,
+						"username":   username,
+						"user_id":    userID,
+						"rtmp_url":   rtmpUrl,
+						"stream_key": streamKey,
 					},
 				})
 				// break loop

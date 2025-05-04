@@ -245,7 +245,7 @@ func (h *MirrorHandler) UpdateMirrorStreamKey(c *gin.Context) {
 	c.JSON(200, gin.H{"status": "stream_key updated"})
 }
 
-func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string) {
+func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, rtmpUrl string, streamKey string) {
 	var roomID string
 	if checkAllNumber(username) {
 		roomID = username
@@ -294,13 +294,17 @@ func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string) {
 		return
 	}
 
-	fmt.Println(liveUrl)
-
 	var displayName string
 	if _, ok := roomInfo["owner"]; ok {
 		displayName = roomInfo["owner"].(map[string]interface{})["display_id"].(string)
 	} else {
 		displayName = "Room ID " + roomID
+	}
+
+	destinationRtmpUrl := "rtmp://a.rtmp.youtube.com/live2/"
+
+	if rtmpUrl != "" {
+		destinationRtmpUrl = rtmpUrl
 	}
 
 	// Compose Mirror model
@@ -309,17 +313,18 @@ func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string) {
 		RoomId:      roomID,
 		DisplayName: displayName,
 		LiveUrl:     liveUrl,
-		RtmpUrl:     "rtmp://a.rtmp.youtube.com/live2/",
+		RtmpUrl:     destinationRtmpUrl,
 		IsAlive:     isAlive,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
-		StreamKey:   "",
+		StreamKey:   streamKey,
 		Status:      "stopped",
 		UserId:      userID,
 		UserAgent:   h.TikTok.GetUserAgent(),
 	}
 
 	if err := h.DB.Create(&mirror).Error; err != nil {
+		fmt.Println("Failed to save mirror: " + err.Error())
 		return
 	}
 }
