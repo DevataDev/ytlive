@@ -5,9 +5,11 @@ go 1.23.0
 toolchain go1.23.8
 
 require (
+	github.com/andybalholm/brotli v1.1.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/gorilla/websocket v1.5.1
+	github.com/imroc/req/v3 v3.51.0
 	github.com/oklog/ulid/v2 v2.0.2
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/crypto v0.37.0
@@ -23,7 +25,6 @@ require (
 	cloud.google.com/go/auth v0.16.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
-	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
@@ -46,7 +47,6 @@ require (
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/imroc/req/v3 v3.51.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -75,6 +75,8 @@ require (
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
+	go.uber.org/automaxprocs v1.6.0 // indirect
+	go.uber.org/mock v0.5.1 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/oauth2 v0.29.0 // indirect

@@ -3,7 +3,10 @@ package handlers
 import (
 	"net/url"
 	"strings"
+	"time"
 	"windsorf-youtube-live/internal/tiktok"
+
+	"windsorf-youtube-live/internal/cache"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -12,6 +15,7 @@ import (
 type TiktokHandler struct {
 	DB           *gorm.DB
 	TikTokClient *tiktok.Client
+	Cache        *cache.InMemoryCache
 }
 
 func (h *TiktokHandler) GetRoomFromUser(c *gin.Context) {
@@ -90,10 +94,20 @@ func (h *TiktokHandler) GetLiveFeed(c *gin.Context) {
 	if limit == "" {
 		limit = "6"
 	}
-	feedRoomData, err := h.TikTokClient.GetLiveFeed()
+	// check in cache first
+	feedRoomData, err := h.Cache.Get("live_feed")
+	if err == nil {
+		c.JSON(200, gin.H{"rooms": feedRoomData})
+		return
+	}
+
+	feedRoomData, err = h.TikTokClient.GetLiveFeed()
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
+	// set cache
+	h.Cache.Set("live_feed", feedRoomData, time.Now().Add(3*time.Minute))
+
 	c.JSON(200, gin.H{"rooms": feedRoomData})
 }

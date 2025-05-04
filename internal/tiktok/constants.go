@@ -35,8 +35,9 @@ const (
 	origin = "https://www.tiktok.com"
 
 	//req_from
-	fromLiveTab      = "live_mt_pc_web_rec_tab_refresh"
-	fromFollowingTab = "tiktok_message_webapp_following"
+	fromLiveTab       = "live_mt_pc_web_rec_tab_refresh"
+	fromFollowingTab  = "tiktok_message_webapp_following"
+	fromSuggestionTab = "pc_web_suggested_host"
 )
 
 var (

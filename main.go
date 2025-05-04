@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"windsorf-youtube-live/internal/auth"
+	"windsorf-youtube-live/internal/cache"
 	"windsorf-youtube-live/internal/config"
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/models"
@@ -66,6 +67,8 @@ func main() {
 
 	var db *gorm.DB
 	var dbErr error
+
+	cache := cache.NewInMemoryCache()
 
 	if cfg.App.Sql == "mysql" {
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", cfg.MySQL.User, cfg.MySQL.Password, cfg.MySQL.Host, cfg.MySQL.Port, cfg.MySQL.DBName, cfg.MySQL.Params)
@@ -177,6 +180,18 @@ func main() {
 		c.FileFromFS("/user-management.html", http.FS(staticFs))
 	})
 
+	// Mirror page
+	r.GET("/mirror", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/mirror-list.html", http.FS(staticFs))
+	})
+
+	// Live page
+	r.GET("/live", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/live-list.html", http.FS(staticFs))
+	})
+
 	r.GET("/", func(c *gin.Context) {
 		// check if user is logged in
 		_, exists := c.Get("user_id")
@@ -259,12 +274,6 @@ func main() {
 
 	r.DELETE("/api/users/:id", handlers.JWTMiddleware(), userHandler.DeleteUser)
 
-	// Mirror page
-	r.GET("/mirror", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/mirror-list.html", http.FS(staticFs))
-	})
-
 	tiktokUserAgent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
 	if cfg.TikTok.UserAgent != "" {
 		tiktokUserAgent = cfg.TikTok.UserAgent
@@ -290,7 +299,7 @@ func main() {
 	r.PUT("/api/mirrors/:id/rtmp-url", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorRTMPUrl)
 	r.PUT("/api/mirrors/:id/stream-key", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorStreamKey)
 
-	tiktokHandler := handlers.TiktokHandler{DB: db, TikTokClient: tiktokClient}
+	tiktokHandler := handlers.TiktokHandler{DB: db, TikTokClient: tiktokClient, Cache: cache}
 	// -- Tiktok Start --
 	r.GET("/api/tiktok/get-room-from-user", tiktokHandler.GetRoomFromUser)
 

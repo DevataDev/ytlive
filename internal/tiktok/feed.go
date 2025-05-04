@@ -2,7 +2,6 @@ package tiktok
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 )
 
@@ -57,6 +56,7 @@ type FeedRoomData struct {
 	UserCount     int    `json:"user_count"`
 	OsType        int    `json:"os_type"`
 	ClientVersion int    `json:"client_version"`
+	LiveURL       string `json:"live_url"`
 	Cover         struct {
 		URLList  []string `json:"url_list"`
 		URI      string   `json:"uri"`
@@ -176,10 +176,61 @@ type FeedRoomData struct {
 	} `json:"taxonomy_tag_info"`
 }
 
+func (r FeedRoomData) GetLiveURL() string {
+	var liveURL string
+	if r.StreamURL.FlvPullURL.FULLHD1 != "" {
+		liveURL = r.StreamURL.FlvPullURL.FULLHD1
+	} else if r.StreamURL.FlvPullURL.HD1 != "" {
+		liveURL = r.StreamURL.FlvPullURL.HD1
+	} else if r.StreamURL.FlvPullURL.SD2 != "" {
+		liveURL = r.StreamURL.FlvPullURL.SD2
+	} else if r.StreamURL.FlvPullURL.SD1 != "" {
+		liveURL = r.StreamURL.FlvPullURL.SD1
+	}
+	if liveURL == "" {
+		liveURL = r.StreamURL.RtmpPullURL
+	}
+	return liveURL
+}
+
 func (c *Client) GetLiveFeed() ([]FeedRoomData, error) {
 	queryParams := c.formatDefaultGetParams()
 	queryParams["req_from"] = fromLiveTab
 	queryParams["channel_id"] = "87"
+
+	url := c.FormatUrl(webcastURL, urlFeed, queryParams)
+	data, err := c.Get(url, false)
+	if err != nil {
+		return nil, err
+	}
+
+	reader := parseBody(data)
+
+	defer reader.Close()
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	var feedResponse FeedResponse
+	if err := json.Unmarshal(body, &feedResponse); err != nil {
+		return nil, err
+	}
+
+	var feedRoomData []FeedRoomData
+	for _, room := range feedResponse.RoomFeedData {
+		roomData := room.Data
+		roomData.LiveURL = roomData.GetLiveURL()
+		feedRoomData = append(feedRoomData, roomData)
+	}
+
+	return feedRoomData, nil
+}
+
+func (c *Client) GetSuggestedFeed() ([]FeedRoomData, error) {
+	queryParams := c.formatDefaultGetParams()
+	queryParams["req_from"] = fromSuggestionTab
+	queryParams["channel_id"] = "86"
 
 	url := c.FormatUrl(webcastURL, urlFeed, queryParams)
 	data, err := c.Get(url, true)
@@ -202,10 +253,10 @@ func (c *Client) GetLiveFeed() ([]FeedRoomData, error) {
 
 	var feedRoomData []FeedRoomData
 	for _, room := range feedResponse.RoomFeedData {
-		feedRoomData = append(feedRoomData, room.Data)
+		roomData := room.Data
+		roomData.LiveURL = roomData.GetLiveURL()
+		feedRoomData = append(feedRoomData, roomData)
 	}
-
-	fmt.Println("Feed Room Data:", feedRoomData)
 
 	return feedRoomData, nil
 }
@@ -235,7 +286,9 @@ func (c *Client) GetFollowingFeed() ([]FeedRoomData, error) {
 
 	var feedRoomData []FeedRoomData
 	for _, room := range feedResponse.RoomFeedData {
-		feedRoomData = append(feedRoomData, room.Data)
+		roomData := room.Data
+		roomData.LiveURL = roomData.GetLiveURL()
+		feedRoomData = append(feedRoomData, roomData)
 	}
 
 	return feedRoomData, nil
