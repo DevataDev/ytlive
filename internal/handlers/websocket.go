@@ -236,7 +236,7 @@ func WebSocketHandler(c *gin.Context) {
 		}
 
 		// Echo message back (optional, can remove)
-		// conn.WriteMessage(websocket.TextMessage, msg)
+		conn.WriteMessage(websocket.TextMessage, msg)
 	}
 
 	close(cmdChan)
@@ -382,6 +382,14 @@ func BroadcastMirrorRoomIsAliveUpdate(isAliveMap map[string]bool) {
 	streamListClientsMu.Lock()
 	for c := range streamListClients {
 		c.WriteJSON(map[string]interface{}{"type": "mirror_room_is_alive_update", "is_alive_map": isAliveMap})
+	}
+	streamListClientsMu.Unlock()
+}
+
+func BroadcastMirrorUpdateList() {
+	streamListClientsMu.Lock()
+	for c := range streamListClients {
+		c.WriteJSON(map[string]interface{}{"type": "mirror_update_list"})
 	}
 	streamListClientsMu.Unlock()
 }

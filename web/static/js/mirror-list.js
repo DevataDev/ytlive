@@ -207,11 +207,20 @@ $(function() {
     function showSnackbar(message, isError) {
         let snackbar = $("#mirror-snackbar");
         if (snackbar.length === 0) {
-            $("body").append('<div id="mirror-snackbar" class="toast align-items-center text-white bg-' + (isError ? 'danger' : 'success') + ' border-0 position-fixed bottom-0 end-0 m-4" role="alert" aria-live="assertive" aria-atomic="true"><div class="d-flex"><div class="toast-body"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div></div>');
+            $("body").append('<div id="mirror-snackbar" class="toast align-items-center text-white bg-' + (isError ? 'danger' : 'success') + ' border-0 position-fixed end-0 m-4" role="alert" aria-live="assertive" aria-atomic="true" style="bottom: 90px; z-index: 2000; min-width: 280px; max-width: 90vw;">\
+                <div class="d-flex">\
+                    <div class="toast-body"></div>\
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>\
+                </div>\
+            </div>');
             snackbar = $("#mirror-snackbar");
         }
         snackbar.removeClass("bg-success bg-danger").addClass(isError ? "bg-danger" : "bg-success");
         snackbar.find(".toast-body").text(message);
+        snackbar.css({
+            "bottom": "90px", // Adjust to be above footer
+            "z-index": 2000
+        });
         const toast = new bootstrap.Toast(snackbar[0]);
         toast.show();
     }
@@ -319,6 +328,9 @@ function setupMirrorRoomIsAliveWebSocket() {
             if (msg.type === 'mirror_room_is_alive_update') {
                 updateMirrorRoomIsAlive(msg.is_alive_map);
             }
+            if (msg.type === 'mirror_update_list') {
+                fetchMirrors();
+            }
         } catch(e) {}
     };
     window.mirrorRoomIsAliveSocket.onclose = function() {
@@ -345,4 +357,3 @@ function updateMirrorRoomIsAlive(isAliveMap) {
         }
     });
 }
-
