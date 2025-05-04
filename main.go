@@ -299,6 +299,8 @@ func main() {
 	r.GET("/api/tiktok/check-room-is-alive", tiktokHandler.CheckRoomIsAlive)
 
 	r.GET("/api/tiktok/get-live-url", tiktokHandler.GetLiveUrl)
+
+	r.GET("/api/tiktok/live-feed", tiktokHandler.GetLiveFeed)
 	// -- Tiktok End --
 
 	// Periodically broadcast server metrics to all websocket clients

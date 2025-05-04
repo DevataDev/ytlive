@@ -179,6 +179,7 @@ type FeedRoomData struct {
 func (c *Client) GetLiveFeed() ([]FeedRoomData, error) {
 	queryParams := c.formatDefaultGetParams()
 	queryParams["req_from"] = fromLiveTab
+	queryParams["channel_id"] = "87"
 
 	url := c.FormatUrl(webcastURL, urlFeed, queryParams)
 	data, err := c.Get(url, true)

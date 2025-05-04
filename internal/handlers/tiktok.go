@@ -80,3 +80,20 @@ func (h *TiktokHandler) GetLiveUrl(c *gin.Context) {
 	}
 	c.JSON(200, gin.H{"live_url": urlDecoded})
 }
+
+func (h *TiktokHandler) GetLiveFeed(c *gin.Context) {
+	offset := c.Query("offset")
+	limit := c.Query("limit")
+	if offset == "" {
+		offset = "0"
+	}
+	if limit == "" {
+		limit = "6"
+	}
+	feedRoomData, err := h.TikTokClient.GetLiveFeed()
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"rooms": feedRoomData})
+}

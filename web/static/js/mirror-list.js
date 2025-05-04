@@ -303,6 +303,8 @@ $(function() {
                 let msg = 'Failed to add mirror.';
                 if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
                 showSnackbar(msg, true);
+                $("#addMirrorModal .btn-primary").prop("disabled", false);
+                $("#addMirrorModal .btn-primary").html('Add Mirror');
             },
             complete: function() {
                 $("#addMirrorForm button[type='submit']").prop("disabled", false);
