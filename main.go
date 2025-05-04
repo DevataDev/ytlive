@@ -308,7 +308,7 @@ func main() {
 	if tiktokCookie != "" {
 		tiktokClient.WithCookie(tiktokCookie)
 	}
-	mirrorHandler := handlers.MirrorHandler{DB: db, TikTok: tiktokClient}
+	mirrorHandler := handlers.MirrorHandler{DB: db, TikTok: tiktokClient, Bus: broadcast.Bus}
 	r.GET("/api/mirrors", handlers.JWTMiddleware(), mirrorHandler.ListMirrors)
 	r.POST("/api/mirrors", handlers.JWTMiddleware(), mirrorHandler.AddMirror)
 	r.POST("/api/mirrors/:id/start", handlers.JWTMiddleware(), mirrorHandler.StartMirror)

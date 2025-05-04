@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"windsorf-youtube-live/internal/broadcast"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/tiktok"
 
@@ -17,6 +18,7 @@ import (
 type MirrorHandler struct {
 	DB     *gorm.DB
 	TikTok tiktok.TikTokClientIface
+	Bus    *broadcast.LocalBroadcast
 }
 
 func checkAllNumber(str string) bool {
@@ -325,6 +327,12 @@ func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, r
 
 	if err := h.DB.Create(&mirror).Error; err != nil {
 		fmt.Println("Failed to save mirror: " + err.Error())
+		return
+	}
+
+	_, _, err = models.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB)
+	if err != nil {
+		fmt.Println("Failed to start mirror worker: " + err.Error())
 		return
 	}
 }
