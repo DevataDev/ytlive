@@ -142,13 +142,14 @@ func (c *Client) Search(query string, offset int, limit int, searchID string) (*
 	queryParams["count"] = fmt.Sprintf("%d", 20)
 	queryParams["web_search_code"] = `{"tiktok":{"client_params_x":{"search_engine":{"ies_mt_user_live_video_card_use_libra":1,"mt_search_general_user_live_card":1}},"search_server":{}}}`
 	queryParams["webcast_language"] = c.location.Lang
+
 	if searchID != "" {
 		queryParams["search_id"] = searchID
 	}
 
 	url := c.FormatUrl(tiktokAppURL, urlSearch, queryParams)
 
-	resp, err := c.Get(url, false)
+	resp, err := c.Get(url, true)
 	if err != nil {
 		return nil, err
 	}

@@ -20,6 +20,15 @@ type TiktokHandler struct {
 	Cache        *cache.InMemoryCache
 }
 
+type SearchQueryResponse struct {
+	Rooms    []tiktok.LiveRoomData `json:"rooms"`
+	SearchID string                `json:"search_id"`
+	Offset   int                   `json:"offset"`
+	Limit    int                   `json:"limit"`
+	Total    int                   `json:"total"`
+	HasMore  bool                  `json:"has_more"`
+}
+
 func (h *TiktokHandler) GetRoomFromUser(c *gin.Context) {
 	user := c.Query("user")
 	if user == "" {
@@ -144,11 +153,13 @@ func (h *TiktokHandler) Search(c *gin.Context) {
 	offsetInt, _ := strconv.Atoi(offset)
 	limitInt, _ := strconv.Atoi(limit)
 
+	var searchQueryResponse SearchQueryResponse
 	// check in cache first
 	cacheKey := fmt.Sprintf("search_%s_%d_%d", keyword, offsetInt, limitInt)
 	searchRoomData, err := h.Cache.Get(cacheKey)
 	if err == nil {
-		c.JSON(200, gin.H{"rooms": searchRoomData})
+		searchQueryResponse = searchRoomData.(SearchQueryResponse)
+		c.JSON(200, gin.H{"rooms": searchQueryResponse.Rooms, "pagination": gin.H{"offset": searchQueryResponse.Offset, "limit": searchQueryResponse.Limit, "total": searchQueryResponse.Total, "has_more": searchQueryResponse.HasMore, "search_id": searchQueryResponse.SearchID}})
 		return
 	}
 
@@ -162,8 +173,17 @@ func (h *TiktokHandler) Search(c *gin.Context) {
 	for _, room := range searchRoomData.(*tiktok.SearchResponse).Data {
 		rooms = append(rooms, room.LiveInfo.ParsedRawData)
 	}
+	searchResponse := searchRoomData.(*tiktok.SearchResponse)
+	searchQueryResponse = SearchQueryResponse{
+		Rooms:    rooms,
+		SearchID: searchResponse.LogPb.ImprID,
+		Offset:   offsetInt,
+		Limit:    limitInt,
+		Total:    searchResponse.Cursor,
+		HasMore:  searchResponse.HasMore > 0,
+	}
 	// set cache
-	h.Cache.Set(cacheKey, rooms, time.Now().Add(3*time.Minute))
+	h.Cache.Set(cacheKey, searchQueryResponse, time.Now().Add(3*time.Minute))
 
-	c.JSON(200, gin.H{"rooms": rooms})
+	c.JSON(200, gin.H{"rooms": rooms, "pagination": gin.H{"offset": searchQueryResponse.Offset, "limit": searchQueryResponse.Limit, "total": searchQueryResponse.Total, "has_more": searchQueryResponse.HasMore, "search_id": searchQueryResponse.SearchID}})
 }

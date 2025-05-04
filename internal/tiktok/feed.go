@@ -199,7 +199,7 @@ func (c *Client) GetLiveFeed() ([]FeedRoomData, error) {
 	queryParams["channel_id"] = "87"
 
 	url := c.FormatUrl(webcastURL, urlFeed, queryParams)
-	data, err := c.Get(url, false)
+	data, err := c.Get(url, true)
 	if err != nil {
 		return nil, err
 	}
