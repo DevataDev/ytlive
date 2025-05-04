@@ -146,3 +146,62 @@ func (h *UserHandler) UpdateUserPassword(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Password updated"})
 }
+
+func (h *UserHandler) UpdateUserAdminStatus(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var user models.User
+	if err := h.DB.First(&user, "id = ?", userID).Error; err != nil || !user.IsAdmin {
+		c.JSON(403, gin.H{"error": "Forbidden"})
+		return
+	}
+	id := c.Param("id")
+	var req struct {
+		IsAdmin bool `json:"is_admin"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request"})
+		return
+	}
+	if err := h.DB.Model(&models.User{}).Where("id = ?", id).Update("is_admin", req.IsAdmin).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to update admin status"})
+		return
+	}
+	c.JSON(200, gin.H{"success": true})
+}
+
+func (h *UserHandler) UpdateUserActiveStatus(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var user models.User
+	if err := h.DB.First(&user, "id = ?", userID).Error; err != nil || !user.IsAdmin {
+		c.JSON(403, gin.H{"error": "Forbidden"})
+		return
+	}
+	id := c.Param("id")
+	var req struct {
+		IsActive bool `json:"is_active"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request"})
+		return
+	}
+	if err := h.DB.Model(&models.User{}).Where("id = ?", id).Update("is_active", req.IsActive).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to update active status"})
+		return
+	}
+	c.JSON(200, gin.H{"success": true})
+}
+
+func (h *UserHandler) DeleteUser(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var user models.User
+	if err := h.DB.First(&user, "id = ?", userID).Error; err != nil || !user.IsAdmin {
+		c.JSON(403, gin.H{"error": "Forbidden"})
+		return
+	}
+	id := c.Param("id")
+	if err := h.DB.Delete(&models.User{}, "id = ?", id).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to delete user"})
+		return
+	}
+	c.JSON(200, gin.H{"success": true})
+}

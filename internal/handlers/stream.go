@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"windsorf-youtube-live/internal/models"
@@ -515,6 +516,152 @@ func (h *StreamHandler) GetDriveUploadProgress(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, progress)
+}
+
+func (h *StreamHandler) SaveStreamKey(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		StreamKey string `json:"stream_key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request."})
+		return
+	}
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Stream not found."})
+		return
+	}
+	stream.StreamKey = req.StreamKey
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to update stream key."})
+		return
+	}
+	c.JSON(200, gin.H{"success": true})
+}
+
+func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
+	id := c.Param("id")
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Stream not found."})
+		return
+	}
+	if stream.Status == "live" {
+		c.JSON(400, gin.H{"error": "Stream is already live."})
+		return
+	}
+	// Check for required fields
+	if stream.StreamKey == "" || stream.FilePath == nil {
+		c.JSON(400, gin.H{"error": "StreamKey or FilePath missing."})
+		return
+	}
+	if stream.Status == "scheduled" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This stream has been scheduled and cannot be started manually."})
+		return
+	}
+	// Before starting, check if ffmpeg pid exists and is running, kill if so (prevent double stream)
+	if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
+		proc, err := os.FindProcess(*stream.FfmpegPID)
+		if err == nil && proc != nil {
+			// Try to send signal 0 to check if running
+			err = proc.Signal(syscall.Signal(0))
+			if err == nil {
+				// Process is running, try to kill
+				_ = proc.Signal(syscall.SIGTERM)
+				done := make(chan struct{}, 1)
+				go func() { proc.Wait(); done <- struct{}{} }()
+				select {
+				case <-done:
+					// exited gracefully
+				case <-time.After(5 * time.Second):
+					if proc.Pid > 0 {
+						_ = proc.Kill()
+					}
+					<-done
+				}
+			}
+		}
+	}
+	// Start FFmpeg goroutine (using models.AddWorker)
+	go func(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, db *gorm.DB) {
+		worker, pid, err := models.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, db)
+		if err == nil {
+			fmt.Println("FFmpeg started for stream", streamID, "with PID", pid)
+			fmt.Println("FFmpeg PID stored in worker", worker.FfmpegPID)
+			db.Model(&models.Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
+				"ffmpeg_p_id": worker.FfmpegPID,
+				"status":      "live",
+				"started_at":  time.Now(),
+			})
+			// Broadcast to all ws clients
+			userID, _ := c.Get("user_id")
+			go func() {
+				BroadcastStreamListUpdate()
+				if userID != nil {
+					BroadcastDashboardStreams(db, userID.(string))
+				}
+			}()
+		}
+	}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, h.DB)
+	c.JSON(200, gin.H{"success": true})
+}
+
+func (h *StreamHandler) StopStreamBackground(c *gin.Context) {
+	id := c.Param("id")
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Stream not found."})
+		return
+	}
+	if stream.Status != "live" {
+		c.JSON(400, gin.H{"error": "Stream is not live."})
+		return
+	}
+	err := models.StopStreamWorker(stream.ID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to stop stream."})
+		return
+	}
+	h.DB.Model(&stream).Updates(map[string]interface{}{
+		"status":      "stopped",
+		"stopped_at":  time.Now(),
+		"ffmpeg_p_id": nil,
+	})
+	// Broadcast to all ws clients
+	userID, _ := c.Get("user_id")
+	go func() {
+		BroadcastStreamListUpdate()
+		BroadcastDashboardStreams(h.DB, userID.(string))
+	}()
+	c.JSON(200, gin.H{"success": true})
+}
+
+func (h *StreamHandler) DeleteStream(c *gin.Context) {
+	id := c.Param("id")
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Stream not found."})
+		return
+	}
+	// Optionally: stop the stream if it's live
+	if stream.Status == "live" {
+		_ = models.StopStreamWorker(stream.ID)
+	}
+	// Remove video file if exists
+	if stream.FilePath != nil && *stream.FilePath != "" {
+		_ = os.Remove(*stream.FilePath)
+	}
+	if err := h.DB.Delete(&stream).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to delete stream."})
+		return
+	}
+	userID, _ := c.Get("user_id")
+	go func() {
+		BroadcastStreamListUpdate()
+		BroadcastDashboardStreams(h.DB, userID.(string))
+	}()
+	c.JSON(200, gin.H{"success": true})
 }
 
 func copyFile(src, dst string) error {

@@ -15,10 +15,11 @@ const (
 	getRoomInfo      = "/webcast/room/info/"
 	checkRoomIsAlive = "/webcast/room/check_alive/"
 	urlLive          = "live/"
-	urlFeed          = "feed/"
+	urlFeed          = "/webcast/feed/"
 	urlRankList      = "/ranklist/online_audience/"
 	urlPriceList     = "/wallet_api/fs/diamond"
 	urlUser          = "/@%s/"
+	urlExplore       = "/api/explore/item_list/"
 
 	// Think this changed to room/enter/
 	urlRoomData          = "/webcast/fetch/"
@@ -32,6 +33,10 @@ const (
 	referer = "https://www.tiktok.com/"
 	// webcast backend will fail if origin is an ending /
 	origin = "https://www.tiktok.com"
+
+	//req_from
+	fromLiveTab      = "live_mt_pc_web_rec_tab_refresh"
+	fromFollowingTab = "tiktok_message_webapp_following"
 )
 
 var (
