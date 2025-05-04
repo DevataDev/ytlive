@@ -126,11 +126,18 @@ func (h *TiktokHandler) GetLiveFeed(c *gin.Context) {
 func (h *TiktokHandler) Search(c *gin.Context) {
 	offset := c.Query("offset")
 	limit := c.Query("limit")
+	page := c.Query("page")
+
 	if offset == "" {
 		offset = "0"
 	}
 	if limit == "" {
-		limit = "6"
+		limit = "12"
+	}
+
+	if page != "" {
+		pageInt, _ := strconv.Atoi(page)
+		offset = fmt.Sprintf("%d", (pageInt-1)*12)
 	}
 	// get keyword from json request body
 	var requestBody map[string]interface{}
@@ -145,8 +152,9 @@ func (h *TiktokHandler) Search(c *gin.Context) {
 	}
 
 	var searchId string
-	if c.Query("search_id") != "" {
-		searchId = c.Query("search_id")
+	searchId, ok := requestBody["search_id"].(string)
+	if !ok {
+		searchId = ""
 	}
 
 	// convert offset and limit to int

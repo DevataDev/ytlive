@@ -145,7 +145,7 @@ $(function() {
         return num;
     }
 
-    function renderSearchFeedsTable(searchFeeds) {
+    function renderSearchFeedsTable(searchFeeds, append = false) {
         const cardContainer = $("#room-list-cards");
         cardContainer.html('');
         searchFeeds.forEach(function(searchFeed) {
@@ -190,7 +190,7 @@ $(function() {
                                 var hls = new Hls();
                                 hls.loadSource('${liveUrl}');
                                 hls.attachMedia(video);
-                                window._liveHlsPlayers['${liveFeed.id}'] = hls;
+                                window._liveHlsPlayers['${searchFeed.id}'] = hls;
                             } else if (video) {
                                 video.src = '${liveUrl}';
                                 videojs(video);
@@ -242,9 +242,35 @@ $(function() {
                 </div>
             `);
         });
+
+        // Remove existing load more button if any
+        $("#loadMoreBtnWrapper").remove();
+
+        // Add Load More button if needed
+        if (searchHasMore && searchFeeds.length > 0) {
+            cardContainer.after(`
+                <div id="loadMoreBtnWrapper" class="text-center my-3">
+                    <button id="loadMoreBtn" class="btn btn-primary">${searchLoading ? 'Loading...' : 'Load More'}</button>
+                </div>
+            `);
+        } else if (searchFeeds.length > 0) {
+            cardContainer.after(`
+                <div id="loadMoreBtnWrapper" class="text-center my-3">
+                    <button id="loadMoreBtn" class="btn btn-secondary" disabled>No more results</button>
+                </div>
+            `);
+        }
     }
 
-    function fetchSearchFeeds() {
+    // --- Infinity Scroll State ---
+    let searchPage = 1;
+    let searchHasMore = true;
+    let searchLoading = false;
+    let searchKeyword = '';
+    let searchFeedsAll = [];
+    let searchId = '';
+
+    function fetchSearchFeeds(page = 1, append = false) {
         const token = localStorage.getItem("jwt_token");
         const searchInput = $("#searchInput").val();
 
@@ -253,27 +279,100 @@ $(function() {
             return;
         }
 
+        if (searchLoading) {
+            console.log("fetchSearchFeeds called but already loading");
+            return;
+        }
+        searchLoading = true;
+
+        if (!append) {
+            searchPage = 1;
+            searchHasMore = true;
+            searchFeedsAll = [];
+            searchKeyword = searchInput;
+            searchId = '';
+        }
+
+        let paginationAppendUrl = '';
+        if (append || searchPage > 1) {
+            paginationAppendUrl = `?page=${searchPage}`;
+        }
+
+        console.log("Calling /api/tiktok/search", {
+            url: '/api/tiktok/search' + paginationAppendUrl,
+            page: searchPage,
+            append,
+            searchId,
+            searchKeyword
+        });
+
         $.ajax({
-            url: '/api/tiktok/search',
+            url: '/api/tiktok/search' + paginationAppendUrl,
             method: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({ keyword: encodeURIComponent(searchInput) }),
+            data: JSON.stringify({ keyword: encodeURIComponent(searchKeyword), search_id: searchId }),
             headers: { Authorization: 'Bearer ' + token },
             success: function(data) {
-                $("#countRoom").text(data.rooms ? data.rooms.length : 0);
-                
-                renderSearchFeedsTable(data.rooms || []);
+                console.log("API Success", data);
+                if (append) {
+                    searchFeedsAll = searchFeedsAll.concat(data.rooms || []);
+                } else {
+                    searchFeedsAll = data.rooms || [];
+                }
+                if (searchId != data.pagination.search_id) {
+                    searchId = data.pagination.search_id;
+                }
+                renderSearchFeedsTable(searchFeedsAll, append);
+                $("#countRoom").text(searchFeedsAll.length);
+                searchHasMore = data.pagination.has_more;
+                searchPage += 1;
+                searchLoading = false;
+                console.log("After success:", {searchHasMore, searchPage, searchFeedsAllLength: searchFeedsAll.length});
             },
-            error: function() {
+            error: function(xhr) {
+                console.log("API Error", xhr);
+                searchLoading = false;
                 $("#room-list-cards").html('<div class="col-12 text-center text-danger">Failed to load rooms.</div>');
+            },
+            complete: function() {
+                searchLoading = false;
+                console.log("AJAX complete, loading reset");
+                // Remove existing load more button if any
+                $("#loadMoreBtnWrapper").remove();
+                let cardContainer = $("#room-list-cards");
+
+                // Add Load More button if needed
+                if (searchHasMore) {
+                    cardContainer.after(`
+                        <div id="loadMoreBtnWrapper" class="text-center my-3">
+                            <button id="loadMoreBtn" class="btn btn-primary">${searchLoading ? 'Loading...' : 'Load More'}</button>
+                        </div>
+                    `);
+                } else if (!searchHasMore) {
+                    cardContainer.after(`
+                        <div id="loadMoreBtnWrapper" class="text-center my-3">
+                            <button id="loadMoreBtn" class="btn btn-secondary" disabled>No more results</button>
+                        </div>
+                    `);
+                }
             }
         });
     }
 
+    // Remove infinite scroll handler for clarity
+    $(window).off('scroll');
+
+    // Handler for Load More button
+    $(document).off('click', '#loadMoreBtn');
+    $(document).on('click', '#loadMoreBtn', function() {
+        if (!searchHasMore || searchLoading) return;
+        fetchSearchFeeds(searchPage, true);
+    });
+
     // Handler for Search button
     $(document).on("click", "#searchBtn", function(e) {
         e.preventDefault();
-        fetchSearchFeeds();
+        fetchSearchFeeds(1, false);
     });
 
     // Handler for Start/Stop toggle button
@@ -378,121 +477,5 @@ $(function() {
         });
     });
 
-    // Handler for Stream Key save
-    $(document).on("click", ".live-streamkey-save", function(e) {
-        e.preventDefault();
-        const id = $(this).data("id");
-        const newKey = $(`#live-streamkey-input-${id}`).val();
-        $.ajax({
-            url: `/api/live/${id}/stream-key`,
-            type: 'PUT',
-            contentType: 'application/json',
-            headers: { Authorization: 'Bearer ' + localStorage.getItem("jwt_token") },
-            data: JSON.stringify({ stream_key: newKey }),
-            success: function() {
-                showSnackbar("Stream Key saved successfully.", false);
-                fetchMirrors();
-            },
-            error: function(xhr) {
-                showSnackbar("Failed to save Stream Key: " + (xhr.responseText || xhr.statusText), true);
-            }
-        });
-    });
-
-    // Password show/hide toggle
-    $(document).on("click", ".live-password-toggle", function() {
-        const input = $(this).siblings('input');
-        const type = input.attr('type') === 'password' ? 'text' : 'password';
-        input.attr('type', type);
-        $(this).find('i').toggleClass('fa-eye fa-eye-slash');
-    });
-
-    // Handle Add Mirror button (modal is auto-handled by Bootstrap)
-    $("#addLiveForm").on("submit", function(e) {
-        e.preventDefault();
-        const input = $("#liveInput").val().trim();
-        if (!input) {
-            $("#liveInput").addClass("is-invalid");
-            return;
-        }
-        $("#liveInput").removeClass("is-invalid");
-        const token = localStorage.getItem("jwt_token");
-        $("#addLiveModal .btn-primary").prop("disabled", true);
-        // show loading spinner
-        $("#addLiveModal .btn-primary").html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...');
-        $.ajax({
-            url: '/api/mirrors',
-            method: 'POST',
-            contentType: 'application/json',
-            headers: { Authorization: 'Bearer ' + token },
-            data: JSON.stringify({ tiktok: input }),
-            success: function(resp) {
-                $('#addMirrorModal').modal('hide');
-                $("#mirrorInput").val("");
-                $("#addMirrorModal .btn-primary").prop("disabled", false);
-                $("#addMirrorModal .btn-primary").html('Add Mirror');
-                showSnackbar("Mirror added successfully.", false);
-                fetchMirrors();
-            },
-            error: function(xhr) {
-                let msg = 'Failed to add mirror.';
-                if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
-                showSnackbar(msg, true);
-                $("#addMirrorModal .btn-primary").prop("disabled", false);
-                $("#addMirrorModal .btn-primary").html('Add Mirror');
-            },
-            complete: function() {
-                $("#addMirrorForm button[type='submit']").prop("disabled", false);
-            }
-        });
-    });
-
-    // Initial load
     fetchLiveFeeds();
 });
-
-// --- WebSocket for mirror room is alive updates ---
-function setupMirrorRoomIsAliveWebSocket() {
-    if (window.mirrorRoomIsAliveSocket) {
-        window.mirrorRoomIsAliveSocket.close();
-    }
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const token = localStorage.getItem("jwt_token");
-    const wsUrl = protocol + '://' + window.location.host + '/ws?token=' + encodeURIComponent(token);
-    window.mirrorRoomIsAliveSocket = new WebSocket(wsUrl);
-    window.mirrorRoomIsAliveSocket.onmessage = function(event) {
-        // Expecting a message like { type: 'mirror_room_is_alive_update', is_alive_map: { ... } }
-        try {
-            const msg = JSON.parse(event.data);
-            if (msg.type === 'mirror_room_is_alive_update') {
-                updateMirrorRoomIsAlive(msg.is_alive_map);
-            }
-            if (msg.type === 'mirror_update_list') {
-                fetchMirrors();
-            }
-        } catch(e) {}
-    };
-    window.mirrorRoomIsAliveSocket.onclose = function() {
-        // Try to reconnect after 2s
-        setTimeout(setupMirrorRoomIsAliveWebSocket, 2000);
-    };
-}
-setupMirrorRoomIsAliveWebSocket();
-
-function updateMirrorRoomIsAlive(isAliveMap) {
-    const rows = document.querySelectorAll('.mirror-row');
-    rows.forEach(row => {
-        const roomId = row.getAttribute('data-room-id');
-        const isAlive = isAliveMap[roomId];
-        const badge = row.querySelector('.mirror-alive-badge');
-        if (isAlive) {
-            badge.classList.remove('bg-danger');
-            badge.classList.add('bg-success');
-            badge.textContent = 'Tiktok Host Online';
-        } else {
-            badge.classList.remove('bg-success');
-            badge.classList.add('bg-danger');
-            badge.textContent = 'Tiktok Host Offline';
-        }
-    });
-}

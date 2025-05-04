@@ -66,7 +66,6 @@ func (l *SearchResponse) ParseRawData() {
 }
 
 func parseLiveUrl(streamUrl StreamUrl) string {
-	fmt.Println(streamUrl)
 	var liveUrl string
 	if streamUrl.FlvPullUrl.FULL_HD1 != "" {
 		liveUrl = streamUrl.FlvPullUrl.FULL_HD1
@@ -80,7 +79,7 @@ func parseLiveUrl(streamUrl StreamUrl) string {
 	if liveUrl == "" {
 		liveUrl = streamUrl.RtmpPullUrl
 	}
-	fmt.Println("Got liveUrl", liveUrl)
+
 	return liveUrl
 }
 
@@ -149,7 +148,7 @@ func (c *Client) Search(query string, offset int, limit int, searchID string) (*
 
 	url := c.FormatUrl(tiktokAppURL, urlSearch, queryParams)
 
-	resp, err := c.Get(url, true)
+	resp, err := c.Get(url, false)
 	if err != nil {
 		return nil, err
 	}
