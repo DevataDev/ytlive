@@ -15,5 +15,7 @@ type Monitor struct {
 	UpdatedAt     time.Time
 	DeletedAt     gorm.DeletedAt `gorm:"index"`
 	LastCheckedAt *time.Time
+	RtmpUrl       string `gorm:"default:null" json:"RtmpUrl"`
+	StreamKey     string `gorm:"default:null" json:"StreamKey"`
 	UserId        string `gorm:"not null;index" json:"UserId"`
 }
