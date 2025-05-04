@@ -325,6 +325,13 @@ func main() {
 	r.POST("/api/tiktok/search", tiktokHandler.Search)
 	// -- Tiktok End --
 
+	monitorHandler := handlers.MonitorHandler{DB: db}
+	r.POST("/api/monitors", handlers.JWTMiddleware(), monitorHandler.AddMonitor)
+	r.GET("/api/monitors", handlers.JWTMiddleware(), monitorHandler.ListMonitors)
+	r.DELETE("/api/monitors/:id", handlers.JWTMiddleware(), monitorHandler.RemoveMonitor)
+	r.PUT("/api/monitors/:id/rtmp-url", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorRTMPUrl)
+	r.PUT("/api/monitors/:id/stream-key", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorStreamKey)
+
 	liveWorker := workers.NewLiveWorker(tiktokClient, db, broadcast.Bus)
 	liveWorker.StartUserMonitoring()
 

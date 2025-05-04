@@ -103,3 +103,49 @@ func (h *MonitorHandler) UpdateMonitor(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"monitor": monitor})
 }
+
+func (h *MonitorHandler) UpdateMonitorRTMPUrl(c *gin.Context) {
+	var req struct {
+		UniqueId string `json:"unique_id"`
+		RTMPUrl  string `json:"rtmp_url"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	var monitor models.Monitor
+	if err := h.DB.Where("unique_id = ?", req.UniqueId).First(&monitor).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Monitor not found"})
+		return
+	}
+	monitor.RtmpUrl = req.RTMPUrl
+	if err := h.DB.Save(&monitor).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update monitor"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"monitor": monitor})
+}
+
+func (h *MonitorHandler) UpdateMonitorStreamKey(c *gin.Context) {
+	var req struct {
+		UniqueId  string `json:"unique_id"`
+		StreamKey string `json:"stream_key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	var monitor models.Monitor
+	if err := h.DB.Where("unique_id = ?", req.UniqueId).First(&monitor).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Monitor not found"})
+		return
+	}
+	monitor.StreamKey = req.StreamKey
+	if err := h.DB.Save(&monitor).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update monitor"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"monitor": monitor})
+}
