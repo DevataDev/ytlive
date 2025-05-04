@@ -294,6 +294,8 @@ $(function() {
             success: function(resp) {
                 $('#addMirrorModal').modal('hide');
                 $("#mirrorInput").val("");
+                $("#addMirrorModal .btn-primary").prop("disabled", false);
+                $("#addMirrorModal .btn-primary").html('Add Mirror');
                 showSnackbar("Mirror added successfully.", false);
                 fetchMirrors();
             },
