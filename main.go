@@ -307,7 +307,21 @@ func main() {
 
 	broadcast.Bus.AddListener("default", broadcast.AddToMirror, func(e broadcast.Event) {
 		fmt.Println("Adding to mirror", e.Data)
+		data := e.Data.(struct {
+			Username  string `json:"username"`
+			UserId    string `json:"user_id"`
+			RtmpUrl   string `json:"rtmp_url"`
+			StreamKey string `json:"stream_key"`
+		})
+		mirrorHandler.AddMirrorFromBroadcast(data.Username, data.UserId, data.RtmpUrl, data.StreamKey)
+	})
 
+	broadcast.Bus.AddListener("default", broadcast.RefreshMonitor, func(e broadcast.Event) {
+		data := e.Data.(struct {
+			Id       string `json:"id"`
+			UniqueId string `json:"unique_id"`
+		})
+		handlers.BroadcastMonitorUpdate(data.Id, data.UniqueId)
 	})
 
 	tiktokHandler := handlers.TiktokHandler{DB: db, TikTokClient: tiktokClient, Cache: cache}

@@ -46,14 +46,14 @@ func (w *LiveWorker) StartUserMonitoring() {
 				if monitor.RtmpUrl == "" || monitor.StreamKey == "" {
 					continue
 				}
-				w.StartLiveMonitoring(monitor.UniqueId, monitor.UserId, monitor.RtmpUrl, monitor.StreamKey)
+				w.StartLiveMonitoring(monitor.UniqueId, monitor.UserId, monitor.RtmpUrl, monitor.StreamKey, monitor.ID)
 			}
 			time.Sleep(1 * time.Minute)
 		}
 	}()
 }
 
-func (w *LiveWorker) StartLiveMonitoring(username string, userID string, rtmpUrl string, streamKey string) {
+func (w *LiveWorker) StartLiveMonitoring(username string, userID string, rtmpUrl string, streamKey string, monitorID string) {
 	fmt.Println("Starting live monitoring for user", username)
 	go func() {
 		for {
@@ -71,6 +71,12 @@ func (w *LiveWorker) StartLiveMonitoring(username string, userID string, rtmpUrl
 						"user_id":    userID,
 						"rtmp_url":   rtmpUrl,
 						"stream_key": streamKey,
+					},
+				})
+				w.Bus.Broadcast(broadcast.RefreshMonitor, broadcast.Event{
+					Data: map[string]interface{}{
+						"id":        monitorID,
+						"unique_id": username,
 					},
 				})
 				// break loop
