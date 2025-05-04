@@ -64,6 +64,7 @@ func (w *LiveWorker) StartLiveMonitoring(username string, userID string, rtmpUrl
 			}
 			if isLive {
 				fmt.Println("User is live for user", username)
+				w.DB.Where("unique_id = ?", username).Update("is_live", true)
 				w.Bus.Broadcast(broadcast.AddToMirror, broadcast.Event{
 					Data: map[string]interface{}{
 						"username":   username,
