@@ -18,22 +18,13 @@ func (c *Client) GetRoomIdFromUserWithAPI(username string) (string, error) {
 		return "", errors.New("username is empty")
 	}
 
-	devicePreset := GetRandomDevicePreset()
-	locationPreset, _ := GetLocationPreset(c.region)
-	screenPreset := GetRandomScreenPreset()
+	queryParams := c.formatDefaultGetParams()
+	queryParams["uniqueId"] = username
+	queryParams["sourceType"] = "54"
 
-	c.WithUserAgent(devicePreset.UserAgent)
+	url := c.FormatUrl(tiktokAppURL, urlGetRoomIdFromUser, queryParams)
 
-	queryParams := fmt.Sprintf("aid=1988&region=%s&uniqueId=%s&sourceType=54&app_name=tiktok_web&browser_language=%s&browser_name=%s&browser_version=%s&os=%s&screen_height=%d&screen_width=%d", c.region, username, locationPreset.Lang, devicePreset.BrowserName, devicePreset.BrowserVersion, devicePreset.OS, screenPreset.ScreenHeight, screenPreset.ScreenWidth)
-
-	url := fmt.Sprintf("%s/api-live/user/room?%s", TikTokAppURL, queryParams)
-
-	signedUrl, err := c.Sign(url)
-	if err != nil {
-		return "", err
-	}
-
-	data, err := c.Get(signedUrl)
+	data, err := c.Get(url, true)
 	if err != nil {
 		return "", err
 	}
@@ -55,11 +46,11 @@ func (c *Client) GetRoomIdFromUserWithAPI(username string) (string, error) {
 	}
 
 	if strings.Contains(string(body), "This account is private") {
-		return "", errors.New("this account is private")
+		return "", ErrPrivateAccount
 	}
 
 	if strings.Contains(string(body), "user_not_found") {
-		return "", errors.New("user not found")
+		return "", ErrUserNotFound
 	}
 
 	var response map[string]interface{}
@@ -68,15 +59,15 @@ func (c *Client) GetRoomIdFromUserWithAPI(username string) (string, error) {
 	}
 
 	if _, ok := response["data"]; !ok {
-		return "", errors.New("data not found")
+		return "", ErrDataNotFound
 	}
 
 	dataBody := response["data"].(map[string]interface{})
 	if dataBody == nil {
-		return "", errors.New("data is empty")
+		return "", ErrDataNotFound
 	}
 	if _, ok := dataBody["user"]; !ok {
-		return "", errors.New("user not found")
+		return "", ErrUserNotFound
 	}
 
 	return dataBody["user"].(map[string]interface{})["roomId"].(string), nil
@@ -87,8 +78,11 @@ func (c *Client) GetRoomInfo(roomID string) (map[string]interface{}, error) {
 		return nil, errors.New("room id is empty")
 	}
 
-	url := fmt.Sprintf("%s/webcast/room/info/?aid=1988&region=%s&room_id=%s", WebcastURL, c.region, roomID)
-	data, err := c.Get(url)
+	queryParams := c.formatDefaultGetParams()
+	queryParams["room_id"] = roomID
+
+	url := c.FormatUrl(webcastURL, getRoomInfo, queryParams)
+	data, err := c.Get(url, true)
 	if err != nil {
 		return nil, err
 	}
@@ -115,17 +109,17 @@ func (c *Client) GetRoomInfo(roomID string) (map[string]interface{}, error) {
 	}
 
 	if _, ok := response["data"]; !ok {
-		return nil, errors.New("data not found")
+		return nil, ErrDataNotFound
 	}
 
 	// This account is private
 	if strings.Contains(string(body), "This account is private") {
-		return nil, errors.New("this account is private")
+		return nil, ErrPrivateAccount
 	}
 
 	dataBody := response["data"].(map[string]interface{})
 	if dataBody == nil {
-		return nil, errors.New("data is empty")
+		return nil, ErrDataNotFound
 	}
 
 	return dataBody, nil
@@ -133,19 +127,23 @@ func (c *Client) GetRoomInfo(roomID string) (map[string]interface{}, error) {
 
 func (c *Client) CheckMultipleRoomIsAlive(roomIDs []string) (map[string]bool, error) {
 	if len(roomIDs) == 0 {
-		return nil, errors.New("room ids is empty")
+		return nil, ErrValidationEmptyField
 	}
 
 	var isAliveMap map[string]bool
 	roomIds := strings.Join(roomIDs, ",")
 
-	url := fmt.Sprintf("%s/webcast/room/check_alive/?aid=1988&region=%s&room_ids=%s&user_is_login=true", WebcastURL, c.region, roomIds)
+	queryParams := c.formatDefaultGetParams()
+	queryParams["room_ids"] = roomIds
+	queryParams["user_is_login"] = "true"
+
+	url := c.FormatUrl(webcastURL, checkRoomIsAlive, queryParams)
 
 	if c.httpClient == nil {
-		return nil, errors.New("http client is nil")
+		return nil, ErrHttpClientNil
 	}
 
-	data, err := c.Get(url)
+	data, err := c.Get(url, false)
 	if err != nil {
 		return nil, err
 	}
@@ -165,25 +163,21 @@ func (c *Client) CheckMultipleRoomIsAlive(roomIDs []string) (map[string]bool, er
 
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		fmt.Println("Failed to read room info for room", roomIds, "with error", err)
 		return nil, err
 	}
 
 	var response map[string]interface{}
 	if err := json.Unmarshal(body, &response); err != nil {
-		fmt.Println("Failed to unmarshal room info for room", roomIds, "with error", err)
 		return nil, err
 	}
 
 	if _, ok := response["data"]; !ok {
-		fmt.Println("Data not found for room", roomIds)
-		return nil, errors.New("data not found")
+		return nil, ErrDataNotFound
 	}
 
-	dataBody := response["data"].([]interface{})
-	if len(dataBody) == 0 {
-		fmt.Println("Data is empty for room", roomIds)
-		return nil, errors.New("data is empty")
+	dataBody, ok := response["data"].([]interface{})
+	if !ok {
+		return nil, ErrDataNotFound
 	}
 
 	isAliveMap = make(map[string]bool)
@@ -195,25 +189,27 @@ func (c *Client) CheckMultipleRoomIsAlive(roomIDs []string) (map[string]bool, er
 }
 
 func (c *Client) CheckRoomIsAlive(roomID string) (bool, error) {
-	fmt.Println("Checking room is alive for room", roomID)
 	if c == nil {
-		return false, errors.New("client is nil")
+		return false, ErrHttpClientNil
 	}
 
 	if roomID == "" {
-		return false, errors.New("room id is empty")
+		return false, ErrValidationEmptyField
 	}
 
-	url := fmt.Sprintf("%s/webcast/room/check_alive/?aid=1988&region=%s&room_ids=%s&user_is_login=true", WebcastURL, c.region, roomID)
+	queryParams := c.formatDefaultGetParams()
+	queryParams["room_ids"] = roomID
+	queryParams["user_is_login"] = "true"
+
+	url := c.FormatUrl(webcastURL, checkRoomIsAlive, queryParams)
 
 	if c.httpClient == nil {
-		return false, errors.New("http client is nil")
+		return false, ErrHttpClientNil
 	}
 
-	data, err := c.Get(url)
+	data, err := c.Get(url, true)
 
 	if err != nil {
-		fmt.Println("Failed to get room info for room", roomID, "with error", err)
 		return false, err
 	}
 	// Suppose resp is your *http.Response
@@ -231,7 +227,6 @@ func (c *Client) CheckRoomIsAlive(roomID string) (bool, error) {
 	defer reader.Close()
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		fmt.Println("Failed to read room info for room", roomID, "with error", err)
 		return false, err
 	}
 
@@ -243,13 +238,13 @@ func (c *Client) CheckRoomIsAlive(roomID string) (bool, error) {
 
 	if _, ok := response["data"]; !ok {
 		fmt.Println("Data not found for room", roomID)
-		return false, errors.New("data not found")
+		return false, ErrDataNotFound
 	}
 
 	dataBody := response["data"].([]interface{})
 	if len(dataBody) == 0 {
 		fmt.Println("Data is empty for room", roomID)
-		return false, errors.New("data is empty")
+		return false, ErrDataNotFound
 	}
 
 	var isAlive bool
@@ -264,11 +259,15 @@ func (c *Client) CheckRoomIsAlive(roomID string) (bool, error) {
 
 func (c *Client) GetLiveUrl(roomID string) (string, error) {
 	if roomID == "" {
-		return "", errors.New("room id is empty")
+		return "", ErrValidationEmptyField
 	}
 
-	url := fmt.Sprintf("%s/webcast/room/info/?aid=1988&region=%s&room_id=%s&user_is_login=true", WebcastURL, c.region, roomID)
-	data, err := c.Get(url)
+	queryParams := c.formatDefaultGetParams()
+	queryParams["room_id"] = roomID
+	queryParams["user_is_login"] = "true"
+
+	url := c.FormatUrl(webcastURL, getRoomInfo, queryParams)
+	data, err := c.Get(url, true)
 	if err != nil {
 		return "", err
 	}
@@ -296,12 +295,12 @@ func (c *Client) GetLiveUrl(roomID string) (string, error) {
 	}
 
 	if _, ok := response["data"]; !ok {
-		return "", errors.New("data not found")
+		return "", ErrDataNotFound
 	}
 
 	dataBody := response["data"].(map[string]interface{})
 	if dataBody == nil {
-		return "", errors.New("data is empty")
+		return "", ErrDataNotFound
 	}
 
 	liveUrl, err := c.ParseRoomInfoForLiveUrl(dataBody)
@@ -313,18 +312,18 @@ func (c *Client) GetLiveUrl(roomID string) (string, error) {
 
 func (c *Client) ParseRoomInfoForLiveUrl(roomInfo map[string]interface{}) (string, error) {
 	if roomInfo == nil {
-		return "", errors.New("room info is nil")
+		return "", ErrValidationEmptyField
 	}
 
 	var liveUrl string
 	streamUrl := roomInfo["stream_url"].(map[string]interface{})
 	if streamUrl == nil {
-		return "", errors.New("stream url is nil")
+		return "", ErrLiveHasEnded
 	}
 
 	flvPullUrl := streamUrl["flv_pull_url"].(map[string]interface{})
 	if flvPullUrl == nil {
-		return "", errors.New("flv pull url is nil")
+		return "", ErrLiveHasEnded
 	}
 
 	fullHD1, ok := flvPullUrl["FULL_HD1"].(string)
@@ -373,18 +372,21 @@ func (c *Client) ParseRoomInfoForLiveUrl(roomInfo map[string]interface{}) (strin
 		liveUrl = hlsPullUrl
 	}
 	if liveUrl == "" {
-		return "", errors.New("live url not found")
+		return "", ErrLiveHasEnded
 	}
 	return liveUrl, nil
 }
 
 func (c *Client) GetUserFromRoomId(roomId string) (string, error) {
 	if roomId == "" {
-		return "", errors.New("room id is empty")
+		return "", ErrValidationEmptyField
 	}
 
-	url := fmt.Sprintf("%s/webcast/room/info/?aid=1988&room_id=%s", WebcastURL, roomId)
-	data, err := c.Get(url)
+	queryParams := c.formatDefaultGetParams()
+	queryParams["room_id"] = roomId
+
+	url := c.FormatUrl(webcastURL, getRoomInfo, queryParams)
+	data, err := c.Get(url, true)
 	if err != nil {
 		return "", err
 	}
@@ -412,12 +414,12 @@ func (c *Client) GetUserFromRoomId(roomId string) (string, error) {
 	}
 
 	if _, ok := response["data"]; !ok {
-		return "", errors.New("data not found")
+		return "", ErrDataNotFound
 	}
 
 	dataBody := response["data"].(map[string]interface{})
 	if dataBody["owner"] == nil {
-		return "", errors.New("owner not found")
+		return "", ErrDataNotFound
 	}
 
 	return dataBody["owner"].(map[string]interface{})["display_id"].(string), nil
@@ -425,10 +427,10 @@ func (c *Client) GetUserFromRoomId(roomId string) (string, error) {
 
 func (c *Client) GetRoomAndUserFromUrl(liveUrl string) (string, string, error) {
 	if liveUrl == "" {
-		return "", "", errors.New("live url is empty")
+		return "", "", ErrValidationEmptyField
 	}
 
-	data, err := c.Get(liveUrl)
+	data, err := c.Get(liveUrl, false)
 	if err != nil {
 		return "", "", err
 	}
@@ -454,28 +456,29 @@ func (c *Client) GetRoomAndUserFromUrl(liveUrl string) (string, string, error) {
 
 	// if status code is 302, get the location header
 	if data.StatusCode == http.StatusFound {
-		return "", "", errors.New("country blacklisted")
+		return "", "", ErrCountryBlacklisted
 	}
 
 	// if status code is MOVED
 	if data.StatusCode == http.StatusMovedPermanently {
 		matches := regexp.MustCompile("com/@(.*?)/live").FindAllStringSubmatch(string(body), -1)
 		if len(matches) < 1 {
-			return "", "", errors.New("user not found")
+			return "", "", ErrUserNotFound
 		}
 		userID = matches[0][1]
-	}
-
-	// if status code is OK
-	matches := regexp.MustCompile("https?://(?:www.)?tiktok.com/@([^/]+)/live").FindAllStringSubmatch(string(body), -1)
-	if len(matches) < 1 {
-		return "", "", errors.New("user not found")
 	} else {
-		userID = matches[0][1]
+
+		// if status code is OK
+		matches := regexp.MustCompile("https?://(?:www.)?tiktok.com/@([^/]+)/live").FindAllStringSubmatch(string(body), -1)
+		if len(matches) < 1 {
+			return "", "", ErrUserNotFound
+		} else {
+			userID = matches[0][1]
+		}
 	}
 
 	if userID == "" {
-		return "", "", errors.New("user not found")
+		return "", "", ErrUserNotFound
 	}
 
 	roomID, err := c.GetRoomIdFromUser(userID)
@@ -491,7 +494,7 @@ func (c *Client) GetRoomIdFromUser(user string) (string, error) {
 		return "", errors.New("user is empty")
 	}
 
-	data, err := c.Get(fmt.Sprintf("https://www.tiktok.com/@%s/live", user))
+	data, err := c.Get(c.FormatUrl(tiktokAppURL, fmt.Sprintf(urlUser+urlLive, user), nil), false)
 	if err != nil {
 		return "", err
 	}
@@ -514,13 +517,13 @@ func (c *Client) GetRoomIdFromUser(user string) (string, error) {
 	}
 
 	if strings.Contains(string(body), "Please wait") {
-		return "", errors.New("got tiktok waf")
+		return "", ErrCaptcha
 	}
 
 	pattern := regexp.MustCompile(`(?s)<script id="SIGI_STATE" type="application/json">(.*?)</script>`)
 	match := pattern.FindStringSubmatch(string(body))
 	if match == nil {
-		return "", errors.New("room id not found")
+		return "", ErrUserOffline
 	}
 
 	var jsonData map[string]interface{}
@@ -529,16 +532,16 @@ func (c *Client) GetRoomIdFromUser(user string) (string, error) {
 	}
 
 	if _, ok := jsonData["LiveRoom"]; !ok {
-		return "", errors.New("room id not found")
+		return "", ErrUserOffline
 	}
 
 	if _, ok := jsonData["LiveRoom"]; !ok {
-		return "", errors.New("room id not found")
+		return "", ErrUserOffline
 	}
 
 	roomID := jsonData["LiveRoom"].(map[string]interface{})["liveRoomUserInfo"].(map[string]interface{})["user"].(map[string]interface{})["roomId"].(string)
 	if roomID == "" {
-		return "", errors.New("room id not found")
+		return "", ErrUserOffline
 	}
 
 	return roomID, nil

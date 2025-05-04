@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/imroc/req/v3"
 )
 
 type SignResponse struct {
@@ -20,8 +22,13 @@ type SignResponse struct {
 
 func (c *Client) Sign(destinationUrl string) (string, error) {
 	encodedUrl := url.QueryEscape(destinationUrl)
-	apiUrl := fmt.Sprintf("%s/sign?url=%s", SignerURL, encodedUrl)
-	response, err := c.Get(apiUrl)
+	apiUrl := fmt.Sprintf("%s/sign?url=%s", signerURL, encodedUrl)
+
+	client := req.ImpersonateChrome()
+	client.SetTimeout(60 * time.Second)
+	client.SetUserAgent(c.userAgent)
+
+	response, err := client.R().Get(apiUrl)
 	if err != nil {
 		return "", err
 	}
@@ -40,18 +47,18 @@ func (c *Client) Sign(destinationUrl string) (string, error) {
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		fmt.Println("Failed to read signed url for", destinationUrl, "with error", err)
-		return "", err
+		return destinationUrl, err
 	}
 
 	var signResponse SignResponse
 	if err := json.Unmarshal(body, &signResponse); err != nil {
-		return "", err
+		return destinationUrl, err
 	}
 
 	parsedUrl, err := url.Parse(signResponse.SignedUrl)
 	if err != nil {
 		fmt.Println("Failed to parse signed url for", destinationUrl, "with error", err)
-		return "", err
+		return destinationUrl, err
 	}
 
 	var queryParams = parsedUrl.Query()

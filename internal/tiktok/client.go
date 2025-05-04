@@ -1,16 +1,13 @@
 package tiktok
 
 import (
+	"fmt"
 	"io"
+	"math/rand"
+	"net/url"
 	"strings"
 
 	"github.com/imroc/req/v3"
-)
-
-const (
-	WebcastURL   = "https://webcast.tiktok.com"
-	TikTokAppURL = "https://www.tiktok.com"
-	SignerURL    = "https://ttsign.yuklive.my.id"
 )
 
 type TikTokClientIface interface {
@@ -26,30 +23,40 @@ type Client struct {
 	httpClient *req.Client
 	userAgent  string
 	region     string
+	location   LocationPreset
+	device     DevicePreset
+	screen     ScreenPreset
 	cookie     string
+	lastRTT    string
 }
 
 func NewClient() *Client {
+	devicePreset := GetRandomDevicePreset()
+	locationPreset, _ := GetLocationPreset("ID")
+	screenPreset := GetRandomScreenPreset()
+	lastRTT := fmt.Sprintf("%d", rand.Intn(100)+100)
+
 	return &Client{
-		httpClient: req.NewClient().ImpersonateChrome(),
+		httpClient: req.ImpersonateChrome(),
 		userAgent:  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-		region:     "US",
+		region:     "ID",
+		location:   locationPreset,
+		device:     devicePreset,
+		screen:     screenPreset,
 		cookie:     "",
+		lastRTT:    lastRTT,
 	}
 }
 
 func (c *Client) WithRegion(region string) *Client {
 	c.region = strings.ToUpper(region)
+	locationPreset, _ := GetLocationPreset(region)
+	c.location = locationPreset
 	return c
 }
 
 func (c *Client) WithUserAgent(userAgent string) *Client {
 	c.userAgent = userAgent
-	return c
-}
-
-func (c *Client) WithHttpClient(httpClient *req.Client) *Client {
-	c.httpClient = httpClient
 	return c
 }
 
@@ -63,94 +70,172 @@ func (c *Client) WithProxy(proxy string) *Client {
 	return c
 }
 
-func (c *Client) Get(url string) (*req.Response, error) {
-	c.httpClient.SetUserAgent(c.userAgent)
-	if c.cookie != "" {
-		c.httpClient.SetCommonHeader("Cookie", c.cookie)
+func (c *Client) FormatUrl(baseUrl string, endpoint string, params map[string]string) string {
+	var fullUrl string
+	fullUrl = fmt.Sprintf("%s%s", baseUrl, endpoint)
+
+	var queryParams = url.Values{}
+	for key, value := range params {
+		queryParams.Add(key, value)
 	}
+
+	fullUrl += "?" + queryParams.Encode()
+
+	return fullUrl
+}
+
+func (c *Client) formatDefaultMinGetParams() map[string]string {
+	return c.formatParams(minGetParams, map[string]string{
+		"app_language": c.location.Lang,
+	})
+}
+
+func (c *Client) formatDefaultGetParams() map[string]string {
+	isLogin := "false"
+	if c.cookie != "" {
+		isLogin = "true"
+	}
+	return c.formatParams(defaultGETParams, map[string]string{
+		"app_language":     c.location.Lang,
+		"browser_language": c.location.Lang,
+		"browser_name":     c.device.BrowserName,
+		"browser_version":  c.device.BrowserVersion,
+		"browser_platform": c.device.BrowserPlatform,
+		"os":               c.device.OS,
+		"screen_height":    fmt.Sprintf("%d", c.screen.ScreenHeight),
+		"screen_width":     fmt.Sprintf("%d", c.screen.ScreenWidth),
+		"tz_name":          c.location.TZName,
+		"user_is_login":    isLogin,
+	})
+}
+
+func (c *Client) formatDefaultWsClientParams() map[string]string {
+	mergedParams := mergeMaps(defaultWsClientParams, defaultWsClientParamsAppend)
+	return c.formatParams(mergedParams, map[string]string{
+		"app_language":     c.location.Lang,
+		"browser_language": c.location.Lang,
+		"browser_name":     c.device.BrowserName,
+		"browser_version":  c.device.BrowserVersion,
+		"browser_platform": c.device.BrowserPlatform,
+		"os":               c.device.OS,
+		"screen_height":    fmt.Sprintf("%d", c.screen.ScreenHeight),
+		"screen_width":     fmt.Sprintf("%d", c.screen.ScreenWidth),
+		"tz_name":          c.location.TZName,
+		"last_rtt":         c.lastRTT,
+	})
+}
+
+func (c *Client) formatParams(params map[string]string, values map[string]string) map[string]string {
+	var formattedParams = params
+	// looping and replace %s with value
+	for key, value := range params {
+		if strings.Contains(value, "%s") {
+			formattedParams[key] = strings.Replace(value, "%s", values[key], -1)
+		}
+	}
+	return formattedParams
+}
+
+func (c *Client) formatRequestHeaders() map[string]string {
+	var headers = defaultRequestHeaders
+	// looping and replace %s with value
+	for key, value := range headers {
+		if strings.Contains(value, "%s") {
+			headers[key] = strings.Replace(value, "%s", c.userAgent, -1)
+		}
+	}
+	return headers
+}
+
+func (c *Client) Get(url string, isSign bool) (*req.Response, error) {
+	c.httpClient.SetUserAgent(c.userAgent)
 
 	c.httpClient.ImpersonateChrome()
 
-	c.httpClient.SetCommonHeader("Accept", "application/json")
-	c.httpClient.SetCommonHeader("Accept-Language", "en-US")
-	c.httpClient.SetCommonHeader("Accept-Encoding", "gzip, deflate, br")
-	c.httpClient.SetCommonHeader("Connection", "keep-alive")
-	c.httpClient.SetCommonHeader("Referer", "https://www.tiktok.com/")
-	c.httpClient.SetCommonHeader("Origin", "https://www.tiktok.com")
+	req := c.httpClient.R()
+	req.SetHeaders(c.formatRequestHeaders())
+	if c.cookie != "" {
+		req.SetHeader("Cookie", c.cookie)
+	}
 
-	return c.httpClient.R().Get(url)
+	var signedUrl string
+
+	if isSign {
+		responseSigned, _ := c.Sign(url)
+		signedUrl = responseSigned
+	} else {
+		signedUrl = url
+	}
+
+	return req.Get(signedUrl)
 }
 
 func (c *Client) Post(url string, body io.Reader) (*req.Response, error) {
 	c.httpClient.SetUserAgent(c.userAgent)
+	req := c.httpClient.R()
+	req.SetHeaders(defaultRequestHeaders)
 	if c.cookie != "" {
-		c.httpClient.SetCommonHeader("Cookie", c.cookie)
+		req.SetHeader("Cookie", c.cookie)
 	}
 
-	c.httpClient.SetCommonHeader("Content-Type", "application/json")
-	c.httpClient.SetCommonHeader("Accept", "application/json")
-	c.httpClient.SetCommonHeader("Accept-Language", "en-US")
-	c.httpClient.SetCommonHeader("Accept-Encoding", "gzip, deflate, br")
-	c.httpClient.SetCommonHeader("Connection", "keep-alive")
-	c.httpClient.SetCommonHeader("Referer", "https://www.tiktok.com/")
-	c.httpClient.SetCommonHeader("Origin", "https://www.tiktok.com")
+	signedUrl, err := c.Sign(url)
+	if err != nil {
+		fmt.Println("Failed to sign url for", url, "with error", err)
+		return nil, err
+	}
 
-	// Set body
-
-	return c.httpClient.R().SetBody(body).Post(url)
+	return req.SetBody(body).Post(signedUrl)
 }
 
 func (c *Client) Put(url string, body io.Reader) (*req.Response, error) {
 	c.httpClient.SetUserAgent(c.userAgent)
+	req := c.httpClient.R()
+	req.SetHeaders(defaultRequestHeaders)
 	if c.cookie != "" {
-		c.httpClient.SetCommonHeader("Cookie", c.cookie)
+		req.SetHeader("Cookie", c.cookie)
 	}
 
-	c.httpClient.SetCommonHeader("Content-Type", "application/json")
-	c.httpClient.SetCommonHeader("Accept", "application/json")
-	c.httpClient.SetCommonHeader("Accept-Language", "en-US")
-	c.httpClient.SetCommonHeader("Accept-Encoding", "gzip, deflate, br")
-	c.httpClient.SetCommonHeader("Connection", "keep-alive")
-	c.httpClient.SetCommonHeader("Referer", "https://www.tiktok.com/")
-	c.httpClient.SetCommonHeader("Origin", "https://www.tiktok.com")
+	signedUrl, err := c.Sign(url)
+	if err != nil {
+		fmt.Println("Failed to sign url for", url, "with error", err)
+		return nil, err
+	}
 
-	// Set body
-
-	return c.httpClient.R().SetBody(body).Put(url)
+	return req.SetBody(body).Put(signedUrl)
 }
 
 func (c *Client) Delete(url string) (*req.Response, error) {
 	c.httpClient.SetUserAgent(c.userAgent)
+	req := c.httpClient.R()
+	req.SetHeaders(defaultRequestHeaders)
 	if c.cookie != "" {
-		c.httpClient.SetCommonHeader("Cookie", c.cookie)
+		req.SetHeader("Cookie", c.cookie)
 	}
 
-	c.httpClient.SetCommonHeader("Content-Type", "application/json")
-	c.httpClient.SetCommonHeader("Accept", "application/json")
-	c.httpClient.SetCommonHeader("Accept-Language", "en-US")
-	c.httpClient.SetCommonHeader("Accept-Encoding", "gzip, deflate, br")
-	c.httpClient.SetCommonHeader("Connection", "keep-alive")
-	c.httpClient.SetCommonHeader("Referer", "https://www.tiktok.com/")
-	c.httpClient.SetCommonHeader("Origin", "https://www.tiktok.com")
+	signedUrl, err := c.Sign(url)
+	if err != nil {
+		fmt.Println("Failed to sign url for", url, "with error", err)
+		return nil, err
+	}
 
-	return c.httpClient.R().Delete(url)
+	return req.Delete(signedUrl)
 }
 
 func (c *Client) Head(url string) (*req.Response, error) {
 	c.httpClient.SetUserAgent(c.userAgent)
+	req := c.httpClient.R()
+	req.SetHeaders(defaultRequestHeaders)
 	if c.cookie != "" {
-		c.httpClient.SetCommonHeader("Cookie", c.cookie)
+		req.SetHeader("Cookie", c.cookie)
 	}
 
-	c.httpClient.SetCommonHeader("Content-Type", "application/json")
-	c.httpClient.SetCommonHeader("Accept", "application/json")
-	c.httpClient.SetCommonHeader("Accept-Language", "en-US")
-	c.httpClient.SetCommonHeader("Accept-Encoding", "gzip, deflate, br")
-	c.httpClient.SetCommonHeader("Connection", "keep-alive")
-	c.httpClient.SetCommonHeader("Referer", "https://www.tiktok.com/")
-	c.httpClient.SetCommonHeader("Origin", "https://www.tiktok.com")
+	signedUrl, err := c.Sign(url)
+	if err != nil {
+		fmt.Println("Failed to sign url for", url, "with error", err)
+		return nil, err
+	}
 
-	return c.httpClient.R().Head(url)
+	return req.Head(signedUrl)
 }
 
 func (c *Client) GetUserAgent() string {
