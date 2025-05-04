@@ -192,6 +192,12 @@ func main() {
 		c.FileFromFS("/live-list.html", http.FS(staticFs))
 	})
 
+	// Search page
+	r.GET("/search", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/search-list.html", http.FS(staticFs))
+	})
+
 	r.GET("/", func(c *gin.Context) {
 		// check if user is logged in
 		_, exists := c.Get("user_id")
@@ -310,6 +316,8 @@ func main() {
 	r.GET("/api/tiktok/get-live-url", tiktokHandler.GetLiveUrl)
 
 	r.GET("/api/tiktok/live-feed", tiktokHandler.GetLiveFeed)
+
+	r.POST("/api/tiktok/search", tiktokHandler.Search)
 	// -- Tiktok End --
 
 	// Periodically broadcast server metrics to all websocket clients

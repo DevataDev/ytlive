@@ -14,7 +14,7 @@ type SearchResponse struct {
 				HasCommerceGoods bool `json:"has_commerce_goods"`
 				IsBattle         bool `json:"is_battle"`
 			} `json:"room_info"`
-			ParsedRawData LiveRoomData `json:"-"`
+			ParsedRawData LiveRoomData `json:"parsed_raw_data"`
 		} `json:"live_info"`
 	} `json:"data"`
 	HasMore int `json:"has_more"`
@@ -32,14 +32,56 @@ type SearchResponse struct {
 	Backtrace string `json:"backtrace"`
 }
 
+type StreamUrl struct {
+	RtmpPullUrl string `json:"rtmp_pull_url"`
+	FlvPullUrl  struct {
+		FULL_HD1 string `json:"FULL_HD1"`
+		HD1      string `json:"HD1"`
+		SD1      string `json:"SD1"`
+		SD2      string `json:"SD2"`
+	} `json:"flv_pull_url"`
+	CandidateResolution []string `json:"candidate_resolution"`
+	FlvPullUrlParams    struct {
+		FULL_HD1 string `json:"FULL_HD1"`
+		HD1      string `json:"HD1"`
+		SD1      string `json:"SD1"`
+		SD2      string `json:"SD2"`
+	} `json:"flv_pull_url_params"`
+	LiveCoreSdkData struct {
+		PullData struct {
+			StreamData string `json:"stream_data"`
+		} `json:"pull_data"`
+	} `json:"live_core_sdk_data"`
+}
+
 func (l *SearchResponse) ParseRawData() {
 	var parsedRawData LiveRoomData
 	for i := range l.Data {
 		if err := json.Unmarshal([]byte(l.Data[i].LiveInfo.RawData), &parsedRawData); err != nil {
 			return
 		}
+		parsedRawData.LiveUrl = parseLiveUrl(parsedRawData.StreamUrl)
 		l.Data[i].LiveInfo.ParsedRawData = parsedRawData
 	}
+}
+
+func parseLiveUrl(streamUrl StreamUrl) string {
+	fmt.Println(streamUrl)
+	var liveUrl string
+	if streamUrl.FlvPullUrl.FULL_HD1 != "" {
+		liveUrl = streamUrl.FlvPullUrl.FULL_HD1
+	} else if streamUrl.FlvPullUrl.HD1 != "" {
+		liveUrl = streamUrl.FlvPullUrl.HD1
+	} else if streamUrl.FlvPullUrl.SD2 != "" {
+		liveUrl = streamUrl.FlvPullUrl.SD2
+	} else if streamUrl.FlvPullUrl.SD1 != "" {
+		liveUrl = streamUrl.FlvPullUrl.SD1
+	}
+	if liveUrl == "" {
+		liveUrl = streamUrl.RtmpPullUrl
+	}
+	fmt.Println("Got liveUrl", liveUrl)
+	return liveUrl
 }
 
 type LiveRoomData struct {
@@ -56,27 +98,8 @@ type LiveRoomData struct {
 		Uri      string   `json:"uri"`
 		AvgColor string   `json:"avg_color"`
 	} `json:"cover"`
-	StreamUrl struct {
-		RtmpPullUrl string `json:"rtmp_pull_url"`
-		FlvPullUrl  struct {
-			FULL_HD1 string `json:"FULL_HD1"`
-			HD1      string `json:"HD1"`
-			SD1      string `json:"SD1"`
-			SD2      string `json:"SD2"`
-		} `json:"flv_pull_url"`
-		CandidateResolution []string `json:"candidate_resolution"`
-		FlvPullUrlParams    struct {
-			FULL_HD1 string `json:"FULL_HD1"`
-			HD1      string `json:"HD1"`
-			SD1      string `json:"SD1"`
-			SD2      string `json:"SD2"`
-		} `json:"flv_pull_url_params"`
-		LiveCoreSdkData struct {
-			PullData struct {
-				StreamData string `json:"stream_data"`
-			} `json:"pull_data"`
-		} `json:"live_core_sdk_data"`
-	} `json:"stream_url"`
+	LiveUrl   string    `json:"live_url"`
+	StreamUrl StreamUrl `json:"stream_url"`
 	LiveStats struct {
 		TotalUser    int `json:"total_user"`
 		EnterCount   int `json:"enter_count"`
@@ -124,7 +147,6 @@ func (c *Client) Search(query string, offset int, limit int, searchID string) (*
 	}
 
 	url := c.FormatUrl(tiktokAppURL, urlSearch, queryParams)
-	fmt.Println("Search URL:", url)
 
 	resp, err := c.Get(url, false)
 	if err != nil {

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 	"windsorf-youtube-live/internal/tiktok"
@@ -110,4 +112,58 @@ func (h *TiktokHandler) GetLiveFeed(c *gin.Context) {
 	h.Cache.Set("live_feed", feedRoomData, time.Now().Add(3*time.Minute))
 
 	c.JSON(200, gin.H{"rooms": feedRoomData})
+}
+
+func (h *TiktokHandler) Search(c *gin.Context) {
+	offset := c.Query("offset")
+	limit := c.Query("limit")
+	if offset == "" {
+		offset = "0"
+	}
+	if limit == "" {
+		limit = "6"
+	}
+	// get keyword from json request body
+	var requestBody map[string]interface{}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body"})
+		return
+	}
+	keyword := requestBody["keyword"].(string)
+	if keyword == "" {
+		c.JSON(400, gin.H{"error": "keyword is required"})
+		return
+	}
+
+	var searchId string
+	if c.Query("search_id") != "" {
+		searchId = c.Query("search_id")
+	}
+
+	// convert offset and limit to int
+	offsetInt, _ := strconv.Atoi(offset)
+	limitInt, _ := strconv.Atoi(limit)
+
+	// check in cache first
+	cacheKey := fmt.Sprintf("search_%s_%d_%d", keyword, offsetInt, limitInt)
+	searchRoomData, err := h.Cache.Get(cacheKey)
+	if err == nil {
+		c.JSON(200, gin.H{"rooms": searchRoomData})
+		return
+	}
+
+	searchRoomData, err = h.TikTokClient.Search(keyword, offsetInt, limitInt, searchId)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	var rooms []tiktok.LiveRoomData
+	for _, room := range searchRoomData.(*tiktok.SearchResponse).Data {
+		rooms = append(rooms, room.LiveInfo.ParsedRawData)
+	}
+	// set cache
+	h.Cache.Set(cacheKey, rooms, time.Now().Add(3*time.Minute))
+
+	c.JSON(200, gin.H{"rooms": rooms})
 }

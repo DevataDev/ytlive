@@ -145,6 +145,137 @@ $(function() {
         return num;
     }
 
+    function renderSearchFeedsTable(searchFeeds) {
+        const cardContainer = $("#room-list-cards");
+        cardContainer.html('');
+        searchFeeds.forEach(function(searchFeed) {
+            let videoPlayer;
+            let liveUrl = searchFeed.live_url;
+            let viewCount = formatNumber(searchFeed.stats.total_user);
+            if (liveUrl && liveUrl.includes('.flv?')) {
+                videoPlayer = `
+                    <video id="live-video-${searchFeed.id}" controls preload="auto" style="max-height:180px;background:#000;width:100%;"></video>
+                    <script>
+                        window._liveFlvPlayers = window._liveFlvPlayers || {};
+                        setTimeout(function() {
+                            try {
+                                if (window._liveFlvPlayers['${searchFeed.id}']) {
+                                    window._liveFlvPlayers['${searchFeed.id}'].destroy();
+                                    delete window._liveFlvPlayers['${searchFeed.id}'];
+                                }
+                                var video = document.getElementById('live-video-${searchFeed.id}');
+                                if (video && window.flvjs && flvjs.isSupported()) {
+                                    var flvPlayer = flvjs.createPlayer({ type: 'flv', url: '${liveUrl}', "isLive": true });
+                                    flvPlayer.attachMediaElement(video);
+                                    flvPlayer.load();
+                                    window._mirrorFlvPlayers['${searchFeed.id}'] = flvPlayer;
+                                }
+                            } catch(e){}
+                        }, 100);
+                    </script>
+                `;
+            } else if (liveUrl && liveUrl.includes('.m3u8')) {
+                videoPlayer = `
+                <video id="live-video-${searchFeed.id}" class="video-js vjs-default-skin vjs-fluid" controls preload="auto" style="max-height:180px;background:#000;width:100%;"></video>
+                <script>
+                    window._liveHlsPlayers = window._liveHlsPlayers || {};
+                    setTimeout(function() {
+                        try {
+                            if (window._liveHlsPlayers['${searchFeed.id}']) {
+                                window._liveHlsPlayers['${searchFeed.id}'].destroy && window._liveHlsPlayers['${searchFeed.id}'].destroy();
+                                delete window._liveHlsPlayers['${searchFeed.id}'];
+                            }
+                            var video = document.getElementById('live-video-${searchFeed.id}');
+                            if (video && window.Hls && Hls.isSupported()) {
+                                var hls = new Hls();
+                                hls.loadSource('${liveUrl}');
+                                hls.attachMedia(video);
+                                window._liveHlsPlayers['${liveFeed.id}'] = hls;
+                            } else if (video) {
+                                video.src = '${liveUrl}';
+                                videojs(video);
+                            }
+                        } catch(e){}
+                    }, 100);
+                </script>
+            `;
+            } else {
+                videoPlayer = `<video id="live-video-${searchFeed.id}" class="video-js vjs-default-skin vjs-fluid" controls preload="auto" style="max-height:180px;background:#000;width:100%;"></video>
+                <script>
+                    setTimeout(function() {
+                        try {
+                            var video = document.getElementById('live-video-${searchFeed.id}');
+                            if (video) {
+                                video.src = '${liveUrl || ''}';
+                                videojs(video);
+                            }
+                        } catch(e){}
+                    }, 100);
+                </script>`;
+            }
+            const addToMirrorBtn = `
+                <button class="btn btn-success btn-sm search-add-mirror w-100" data-id="${searchFeed.id_str}" data-action="addMirror">Add to Mirror</button>
+            `;
+            const aliveBadge = `<span class="badge bg-success">Alive</span>`;
+            cardContainer.append(`
+                <div class="col-md-4">
+                    <div class="card stream-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="fw-bold fs-5 live-title-ellipsis" title="${searchFeed.title  || searchFeed.owner.display_id || ''}">${searchFeed.title || searchFeed.owner.display_id || ''}</span>
+                            </div>
+                            <div class="text-muted small mt-1">@${searchFeed.owner.display_id} | View: ${viewCount}</div>
+                            <div class="mb-2">
+                                ${videoPlayer}
+                            </div>
+                            <div class="mb-2">
+                                ${aliveBadge}
+                            </div>
+                            <div class="mb-2">
+                                Room ID: <span class="text-truncate">${searchFeed.id_str || ''}</span>
+                            </div>
+                            <div class="mb-2 mt-3">
+                                ${addToMirrorBtn}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+        });
+    }
+
+    function fetchSearchFeeds() {
+        const token = localStorage.getItem("jwt_token");
+        const searchInput = $("#searchInput").val();
+
+        if (!searchInput) {
+            showSnackbar("Please enter a search keyword.", true);
+            return;
+        }
+
+        $.ajax({
+            url: '/api/tiktok/search',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ keyword: encodeURIComponent(searchInput) }),
+            headers: { Authorization: 'Bearer ' + token },
+            success: function(data) {
+                $("#countRoom").text(data.rooms ? data.rooms.length : 0);
+                
+                renderSearchFeedsTable(data.rooms || []);
+            },
+            error: function() {
+                $("#room-list-cards").html('<div class="col-12 text-center text-danger">Failed to load rooms.</div>');
+            }
+        });
+    }
+
+    // Handler for Search button
+    $(document).on("click", "#searchBtn", function(e) {
+        e.preventDefault();
+        fetchSearchFeeds();
+    });
+
     // Handler for Start/Stop toggle button
     $(document).on("click", ".live-add-mirror", function(e) {
         e.preventDefault();
@@ -174,6 +305,37 @@ $(function() {
                 complete: function() {
                     $(this).prop("disabled", false);
                     $(this).html('Add Mirror');
+                }
+            });
+        }
+    });
+
+    // Handler for Start/Stop toggle button
+    $(document).on("click", ".search-add-mirror", function(e) {
+        e.preventDefault();
+        const id = $(this).data("id");
+        const action = $(this).data("action");
+        const token = localStorage.getItem("jwt_token");
+        $(this).prop("disabled", true);
+        $(this).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...');
+        if (action === 'addMirror') {
+            $.ajax({
+                url: '/api/mirrors',
+                method: 'POST',
+                contentType: 'application/json',
+                headers: { Authorization: 'Bearer ' + token },
+                data: JSON.stringify({ tiktok: id }),
+                success: function(resp) {
+                    showSnackbar("Mirror added successfully.", false);
+                    $(".search-add-mirror[data-id='" + id + "']").html("Mirror added");
+                    $(".search-add-mirror[data-id='" + id + "']").prop("disabled", true);
+                },
+                error: function(xhr) {
+                    let msg = 'Failed to add mirror.';
+                    if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
+                    showSnackbar(msg, true);
+                    $(".search-add-mirror[data-id='" + id + "']").html("Add Mirror");
+                    $(".search-add-mirror[data-id='" + id + "']").prop("disabled", false);
                 }
             });
         }

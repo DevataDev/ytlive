@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YukLive! TikTok Live Feed List</title>
-    <meta name="description" content="YukLive! TikTok Live Feed Explorer">
+    <title>YukLive! TikTok Search List</title>
+    <meta name="description" content="YukLive! TikTok Search Explorer">
     <meta name="author" content="YukLive!">
     <link rel="icon" type="image/png" href="/static/favicon.png">
     <link rel="stylesheet" href="/static/css/style.css">
@@ -41,10 +41,10 @@
                         <a href="/mirror" class="nav-link ">Mirror</a>
                     </li>
                     <li class="nav-item">
-                      <a href="/live" class="nav-link active">TikTok Live</a>
+                      <a href="/live" class="nav-link">TikTok Live</a>
                     </li>
                     <li class="nav-item">
-                      <a href="/search" class="nav-link">TikTok Search</a>
+                      <a href="/search" class="nav-link active">TikTok Search</a>
                     </li>
                 </ul>
                 <button id="logoutBtn" class="btn btn-outline-secondary ms-lg-2">Logout</button>
@@ -55,7 +55,12 @@
 <div class="container-fluid container-xl dashboard-container">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <span class="badge bg-info me-2">Live Feed Count: <span id="countRoom">-</span></span>
+            <span class="badge bg-info me-2">Search Result Count: <span id="countRoom">-</span></span>
+        </div>
+
+        <div class="d-flex align-items-center">
+            <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search...">
+            <button id="searchBtn" class="btn btn-primary btn-sm ms-2">Search</button>
         </div>
     </div>
     <!-- Room List Cards -->
@@ -118,7 +123,7 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flv.js@1.6.2/dist/flv.min.js"></script>
-<script src="/static/js/live-list.js?v=0.3.5"></script>
+<script src="/static/js/search-list.js?v=0.3.5"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
