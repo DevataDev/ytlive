@@ -13,7 +13,7 @@ import (
 
 	"windsorf-youtube-live/internal/auth"
 	"windsorf-youtube-live/internal/cache"
-	"windsorf-youtube-live/internal/config"
+	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/tiktok"

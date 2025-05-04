@@ -3,7 +3,7 @@ package workers
 import (
 	"fmt"
 	"time"
-	"windsorf-youtube-live/internal/config"
+	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/models"
 

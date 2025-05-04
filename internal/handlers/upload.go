@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 	"time"
-	"windsorf-youtube-live/internal/config"
+	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/models"
 
 	"github.com/gin-gonic/gin"
