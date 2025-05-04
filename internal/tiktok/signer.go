@@ -19,12 +19,6 @@ type SignResponse struct {
 }
 
 func (c *Client) Sign(destinationUrl string) (string, error) {
-	//        must_remove_params = [
-	// 	"X-Bogus",
-	// 	"X-Gnarly",
-	// 	"msToken",
-	// ]
-
 	mustRemoveParams := []string{"X-Bogus", "X-Gnarly", "msToken"}
 
 	parsedUrl, err := url.Parse(destinationUrl)
@@ -43,7 +37,7 @@ func (c *Client) Sign(destinationUrl string) (string, error) {
 
 	apiUrl := fmt.Sprintf("%s/sign?url=%s", signerURL, url.QueryEscape(parsedUrl.String()))
 
-	client := req.ImpersonateChrome()
+	client := req.NewClient()
 	client.SetTimeout(60 * time.Second)
 	client.SetUserAgent(c.userAgent)
 

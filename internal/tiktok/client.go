@@ -126,9 +126,13 @@ func (c *Client) formatDefaultWsClientParams() map[string]string {
 }
 
 func (c *Client) formatParams(params map[string]string, values map[string]string) map[string]string {
-	var formattedParams = params
-	// looping and replace %s with value
+	// Make a copy of the map to avoid concurrent map access
+	formattedParams := make(map[string]string, len(params))
 	for key, value := range params {
+		formattedParams[key] = value
+	}
+	// looping and replace %s with value
+	for key, value := range formattedParams {
 		if strings.Contains(value, "%s") {
 			formattedParams[key] = strings.Replace(value, "%s", values[key], -1)
 		}
@@ -148,10 +152,6 @@ func (c *Client) formatRequestHeaders() map[string]string {
 }
 
 func (c *Client) Get(url string, isSign bool) (*req.Response, error) {
-	c.httpClient.SetUserAgent(c.userAgent)
-
-	c.httpClient.ImpersonateChrome()
-
 	req := c.httpClient.R()
 	req.SetHeaders(c.formatRequestHeaders())
 	if c.cookie != "" {

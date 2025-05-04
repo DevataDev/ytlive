@@ -121,6 +121,12 @@ func main() {
 		log.Fatalf("failed to migrate mirror table: %v", err)
 	}
 
+	// Auto-migrate monitor table
+	err = db.AutoMigrate(&models.Monitor{})
+	if err != nil {
+		log.Fatalf("failed to migrate monitor table: %v", err)
+	}
+
 	// Init device presets
 	tiktok.InitDevicePresets()
 
@@ -178,6 +184,12 @@ func main() {
 	r.GET("/users", func(c *gin.Context) {
 		staticFs, _ := fs.Sub(StaticFiles, "web/static")
 		c.FileFromFS("/user-management.html", http.FS(staticFs))
+	})
+
+	// Monitor Management Page
+	r.GET("/monitor", func(c *gin.Context) {
+		staticFS, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/monitor-management.html", http.FS(staticFS))
 	})
 
 	// Mirror page
@@ -307,21 +319,21 @@ func main() {
 
 	broadcast.Bus.AddListener("default", broadcast.AddToMirror, func(e broadcast.Event) {
 		fmt.Println("Adding to mirror", e.Data)
-		data := e.Data.(struct {
-			Username  string `json:"username"`
-			UserId    string `json:"user_id"`
-			RtmpUrl   string `json:"rtmp_url"`
-			StreamKey string `json:"stream_key"`
-		})
-		mirrorHandler.AddMirrorFromBroadcast(data.Username, data.UserId, data.RtmpUrl, data.StreamKey)
+		data, ok := e.Data.(map[string]interface{})
+		if !ok {
+			fmt.Println("Failed to add to mirror, invalid data type")
+			return
+		}
+		mirrorHandler.AddMirrorFromBroadcast(data["username"].(string), data["user_id"].(string), data["rtmp_url"].(string), data["stream_key"].(string))
 	})
 
 	broadcast.Bus.AddListener("default", broadcast.RefreshMonitor, func(e broadcast.Event) {
-		data := e.Data.(struct {
-			Id       string `json:"id"`
-			UniqueId string `json:"unique_id"`
-		})
-		handlers.BroadcastMonitorUpdate(data.Id, data.UniqueId)
+		data, ok := e.Data.(map[string]interface{})
+		if !ok {
+			fmt.Println("Failed to refresh monitor, invalid data type")
+			return
+		}
+		handlers.BroadcastMonitorUpdate(data["id"].(string), data["unique_id"].(string), data["is_live"].(bool))
 	})
 
 	tiktokHandler := handlers.TiktokHandler{DB: db, TikTokClient: tiktokClient, Cache: cache}
@@ -342,7 +354,7 @@ func main() {
 	monitorHandler := handlers.MonitorHandler{DB: db}
 	r.POST("/api/monitors", handlers.JWTMiddleware(), monitorHandler.AddMonitor)
 	r.GET("/api/monitors", handlers.JWTMiddleware(), monitorHandler.ListMonitors)
-	r.DELETE("/api/monitors/:id", handlers.JWTMiddleware(), monitorHandler.RemoveMonitor)
+	r.DELETE("/api/monitors", handlers.JWTMiddleware(), monitorHandler.RemoveMonitor)
 	r.PUT("/api/monitors/:id/rtmp-url", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorRTMPUrl)
 	r.PUT("/api/monitors/:id/stream-key", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorStreamKey)
 

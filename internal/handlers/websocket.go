@@ -394,10 +394,10 @@ func BroadcastMirrorUpdateList() {
 	streamListClientsMu.Unlock()
 }
 
-func BroadcastMonitorUpdate(id string, uniqueId string) {
+func BroadcastMonitorUpdate(id string, uniqueId string, isLive bool) {
 	streamListClientsMu.Lock()
 	for c := range streamListClients {
-		c.WriteJSON(map[string]interface{}{"type": "monitor_update", "id": id, "unique_id": uniqueId})
+		c.WriteJSON(map[string]interface{}{"type": "monitor_update", "id": id, "unique_id": uniqueId, "is_live": isLive})
 	}
 	streamListClientsMu.Unlock()
 }

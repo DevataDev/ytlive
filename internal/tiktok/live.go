@@ -521,5 +521,5 @@ func (c *Client) CheckUserIsLive(user string) (bool, error) {
 		return false, ErrUserOffline
 	}
 
-	return dataBody["liveRoom"].(map[string]interface{})["status"].(int) != 4, nil
+	return dataBody["liveRoom"].(map[string]interface{})["status"].(float64) != 4, nil
 }
