@@ -245,6 +245,85 @@ func (h *MirrorHandler) UpdateMirrorStreamKey(c *gin.Context) {
 	c.JSON(200, gin.H{"status": "stream_key updated"})
 }
 
+func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string) {
+	var roomID string
+	if checkAllNumber(username) {
+		roomID = username
+	} else {
+		// Extract username from URL or use as is
+		username := extractTikTokUsername(username)
+		if username == "" {
+			return
+		}
+
+		// Get RoomId from TikTok API (call tiktok.GetRoomIdFromUser)
+		extractedRoomId, err := h.TikTok.GetRoomIdFromUserWithAPI(username)
+		if err != nil {
+			return
+		}
+		roomID = extractedRoomId
+	}
+
+	// Get Room Info (for DisplayName, LiveUrl, etc)
+	roomInfo, err := h.TikTok.GetRoomInfo(roomID)
+	if err != nil {
+		return
+	}
+
+	if roomInfo == nil {
+		return
+	}
+
+	// check if room already exists
+	var mirror models.Mirror
+	if err := h.DB.Where("room_id = ?", roomID).First(&mirror).Error; err == nil {
+		return
+	}
+
+	// check if room is Alive
+	isAlive, err := h.TikTok.CheckRoomIsAlive(roomID)
+	if err != nil {
+		return
+	}
+	if !isAlive {
+		return
+	}
+
+	liveUrl, err := h.TikTok.ParseRoomInfoForLiveUrl(roomInfo)
+	if err != nil {
+		return
+	}
+
+	fmt.Println(liveUrl)
+
+	var displayName string
+	if _, ok := roomInfo["owner"]; ok {
+		displayName = roomInfo["owner"].(map[string]interface{})["display_id"].(string)
+	} else {
+		displayName = "Room ID " + roomID
+	}
+
+	// Compose Mirror model
+	mirror = models.Mirror{
+		ID:          generateULID(),
+		RoomId:      roomID,
+		DisplayName: displayName,
+		LiveUrl:     liveUrl,
+		RtmpUrl:     "rtmp://a.rtmp.youtube.com/live2/",
+		IsAlive:     isAlive,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		StreamKey:   "",
+		Status:      "stopped",
+		UserId:      userID,
+		UserAgent:   h.TikTok.GetUserAgent(),
+	}
+
+	if err := h.DB.Create(&mirror).Error; err != nil {
+		return
+	}
+}
+
 func extractTikTokUsername(input string) string {
 	input = strings.TrimSpace(input)
 	if input == "" {

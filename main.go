@@ -305,6 +305,11 @@ func main() {
 	r.PUT("/api/mirrors/:id/rtmp-url", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorRTMPUrl)
 	r.PUT("/api/mirrors/:id/stream-key", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorStreamKey)
 
+	broadcast.Bus.AddListener("default", broadcast.AddToMirror, func(e broadcast.Event) {
+		fmt.Println("Adding to mirror", e.Data)
+
+	})
+
 	tiktokHandler := handlers.TiktokHandler{DB: db, TikTokClient: tiktokClient, Cache: cache}
 	// -- Tiktok Start --
 	r.GET("/api/tiktok/get-room-from-user", tiktokHandler.GetRoomFromUser)
@@ -319,6 +324,9 @@ func main() {
 
 	r.POST("/api/tiktok/search", tiktokHandler.Search)
 	// -- Tiktok End --
+
+	liveWorker := workers.NewLiveWorker(tiktokClient, db, broadcast.Bus)
+	liveWorker.StartUserMonitoring()
 
 	// Periodically broadcast server metrics to all websocket clients
 	go func() {

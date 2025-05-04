@@ -472,3 +472,54 @@ func (c *Client) GetRoomIdFromUser(user string) (string, error) {
 
 	return roomID, nil
 }
+
+func (c *Client) CheckUserIsLive(user string) (bool, error) {
+	if user == "" {
+		return false, ErrValidationEmptyField
+	}
+
+	queryParams := c.formatDefaultGetParams()
+	queryParams["uniqueId"] = user
+	queryParams["sourceType"] = "54"
+
+	url := c.FormatUrl(tiktokAppURL, urlGetRoomIdFromUser, queryParams)
+
+	data, err := c.Get(url, true)
+	if err != nil {
+		return false, err
+	}
+	reader := parseBody(data)
+
+	defer reader.Close()
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return false, err
+	}
+
+	if strings.Contains(string(body), "This account is private") {
+		return false, ErrPrivateAccount
+	}
+
+	if strings.Contains(string(body), "user_not_found") {
+		return false, ErrUserNotFound
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return false, err
+	}
+
+	if _, ok := response["data"]; !ok {
+		return false, ErrDataNotFound
+	}
+
+	dataBody := response["data"].(map[string]interface{})
+	if dataBody == nil {
+		return false, ErrDataNotFound
+	}
+	if _, ok := dataBody["liveRoom"]; !ok {
+		return false, ErrUserOffline
+	}
+
+	return dataBody["liveRoom"].(map[string]interface{})["status"].(int) != 4, nil
+}

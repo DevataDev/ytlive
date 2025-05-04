@@ -8,6 +8,9 @@ const (
 	RefreshStream EventType = "refresh_stream"
 	StopStream    EventType = "stop_stream"
 	RefreshMirror EventType = "refresh_mirror"
+	StartMirror   EventType = "start_mirror"
+	StartStream   EventType = "start_stream"
+	AddToMirror   EventType = "add_to_mirror"
 )
 
 type Event struct {
