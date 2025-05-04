@@ -19,8 +19,29 @@ type SignResponse struct {
 }
 
 func (c *Client) Sign(destinationUrl string) (string, error) {
-	encodedUrl := url.QueryEscape(destinationUrl)
-	apiUrl := fmt.Sprintf("%s/sign?url=%s", signerURL, encodedUrl)
+	//        must_remove_params = [
+	// 	"X-Bogus",
+	// 	"X-Gnarly",
+	// 	"msToken",
+	// ]
+
+	mustRemoveParams := []string{"X-Bogus", "X-Gnarly", "msToken"}
+
+	parsedUrl, err := url.Parse(destinationUrl)
+	if err != nil {
+		return "", err
+	}
+
+	var originalQueryParams = parsedUrl.Query()
+
+	//looping query params and encode it
+	for _, key := range mustRemoveParams {
+		originalQueryParams.Del(key)
+	}
+
+	parsedUrl.RawQuery = originalQueryParams.Encode()
+
+	apiUrl := fmt.Sprintf("%s/sign?url=%s", signerURL, url.QueryEscape(parsedUrl.String()))
 
 	client := req.ImpersonateChrome()
 	client.SetTimeout(60 * time.Second)
@@ -45,7 +66,7 @@ func (c *Client) Sign(destinationUrl string) (string, error) {
 		return destinationUrl, err
 	}
 
-	parsedUrl, err := url.Parse(signResponse.SignedUrl)
+	parsedUrl, err = url.Parse(signResponse.SignedUrl)
 	if err != nil {
 		fmt.Println("Failed to parse signed url for", destinationUrl, "with error", err)
 		return destinationUrl, err
