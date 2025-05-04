@@ -165,9 +165,10 @@ $(function() {
                 headers: { Authorization: 'Bearer ' + localStorage.getItem("jwt_token") },
                 success: function() {
                     fetchMirrors();
+                    showSnackbar("Mirror started successfully.", false);
                 },
                 error: function(xhr) {
-                    alert("Failed to start mirror: " + (xhr.responseText || xhr.statusText));
+                    showSnackbar("Failed to start mirror: " + (xhr.responseText || xhr.statusText), true);
                 }
             });
         } else if (action === 'stop') {
@@ -177,9 +178,10 @@ $(function() {
                 headers: { Authorization: 'Bearer ' + localStorage.getItem("jwt_token") },
                 success: function() {
                     fetchMirrors();
+                    showSnackbar("Mirror stopped successfully.", false);
                 },
                 error: function(xhr) {
-                    alert("Failed to stop mirror: " + (xhr.responseText || xhr.statusText));
+                    showSnackbar("Failed to stop mirror: " + (xhr.responseText || xhr.statusText), true);
                 }
             });
         }
@@ -196,32 +198,27 @@ $(function() {
             headers: { Authorization: 'Bearer ' + localStorage.getItem("jwt_token") },
             success: function() {
                 fetchMirrors();
+                showSnackbar("Mirror deleted successfully.", false);
             },
             error: function(xhr) {
-                alert("Failed to delete mirror: " + (xhr.responseText || xhr.statusText));
+                showSnackbar("Failed to delete mirror: " + (xhr.responseText || xhr.statusText), true);
             }
         });
     });
 
     // Snackbar notification helper
     function showSnackbar(message, isError) {
-        let snackbar = $("#mirror-snackbar");
-        if (snackbar.length === 0) {
-            $("body").append('<div id="mirror-snackbar" class="toast align-items-center text-white bg-' + (isError ? 'danger' : 'success') + ' border-0 position-fixed end-0 m-4" role="alert" aria-live="assertive" aria-atomic="true" style="bottom: 90px; z-index: 2000; min-width: 280px; max-width: 90vw;">\
-                <div class="d-flex">\
-                    <div class="toast-body"></div>\
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>\
-                </div>\
-            </div>');
-            snackbar = $("#mirror-snackbar");
+        const toastEl = document.getElementById('streamToast');
+        const toastBody = document.getElementById('streamToastBody');
+        if (!toastEl || !toastBody) return;
+        toastBody.textContent = message;
+        toastEl.classList.remove('text-bg-danger', 'text-bg-success');
+        if (!isError) {
+            toastEl.classList.add('text-bg-success');
+        } else {
+            toastEl.classList.add('text-bg-danger');
         }
-        snackbar.removeClass("bg-success bg-danger").addClass(isError ? "bg-danger" : "bg-success");
-        snackbar.find(".toast-body").text(message);
-        snackbar.css({
-            "bottom": "90px", // Adjust to be above footer
-            "z-index": 2000
-        });
-        const toast = new bootstrap.Toast(snackbar[0]);
+        const toast = new bootstrap.Toast(toastEl);
         toast.show();
     }
 
@@ -295,12 +292,13 @@ $(function() {
             success: function(resp) {
                 $('#addMirrorModal').modal('hide');
                 $("#mirrorInput").val("");
+                showSnackbar("Mirror added successfully.", false);
                 fetchMirrors();
             },
             error: function(xhr) {
                 let msg = 'Failed to add mirror.';
                 if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
-                alert(msg);
+                showSnackbar(msg, true);
             },
             complete: function() {
                 $("#addMirrorForm button[type='submit']").prop("disabled", false);

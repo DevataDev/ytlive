@@ -1109,6 +1109,8 @@ func main() {
 						models.MirrorRestartLock.Unlock()
 						// send websocket message
 						handlers.BroadcastMirrorRoomIsAliveUpdate(isAliveMap)
+						// send broadcast message
+						handlers.BroadcastMirrorUpdateList()
 						continue
 					}
 					models.MirrorRestartLock.Lock()
@@ -1121,6 +1123,8 @@ func main() {
 					})
 					// delete from database
 					database.Delete(&stream)
+					// send broadcast message
+					handlers.BroadcastMirrorUpdateList()
 				}
 			}
 
