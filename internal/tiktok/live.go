@@ -1,7 +1,6 @@
 package tiktok
 
 import (
-	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,8 +8,6 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-
-	"github.com/andybalholm/brotli"
 )
 
 func (c *Client) GetRoomIdFromUserWithAPI(username string) (string, error) {
@@ -28,16 +25,7 @@ func (c *Client) GetRoomIdFromUserWithAPI(username string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var reader io.ReadCloser
-
-	switch data.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, _ = gzip.NewReader(data.Body)
-	case "br":
-		reader = io.NopCloser(brotli.NewReader(data.Body))
-	default:
-		reader = data.Body
-	}
+	reader := parseBody(data)
 
 	defer reader.Close()
 	body, err := io.ReadAll(reader)
@@ -86,16 +74,8 @@ func (c *Client) GetRoomInfo(roomID string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var reader io.ReadCloser
 
-	switch data.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, _ = gzip.NewReader(data.Body)
-	case "br":
-		reader = io.NopCloser(brotli.NewReader(data.Body))
-	default:
-		reader = data.Body
-	}
+	reader := parseBody(data)
 
 	defer reader.Close()
 	body, err := io.ReadAll(reader)
@@ -148,16 +128,7 @@ func (c *Client) CheckMultipleRoomIsAlive(roomIDs []string) (map[string]bool, er
 		return nil, err
 	}
 	// Suppose resp is your *http.Response
-	var reader io.ReadCloser
-
-	switch data.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, _ = gzip.NewReader(data.Body)
-	case "br":
-		reader = io.NopCloser(brotli.NewReader(data.Body))
-	default:
-		reader = data.Body
-	}
+	reader := parseBody(data)
 
 	defer reader.Close()
 
@@ -213,16 +184,7 @@ func (c *Client) CheckRoomIsAlive(roomID string) (bool, error) {
 		return false, err
 	}
 	// Suppose resp is your *http.Response
-	var reader io.ReadCloser
-
-	switch data.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, _ = gzip.NewReader(data.Body)
-	case "br":
-		reader = io.NopCloser(brotli.NewReader(data.Body))
-	default:
-		reader = data.Body
-	}
+	reader := parseBody(data)
 
 	defer reader.Close()
 	body, err := io.ReadAll(reader)
@@ -272,16 +234,7 @@ func (c *Client) GetLiveUrl(roomID string) (string, error) {
 		return "", err
 	}
 	// Suppose resp is your *http.Response
-	var reader io.ReadCloser
-
-	switch data.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, _ = gzip.NewReader(data.Body)
-	case "br":
-		reader = io.NopCloser(brotli.NewReader(data.Body))
-	default:
-		reader = data.Body
-	}
+	reader := parseBody(data)
 
 	defer reader.Close()
 	body, err := io.ReadAll(reader)
@@ -391,16 +344,7 @@ func (c *Client) GetUserFromRoomId(roomId string) (string, error) {
 		return "", err
 	}
 	// Suppose resp is your *http.Response
-	var reader io.ReadCloser
-
-	switch data.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, _ = gzip.NewReader(data.Body)
-	case "br":
-		reader = io.NopCloser(brotli.NewReader(data.Body))
-	default:
-		reader = data.Body
-	}
+	reader := parseBody(data)
 
 	defer reader.Close()
 	body, err := io.ReadAll(reader)
@@ -435,16 +379,7 @@ func (c *Client) GetRoomAndUserFromUrl(liveUrl string) (string, string, error) {
 		return "", "", err
 	}
 	// Suppose resp is your *http.Response
-	var reader io.ReadCloser
-
-	switch data.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, _ = gzip.NewReader(data.Body)
-	case "br":
-		reader = io.NopCloser(brotli.NewReader(data.Body))
-	default:
-		reader = data.Body
-	}
+	reader := parseBody(data)
 
 	defer reader.Close()
 	body, err := io.ReadAll(reader)
@@ -499,16 +434,7 @@ func (c *Client) GetRoomIdFromUser(user string) (string, error) {
 		return "", err
 	}
 	// Suppose resp is your *http.Response
-	var reader io.ReadCloser
-
-	switch data.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, _ = gzip.NewReader(data.Body)
-	case "br":
-		reader = io.NopCloser(brotli.NewReader(data.Body))
-	default:
-		reader = data.Body
-	}
+	reader := parseBody(data)
 
 	defer reader.Close()
 	body, err := io.ReadAll(reader)

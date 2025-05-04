@@ -1,14 +1,12 @@
 package tiktok
 
 import (
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
 	"time"
 
-	"github.com/andybalholm/brotli"
 	"github.com/imroc/req/v3"
 )
 
@@ -33,15 +31,7 @@ func (c *Client) Sign(destinationUrl string) (string, error) {
 		return "", err
 	}
 	// check if br or gzip
-	var reader io.ReadCloser
-	switch response.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, _ = gzip.NewReader(response.Body)
-	case "br":
-		reader = io.NopCloser(brotli.NewReader(response.Body))
-	default:
-		reader = response.Body
-	}
+	reader := parseBody(response)
 
 	defer reader.Close()
 	body, err := io.ReadAll(reader)
