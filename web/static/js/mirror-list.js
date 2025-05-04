@@ -282,7 +282,9 @@ $(function() {
         }
         $("#mirrorInput").removeClass("is-invalid");
         const token = localStorage.getItem("jwt_token");
-        $("#addMirrorForm button[type='submit']").prop("disabled", true);
+        $("#addMirrorModal .btn-primary").prop("disabled", true);
+        // show loading spinner
+        $("#addMirrorModal .btn-primary").html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...');
         $.ajax({
             url: '/api/mirrors',
             method: 'POST',
