@@ -11,11 +11,10 @@ import (
 )
 
 type SignResponse struct {
-	Signature         string `json:"signature"`
-	SignedUrl         string `json:"signed_url"`
-	UserAgent         string `json:"user_agent"`
-	VerifyFingerprint string `json:"verify_fp"`
-	XxttParams        string `json:"xxttparams"`
+	Signature string `json:"signature"`
+	SignedUrl string `json:"url"`
+	MsToken   string `json:"ms_token"`
+	OdinTT    string `json:"odin_tt"`
 }
 
 func (c *Client) Sign(destinationUrl string) (string, error) {
@@ -35,13 +34,18 @@ func (c *Client) Sign(destinationUrl string) (string, error) {
 
 	parsedUrl.RawQuery = originalQueryParams.Encode()
 
-	apiUrl := fmt.Sprintf("%s/sign?url=%s", signerURL, url.QueryEscape(parsedUrl.String()))
+	apiUrl := fmt.Sprintf("%s/sign", signerURL)
 
 	client := req.NewClient()
 	client.SetTimeout(60 * time.Second)
 	client.SetUserAgent(c.userAgent)
 
-	response, err := client.R().Get(apiUrl)
+	postBody := map[string]interface{}{
+		"url":        parsedUrl.String(),
+		"user_agent": c.device.UserAgent,
+	}
+
+	response, err := client.R().SetBody(postBody).Post(apiUrl)
 	if err != nil {
 		return "", err
 	}

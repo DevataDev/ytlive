@@ -8,7 +8,7 @@ import (
 const (
 	webcastURL   = "https://webcast.tiktok.com"
 	tiktokAppURL = "https://www.tiktok.com"
-	signerURL    = "https://ttsign.yuklive.my.id"
+	signerURL    = "https://ttsigner.yuklive.my.id"
 
 	// endpoints
 	signReq          = "/sign"
