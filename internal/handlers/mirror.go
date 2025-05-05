@@ -180,7 +180,7 @@ func (h *MirrorHandler) StopMirror(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Mirror is not live"})
 		return
 	}
-	err := models.StopMirrorWorkerWithDatabase(mirror.ID, h.DB)
+	err := models.StopMirrorWorkerWithDatabase(mirror.ID, h.DB, true)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -197,7 +197,7 @@ func (h *MirrorHandler) DeleteMirror(c *gin.Context) {
 		return
 	}
 	// Stop the worker if running
-	_ = models.StopMirrorWorkerWithDatabase(mirror.ID, h.DB)
+	_ = models.StopMirrorWorkerWithDatabase(mirror.ID, h.DB, true)
 	if err := h.DB.Delete(&mirror).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return

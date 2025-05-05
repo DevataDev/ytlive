@@ -58,6 +58,16 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				// check if worker is already restarting
 				// lock
 				if w.Status != "live" {
+					if w.Status == "user_stopped" {
+						// update database
+						w.DB.Model(&Mirror{}).Where("id = ?", w.MirrorID).Updates(map[string]interface{}{
+							"Status":    "stopped",
+							"StoppedAt": time.Now().UTC(),
+						})
+						w.Status = "stopped"
+						RemoveMirrorWorker(w.MirrorID)
+						return
+					}
 					return
 				}
 
@@ -73,14 +83,14 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 					w.Status = "stopped"
 					// Delete from database
 					w.DB.Delete(&Mirror{}, w.MirrorID)
-					StopMirrorWorkerWithDatabase(w.MirrorID, w.DB)
+					StopMirrorWorkerWithDatabase(w.MirrorID, w.DB, false)
 					RemoveMirrorWorker(w.MirrorID)
 					return
 				}
 
 				// check
 				MirrorRestartLock.Lock()
-				StopMirrorWorkerWithDatabase(w.MirrorID, w.DB)
+				StopMirrorWorkerWithDatabase(w.MirrorID, w.DB, false)
 				StartMirrorWorkerWithDatabase(w.MirrorID, w.TiktokClient, w.DB)
 				MirrorRestartLock.Unlock()
 				broadcast.Bus.Broadcast(broadcast.RefreshMirror, nil)
@@ -151,7 +161,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	return worker, cmd.Process.Pid, nil
 }
 
-func StopMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB) error {
+func StopMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB, userStop bool) error {
 	// get mirror from database
 	var mirror Mirror
 	database.Where("id = ?", mirrorID).First(&mirror)
@@ -164,6 +174,10 @@ func StopMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB) error {
 	worker := MirrorWorkers[mirrorID]
 	if worker != nil {
 		worker.CancelFunc()
+	}
+
+	if userStop {
+		worker.Status = "user_stopped"
 	}
 
 	// update database
