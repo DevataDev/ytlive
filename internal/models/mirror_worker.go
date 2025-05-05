@@ -177,7 +177,9 @@ func StopMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB, userStop b
 	}
 
 	if userStop {
-		worker.Status = "user_stopped"
+		if worker != nil {
+			worker.Status = "user_stopped"
+		}
 	}
 
 	// update database
@@ -236,7 +238,12 @@ func buildMirrorFfmpegArgs(rtmpUrl string, streamKey string, liveUrl string, use
 	args = append(args, "-threads", "1")
 	args = append(args, "-i", liveUrl)
 	args = append(args, "-user_agent", ffmpegUserAgent)
-	args = append(args, "-c", "copy")
+	args = append(args, "-c:v", "copy")
+	args = append(args, "-c:a", "aac")
+	//set audio bitrate to 128k
+	args = append(args, "-b:a", "128k")
+	//-filter:a "loudnorm=i=-14"
+	args = append(args, "-af", "highpass=f=100, lowpass=f=3000, afftdn=nf=-25, dynaudnorm")
 	args = append(args, "-f", "flv")
 	args = append(args, "-flvflags", "no_duration_filesize")
 	args = append(args, "-drop_pkts_on_overflow", "1")
