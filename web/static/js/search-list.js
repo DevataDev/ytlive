@@ -13,7 +13,7 @@ $(function() {
     function fetchLiveFeeds() {
         const token = localStorage.getItem("jwt_token");
         $.ajax({
-            url: '/api/tiktok/live-feed',
+            url: '/api/tiktok/suggested-feed',
             method: 'GET',
             headers: { Authorization: 'Bearer ' + token },
             success: function(data) {

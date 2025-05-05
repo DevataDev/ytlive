@@ -21,7 +21,7 @@ func (c *Client) GetRoomIdFromUserWithAPI(username string) (string, error) {
 
 	url := c.FormatUrl(tiktokAppURL, urlGetRoomIdFromUser, queryParams)
 
-	data, err := c.Get(url, true)
+	data, err := c.Get(url, false)
 	if err != nil {
 		return "", err
 	}
@@ -70,7 +70,7 @@ func (c *Client) GetRoomInfo(roomID string) (map[string]interface{}, error) {
 	queryParams["room_id"] = roomID
 
 	url := c.FormatUrl(webcastURL, getRoomInfo, queryParams)
-	data, err := c.Get(url, true)
+	data, err := c.Get(url, false)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func (c *Client) CheckRoomIsAlive(roomID string) (bool, error) {
 		return false, ErrHttpClientNil
 	}
 
-	data, err := c.Get(url, true)
+	data, err := c.Get(url, false)
 
 	if err != nil {
 		return false, err
@@ -229,7 +229,7 @@ func (c *Client) GetLiveUrl(roomID string) (string, error) {
 	queryParams["user_is_login"] = "true"
 
 	url := c.FormatUrl(webcastURL, getRoomInfo, queryParams)
-	data, err := c.Get(url, true)
+	data, err := c.Get(url, false)
 	if err != nil {
 		return "", err
 	}
@@ -339,7 +339,7 @@ func (c *Client) GetUserFromRoomId(roomId string) (string, error) {
 	queryParams["room_id"] = roomId
 
 	url := c.FormatUrl(webcastURL, getRoomInfo, queryParams)
-	data, err := c.Get(url, true)
+	data, err := c.Get(url, false)
 	if err != nil {
 		return "", err
 	}
@@ -484,7 +484,7 @@ func (c *Client) CheckUserIsLive(user string) (bool, error) {
 
 	url := c.FormatUrl(tiktokAppURL, urlGetRoomIdFromUser, queryParams)
 
-	data, err := c.Get(url, true)
+	data, err := c.Get(url, false)
 	if err != nil {
 		return false, err
 	}

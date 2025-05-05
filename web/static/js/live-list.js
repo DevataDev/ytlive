@@ -10,15 +10,28 @@ $(function() {
         window.location.href = "/";
     });
 
+    let isLoadMore = false;
+    let searchID = "";
+    let feedRooms = [];
+
     function fetchLiveFeeds() {
         const token = localStorage.getItem("jwt_token");
         $.ajax({
-            url: '/api/tiktok/live-feed',
+            url: '/api/tiktok/live-feed?is_load_more=' + isLoadMore + '&search_id=' + searchID,
             method: 'GET',
             headers: { Authorization: 'Bearer ' + token },
             success: function(data) {
                 $("#countRoom").text(data.rooms ? data.rooms.length : 0);
-                renderLiveFeedsTable(data.rooms || []);
+                if (isLoadMore) {
+                    feedRooms = feedRooms.concat(data.rooms);
+                } else {
+                    feedRooms = data.rooms || [];
+                }
+                if (data.pagination.search_id != searchID) {
+                    searchID = data.pagination.search_id;
+                }
+                isLoadMore = data.pagination.has_more;
+                renderLiveFeedsTable(data);
             },
             error: function() {
                 $("#room-list-cards").html('<div class="col-12 text-center text-danger">Failed to load rooms.</div>');
@@ -33,7 +46,7 @@ $(function() {
             cardContainer.append('<div class="col-12 text-center text-muted">No rooms found.</div>');
             return;
         }
-        liveFeeds.forEach(liveFeed => {
+        liveFeeds.rooms.forEach(liveFeed => {
             let canStart = false;
             let isLive = false;
             let viewCount = formatNumber(liveFeed.stats.total_user);
@@ -133,7 +146,32 @@ $(function() {
                 </div>
             `);
         });
+
+        // Remove existing load more button if any
+        $("#loadMoreBtnWrapper").remove();
+
+
+        // Add Load More button if needed
+        if (liveFeeds.pagination.has_more && liveFeeds.rooms.length > 0) {
+            cardContainer.after(`
+                <div id="loadMoreBtnWrapper" class="text-center my-3">
+                    <button id="loadMoreBtn" class="btn btn-primary">Load More</button>
+                </div>
+            `);
+        } else if (!liveFeeds.pagination.has_more) {
+            cardContainer.after(`
+                <div id="loadMoreBtnWrapper" class="text-center my-3">
+                    <button id="loadMoreBtn" class="btn btn-secondary" disabled>No more results</button>
+                </div>
+            `);
+        }
     }
+
+    // handler for load more button
+    $(document).on("click", "#loadMoreBtn", function(e) {
+        e.preventDefault();
+        fetchLiveFeeds();
+    });
 
     function formatNumber(num) {
         //if thousands add K, if millions add M

@@ -20,92 +20,92 @@
         }
     </style>
 </head>
-<body>
-<header class="sticky-top bg-white border-bottom shadow-sm mb-4">
-    <nav class="navbar navbar-expand-lg bg-white">
-        <div class="container-fluid">
-            <span class="fw-bold fs-4 me-3">YukLive!</span>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="mainNavbar">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a href="/dashboard" class="nav-link">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="/stream" class="nav-link">Stream</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="/mirror" class="nav-link">Mirror</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="/live" class="nav-link">TikTok Live</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="/search" class="nav-link">TikTok Search</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="/monitor" class="nav-link active">Monitor</a>
-                    </li>
-                </ul>
-                <button id="logoutBtn" class="btn btn-outline-secondary ms-lg-2">Logout</button>
+<body class="d-flex flex-column min-vh-100">
+    <header class="sticky-top bg-white border-bottom shadow-sm mb-4">
+        <nav class="navbar navbar-expand-lg bg-white">
+            <div class="container-fluid">
+                <span class="fw-bold fs-4 me-3">YukLive!</span>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="mainNavbar">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <a href="/dashboard" class="nav-link">Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/stream" class="nav-link">Stream</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/mirror" class="nav-link">Mirror</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/live" class="nav-link">TikTok Live</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/search" class="nav-link">TikTok Search</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/monitor" class="nav-link active">Monitor</a>
+                        </li>
+                    </ul>
+                    <button id="logoutBtn" class="btn btn-outline-secondary ms-lg-2">Logout</button>
+                </div>
             </div>
+        </nav>
+    </header>
+    <main class="flex-fill">
+        <div class="container-fluid container-xl dashboard-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <span class="badge bg-info me-2">Monitor Count: <span id="countMonitor">-</span></span>
+                </div>
+                <form id="add-monitor-form" class="d-flex gap-2">
+                    <input type="text" id="uniqueId" name="uniqueId" class="form-control" placeholder="TikTok Unique ID" required>
+                    <button type="submit" class="btn btn-success">Add Monitor</button>
+                </form>
+            </div>
+            <section>
+                <h2>Monitored Users</h2>
+                <div class="table-responsive" style="max-height:60vh;overflow-y:auto;">
+                <table id="monitor-table" class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Unique ID</th>
+                            <th>RTMP URL</th>
+                            <th>Stream Key</th>
+                            <th>Is Live</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Monitor rows will be injected here -->
+                        <tr data-monitor-id="monitor-1">
+                            <td>unique-id-1</td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm" id="rtmp-url-1" value="rtmp://example.com/live/1">
+                                <button class="btn btn-sm btn-primary" id="save-rtmp-url-1">Save</button>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm" id="stream-key-1" value="stream-key-1">
+                                <button class="btn btn-sm btn-primary" id="save-stream-key-1">Save</button>
+                            </td>
+                            <td>Yes</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger" id="delete-monitor-1">Delete</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </section>
         </div>
-    </nav>
-</header>
-<div class="container-fluid container-xl dashboard-container">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <span class="badge bg-info me-2">Monitor Count: <span id="countMonitor">-</span></span>
-        </div>
-        <form id="add-monitor-form" class="d-flex gap-2">
-            <input type="text" id="uniqueId" name="uniqueId" class="form-control" placeholder="TikTok Unique ID" required>
-            <button type="submit" class="btn btn-success">Add Monitor</button>
-        </form>
-    </div>
-    <section>
-        <h2>Monitored Users</h2>
-        <div class="table-responsive">
-        <table id="monitor-table" class="table table-striped align-middle">
-            <thead>
-                <tr>
-                    <th>Unique ID</th>
-                    <th>RTMP URL</th>
-                    <th>Stream Key</th>
-                    <th>Is Live</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Monitor rows will be injected here -->
-                <tr data-monitor-id="monitor-1">
-                    <td>unique-id-1</td>
-                    <td>
-                        <input type="text" class="form-control form-control-sm" id="rtmp-url-1" value="rtmp://example.com/live/1">
-                        <button class="btn btn-sm btn-primary" id="save-rtmp-url-1">Save</button>
-                    </td>
-                    <td>
-                        <input type="text" class="form-control form-control-sm" id="stream-key-1" value="stream-key-1">
-                        <button class="btn btn-sm btn-primary" id="save-stream-key-1">Save</button>
-                    </td>
-                    <td>Yes</td>
-                    <td>
-                        <button class="btn btn-sm btn-danger" id="delete-monitor-1">Delete</button>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        </div>
-    </section>
-</div>
-<footer class="footer mt-auto py-3 bg-light border-top text-center" style="position:sticky;bottom:0;width:100%;z-index:100;">
-  <div class="container">
-    <span class="text-muted">&copy; 2025 Yuk Live! By PT Jejaring Internet Bersama</span>
-  </div>
-</footer>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/static/js/monitor-management.js?v=0.3.7"></script>
+    </main>
+    <footer class="footer mt-auto py-3 bg-light border-top text-center w-100">
+        <span class="text-muted">&copy; 2025 Yuk Live! By PT Jejaring Internet Bersama</span>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/monitor-management.js?v=0.3.7"></script>
 </body>
 </html>

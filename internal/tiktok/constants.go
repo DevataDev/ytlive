@@ -35,9 +35,17 @@ const (
 	origin = "https://www.tiktok.com"
 
 	//req_from
-	fromLiveTab       = "live_mt_pc_web_rec_tab_refresh"
-	fromFollowingTab  = "tiktok_message_webapp_following"
-	fromSuggestionTab = "pc_web_suggested_host"
+	fromLiveTab               = "live_mt_pc_web_rec_tab_refresh"
+	fromFollowingTab          = "tiktok_message_webapp_following"
+	fromSuggestionTab         = "pc_web_suggested_host"
+	fromLiveTabLoadMore       = "live_mt_pc_web_rec_tab_loadmore"
+	fromSuggestionTabLoadMore = "pc_web_suggested_host_loadmore"
+	fromPcWebGameRefresh      = "pc_web_game_sub_feed_refresh"
+	fromPcWebFollowDefault    = "pc_web_side_follow_default"
+	fromPcWebTaxonomy         = "webapp_taxonomy_drawer_enter_feed"
+	fromPcWebGameTab          = "pc_web_game_feed_refresh"
+	//related_live_tag
+
 )
 
 var (

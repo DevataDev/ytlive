@@ -29,6 +29,13 @@ type SearchQueryResponse struct {
 	HasMore  bool                  `json:"has_more"`
 }
 
+type FeedQueryResponse struct {
+	Rooms    []tiktok.FeedRoomData `json:"rooms"`
+	SearchID string                `json:"search_id"`
+	Total    int                   `json:"total"`
+	HasMore  bool                  `json:"has_more"`
+}
+
 func (h *TiktokHandler) GetRoomFromUser(c *gin.Context) {
 	user := c.Query("user")
 	if user == "" {
@@ -105,22 +112,49 @@ func (h *TiktokHandler) GetLiveFeed(c *gin.Context) {
 	if limit == "" {
 		limit = "6"
 	}
+	isLoadMore := c.Query("is_load_more")
+	var wrappedFeed *tiktok.WrappedFeedResponse
+	var feedRoomData []tiktok.FeedRoomData
+	var err error
 	// check in cache first
-	feedRoomData, err := h.Cache.Get("live_feed")
-	if err == nil {
-		c.JSON(200, gin.H{"rooms": feedRoomData})
-		return
+	if isLoadMore != "true" {
+		cacheData, err := h.Cache.Get("live_feed")
+		if err == nil {
+			feedQueryResponse := cacheData.(FeedQueryResponse)
+			c.JSON(200, gin.H{"rooms": feedQueryResponse.Rooms, "pagination": gin.H{"total": feedQueryResponse.Total, "has_more": feedQueryResponse.HasMore, "search_id": feedQueryResponse.SearchID}})
+			return
+		}
+	} else {
+		cacheData, err := h.Cache.Get("live_feed")
+		feedQueryResponse := cacheData.(FeedQueryResponse)
+		if err == nil {
+			feedRoomData = feedQueryResponse.Rooms
+		}
 	}
 
-	feedRoomData, err = h.TikTokClient.GetLiveFeed()
+	wrappedFeed, err = h.TikTokClient.GetLiveFeed(isLoadMore == "true")
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	// set cache
-	h.Cache.Set("live_feed", feedRoomData, time.Now().Add(3*time.Minute))
 
-	c.JSON(200, gin.H{"rooms": feedRoomData})
+	if isLoadMore == "true" {
+		feedRoomData = append(feedRoomData, wrappedFeed.Rooms...)
+	} else {
+		feedRoomData = wrappedFeed.Rooms
+	}
+
+	feedQueryResponse := FeedQueryResponse{
+		Rooms:    feedRoomData,
+		SearchID: wrappedFeed.SearchID,
+		Total:    wrappedFeed.Total,
+		HasMore:  wrappedFeed.HasMore,
+	}
+
+	// set cache
+	h.Cache.Set("live_feed", feedQueryResponse, time.Now().Add(3*time.Minute))
+
+	c.JSON(200, gin.H{"rooms": feedRoomData, "pagination": gin.H{"total": wrappedFeed.Total, "has_more": wrappedFeed.HasMore, "search_id": wrappedFeed.SearchID, "req_from": wrappedFeed.ReqFrom}})
 }
 
 func (h *TiktokHandler) Search(c *gin.Context) {
@@ -194,4 +228,53 @@ func (h *TiktokHandler) Search(c *gin.Context) {
 	h.Cache.Set(cacheKey, searchQueryResponse, time.Now().Add(3*time.Minute))
 
 	c.JSON(200, gin.H{"rooms": rooms, "pagination": gin.H{"offset": searchQueryResponse.Offset, "limit": searchQueryResponse.Limit, "total": searchQueryResponse.Total, "has_more": searchQueryResponse.HasMore, "search_id": searchQueryResponse.SearchID}})
+}
+
+func (h *TiktokHandler) GetSuggestedFeed(c *gin.Context) {
+	// check in cache first
+	isLoadMore := c.Query("is_load_more")
+	var feedRoomData []tiktok.FeedRoomData
+
+	if isLoadMore != "true" {
+		cacheData, err := h.Cache.Get("suggested_feed")
+		if err == nil {
+			feedQueryResponse := cacheData.(FeedQueryResponse)
+			c.JSON(200, gin.H{"rooms": feedQueryResponse.Rooms, "pagination": gin.H{"total": feedQueryResponse.Total, "has_more": feedQueryResponse.HasMore, "search_id": feedQueryResponse.SearchID}})
+			return
+		}
+	} else {
+		cacheData, err := h.Cache.Get("suggested_feed")
+		feedQueryResponse := cacheData.(FeedQueryResponse)
+		if err == nil {
+			feedRoomData = feedQueryResponse.Rooms
+		}
+	}
+
+	wrappedFeed, err := h.TikTokClient.GetSuggestedFeed(isLoadMore == "true")
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	if isLoadMore == "true" {
+		feedRoomData = append(feedRoomData, wrappedFeed.Rooms...)
+	}
+
+	for _, room := range wrappedFeed.Rooms {
+		room.LiveURL = room.GetLiveURL()
+		feedRoomData = append(feedRoomData, room)
+	}
+
+	feedQueryResponse := FeedQueryResponse{
+		Rooms:    feedRoomData,
+		SearchID: wrappedFeed.SearchID,
+		Total:    wrappedFeed.Total,
+		HasMore:  wrappedFeed.HasMore,
+	}
+
+	// set cache
+	h.Cache.Set("suggested_feed", feedQueryResponse, time.Now().Add(3*time.Minute))
+
+	c.JSON(200, gin.H{"rooms": feedRoomData, "pagination": gin.H{"total": feedQueryResponse.Total, "has_more": feedQueryResponse.HasMore, "search_id": feedQueryResponse.SearchID}})
+
 }

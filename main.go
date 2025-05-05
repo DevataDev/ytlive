@@ -349,6 +349,8 @@ func main() {
 	r.GET("/api/tiktok/live-feed", tiktokHandler.GetLiveFeed)
 
 	r.POST("/api/tiktok/search", tiktokHandler.Search)
+
+	r.GET("/api/tiktok/suggested-feed", tiktokHandler.GetSuggestedFeed)
 	// -- Tiktok End --
 
 	monitorHandler := handlers.MonitorHandler{DB: db}

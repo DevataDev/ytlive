@@ -170,7 +170,7 @@ func (c *Client) Get(url string, isSign bool) (*req.Response, error) {
 	return req.Get(signedUrl)
 }
 
-func (c *Client) Post(url string, body io.Reader) (*req.Response, error) {
+func (c *Client) Post(url string, body io.Reader, isSign bool) (*req.Response, error) {
 	c.httpClient.SetUserAgent(c.userAgent)
 	req := c.httpClient.R()
 	req.SetHeaders(defaultRequestHeaders)
@@ -178,16 +178,15 @@ func (c *Client) Post(url string, body io.Reader) (*req.Response, error) {
 		req.SetHeader("Cookie", c.cookie)
 	}
 
-	signedUrl, err := c.Sign(url)
-	if err != nil {
-		fmt.Println("Failed to sign url for", url, "with error", err)
-		return nil, err
+	if isSign {
+		responseSigned, _ := c.Sign(url)
+		url = responseSigned
 	}
 
-	return req.SetBody(body).Post(signedUrl)
+	return req.SetBody(body).Post(url)
 }
 
-func (c *Client) Put(url string, body io.Reader) (*req.Response, error) {
+func (c *Client) Put(url string, body io.Reader, isSign bool) (*req.Response, error) {
 	c.httpClient.SetUserAgent(c.userAgent)
 	req := c.httpClient.R()
 	req.SetHeaders(defaultRequestHeaders)
@@ -195,16 +194,15 @@ func (c *Client) Put(url string, body io.Reader) (*req.Response, error) {
 		req.SetHeader("Cookie", c.cookie)
 	}
 
-	signedUrl, err := c.Sign(url)
-	if err != nil {
-		fmt.Println("Failed to sign url for", url, "with error", err)
-		return nil, err
+	if isSign {
+		responseSigned, _ := c.Sign(url)
+		url = responseSigned
 	}
 
-	return req.SetBody(body).Put(signedUrl)
+	return req.SetBody(body).Put(url)
 }
 
-func (c *Client) Delete(url string) (*req.Response, error) {
+func (c *Client) Delete(url string, isSign bool) (*req.Response, error) {
 	c.httpClient.SetUserAgent(c.userAgent)
 	req := c.httpClient.R()
 	req.SetHeaders(defaultRequestHeaders)
@@ -212,16 +210,15 @@ func (c *Client) Delete(url string) (*req.Response, error) {
 		req.SetHeader("Cookie", c.cookie)
 	}
 
-	signedUrl, err := c.Sign(url)
-	if err != nil {
-		fmt.Println("Failed to sign url for", url, "with error", err)
-		return nil, err
+	if isSign {
+		responseSigned, _ := c.Sign(url)
+		url = responseSigned
 	}
 
-	return req.Delete(signedUrl)
+	return req.Delete(url)
 }
 
-func (c *Client) Head(url string) (*req.Response, error) {
+func (c *Client) Head(url string, isSign bool) (*req.Response, error) {
 	c.httpClient.SetUserAgent(c.userAgent)
 	req := c.httpClient.R()
 	req.SetHeaders(defaultRequestHeaders)
@@ -229,13 +226,12 @@ func (c *Client) Head(url string) (*req.Response, error) {
 		req.SetHeader("Cookie", c.cookie)
 	}
 
-	signedUrl, err := c.Sign(url)
-	if err != nil {
-		fmt.Println("Failed to sign url for", url, "with error", err)
-		return nil, err
+	if isSign {
+		responseSigned, _ := c.Sign(url)
+		url = responseSigned
 	}
 
-	return req.Head(signedUrl)
+	return req.Head(url)
 }
 
 func (c *Client) GetUserAgent() string {

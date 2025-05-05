@@ -176,6 +176,14 @@ type FeedRoomData struct {
 	} `json:"taxonomy_tag_info"`
 }
 
+type WrappedFeedResponse struct {
+	Rooms    []FeedRoomData `json:"rooms"`
+	SearchID string         `json:"search_id"`
+	Total    int            `json:"total"`
+	HasMore  bool           `json:"has_more"`
+	ReqFrom  string         `json:"req_from"`
+}
+
 func (r FeedRoomData) GetLiveURL() string {
 	var liveURL string
 	if r.StreamURL.FlvPullURL.FULLHD1 != "" {
@@ -193,13 +201,18 @@ func (r FeedRoomData) GetLiveURL() string {
 	return liveURL
 }
 
-func (c *Client) GetLiveFeed() ([]FeedRoomData, error) {
+func (c *Client) GetLiveFeed(isLoadMore bool) (*WrappedFeedResponse, error) {
 	queryParams := c.formatDefaultGetParams()
-	queryParams["req_from"] = fromLiveTab
 	queryParams["channel_id"] = "87"
 
+	if isLoadMore {
+		queryParams["req_from"] = fromLiveTabLoadMore
+	} else {
+		queryParams["req_from"] = fromLiveTab
+	}
+
 	url := c.FormatUrl(webcastURL, urlFeed, queryParams)
-	data, err := c.Get(url, true)
+	data, err := c.Get(url, false)
 	if err != nil {
 		return nil, err
 	}
@@ -224,16 +237,29 @@ func (c *Client) GetLiveFeed() ([]FeedRoomData, error) {
 		feedRoomData = append(feedRoomData, roomData)
 	}
 
-	return feedRoomData, nil
+	wrappedFeedResponse := WrappedFeedResponse{
+		Rooms:    feedRoomData,
+		SearchID: feedResponse.Extra.LogPb.ImprID,
+		Total:    feedResponse.Extra.Total,
+		HasMore:  feedResponse.Extra.HasMore,
+		ReqFrom:  queryParams["req_from"],
+	}
+
+	return &wrappedFeedResponse, nil
 }
 
-func (c *Client) GetSuggestedFeed() ([]FeedRoomData, error) {
+func (c *Client) GetSuggestedFeed(isLoadMore bool) (*WrappedFeedResponse, error) {
 	queryParams := c.formatDefaultGetParams()
-	queryParams["req_from"] = fromSuggestionTab
 	queryParams["channel_id"] = "86"
 
+	if isLoadMore {
+		queryParams["req_from"] = fromSuggestionTabLoadMore
+	} else {
+		queryParams["req_from"] = fromSuggestionTab
+	}
+
 	url := c.FormatUrl(webcastURL, urlFeed, queryParams)
-	data, err := c.Get(url, true)
+	data, err := c.Get(url, false)
 	if err != nil {
 		return nil, err
 	}
@@ -258,15 +284,23 @@ func (c *Client) GetSuggestedFeed() ([]FeedRoomData, error) {
 		feedRoomData = append(feedRoomData, roomData)
 	}
 
-	return feedRoomData, nil
+	wrappedFeedResponse := WrappedFeedResponse{
+		Rooms:    feedRoomData,
+		SearchID: feedResponse.Extra.LogPb.ImprID,
+		Total:    feedResponse.Extra.Total,
+		HasMore:  feedResponse.Extra.HasMore,
+		ReqFrom:  queryParams["req_from"],
+	}
+
+	return &wrappedFeedResponse, nil
 }
 
-func (c *Client) GetFollowingFeed() ([]FeedRoomData, error) {
+func (c *Client) GetFollowingFeed() (*WrappedFeedResponse, error) {
 	queryParams := c.formatDefaultGetParams()
 	queryParams["req_from"] = fromFollowingTab
 
 	url := c.FormatUrl(webcastURL, urlFeed, queryParams)
-	data, err := c.Get(url, true)
+	data, err := c.Get(url, false)
 	if err != nil {
 		return nil, err
 	}
@@ -291,5 +325,13 @@ func (c *Client) GetFollowingFeed() ([]FeedRoomData, error) {
 		feedRoomData = append(feedRoomData, roomData)
 	}
 
-	return feedRoomData, nil
+	wrappedFeedResponse := WrappedFeedResponse{
+		Rooms:    feedRoomData,
+		SearchID: feedResponse.Extra.LogPb.ImprID,
+		Total:    feedResponse.Extra.Total,
+		HasMore:  feedResponse.Extra.HasMore,
+		ReqFrom:  queryParams["req_from"],
+	}
+
+	return &wrappedFeedResponse, nil
 }
