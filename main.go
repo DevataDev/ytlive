@@ -360,6 +360,9 @@ func main() {
 	r.PUT("/api/monitors/:id/rtmp-url", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorRTMPUrl)
 	r.PUT("/api/monitors/:id/stream-key", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorStreamKey)
 
+	tiktokSignHandler := handlers.NewTiktokSignHandler(cfg)
+	r.POST("/api/tiktok/sign", tiktokSignHandler.Sign)
+
 	liveWorker := workers.NewLiveWorker(tiktokClient, db, broadcast.Bus)
 	liveWorker.StartUserMonitoring()
 
