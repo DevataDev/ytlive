@@ -178,6 +178,8 @@ func StopMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB, userStop b
 
 	if userStop {
 		worker.Status = "user_stopped"
+	} else {
+		worker.Status = "stopped"
 	}
 
 	// update database

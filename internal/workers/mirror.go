@@ -55,7 +55,7 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 					// delete from database
 					w.DB.Delete(&stream)
 					models.MirrorRestartLock.Lock()
-					models.StopMirrorWorkerWithDatabase(stream.ID, w.DB)
+					models.StopMirrorWorkerWithDatabase(stream.ID, w.DB, false)
 					models.RemoveMirrorWorker(stream.ID)
 					models.MirrorRestartLock.Unlock()
 					// send websocket message
@@ -65,7 +65,7 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 					continue
 				}
 				models.MirrorRestartLock.Lock()
-				_ = models.StopMirrorWorkerWithDatabase(stream.ID, w.DB) // Ensures ffmpeg is killed
+				_ = models.StopMirrorWorkerWithDatabase(stream.ID, w.DB, false) // Ensures ffmpeg is killed
 				models.RemoveMirrorWorker(stream.ID)
 				models.MirrorRestartLock.Unlock()
 				w.DB.Model(&stream).Updates(map[string]interface{}{
