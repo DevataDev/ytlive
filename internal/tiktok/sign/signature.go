@@ -200,7 +200,7 @@ func (sm *SignatureManager) GenerateSignature(url string, userAgent string) stri
 	intEncodedClamped, _ := strconv.ParseUint(encodedClamped, 2, 64)
 
 	// Step 8: Ab41(0, intEncodedClamped as string)
-	encryptedIntEncodedClamped := Ab41(0, strconv.FormatUint(intEncodedClamped, 10))
+	encryptedIntEncodedClamped := sm.Ab41(0, strconv.FormatUint(intEncodedClamped, 10))
 
 	fmt.Println("encryptedIntEncodedClamped", encryptedIntEncodedClamped)
 
@@ -217,8 +217,8 @@ func (sm *SignatureManager) GenerateSignature(url string, userAgent string) stri
 
 	f := (1 << 8) | (FeVersion << 4)
 
-	encrypted := (Ab41(encryptedIntEncodedClamped, userAgent)%65521)<<16 |
-		Ab41(encryptedIntEncodedClamped, newUrl)%65521
+	encrypted := (sm.Ab41(encryptedIntEncodedClamped, userAgent)%65521)<<16 |
+		sm.Ab41(encryptedIntEncodedClamped, newUrl)%65521
 
 	signature := InitSignature +
 		d +

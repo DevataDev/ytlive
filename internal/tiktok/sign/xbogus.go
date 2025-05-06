@@ -313,24 +313,6 @@ func (xb *XBogus) GetXBogus(urlPath string) (string, string, string) {
 	xb.XB = xbStr.String()
 	xb.Params = urlPath + "&X-Bogus=" + xb.XB
 	return xb.Params, xb.XB, xb.UserAgent
-
-	// strFromValue := xb.intArrayToByteArray(valuesArray2)
-	// fmt.Println("strFromValue", strFromValue)
-	// strKey := xb.converIntToString(255)
-
-	// ans := rc4Encrypt([]byte(strKey), strFromValue)
-	// fmt.Println("ans", ans)
-
-	// xbStr := xb.b64Encode([]byte(xb.mergeIntAndStringg(2, 255, string(ans))), "s2")
-	// fmt.Println("xbStr", xbStr)
-
-	// // 	const X_Bogus = VM231(VM110(2, 255, ans), "s2");
-
-	// //   url = VM66(url, ["X-Bogus", X_Bogus]);
-	// return "", "", ""
-	// xb.XB = xbStr.String()
-	// xb.Params = urlPath + "&X-Bogus=" + xb.XB
-	// return xb.Params, xb.XB, xb.UserAgent
 }
 
 func (xb *XBogus) sortQueryParams(baseUrl string, params []string) string {
