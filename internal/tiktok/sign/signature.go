@@ -202,11 +202,7 @@ func (sm *SignatureManager) GenerateSignature(url string, userAgent string) stri
 	// Step 8: Ab41(0, intEncodedClamped as string)
 	encryptedIntEncodedClamped := sm.Ab41(0, strconv.FormatUint(intEncodedClamped, 10))
 
-	fmt.Println("encryptedIntEncodedClamped", encryptedIntEncodedClamped)
-
 	newUrl := sm.SortsQueryParams(sm.ExtractQueryParameter(url)) + "pathname=" + sm.BaseUrl(url) + "&tt_webid=&uuid="
-
-	fmt.Println("newUrl", newUrl)
 
 	a := sm.ShiftRight(int(intEncodedClamped))
 	b := (intEncodedClamped / 4294967296) >> 0
