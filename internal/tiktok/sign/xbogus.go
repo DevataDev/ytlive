@@ -62,14 +62,10 @@ func NewXBogus(userAgent string) *XBogus {
 		userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0"
 	}
 
-	fmt.Println("userAgent", userAgent)
-	initEncryptionKey := generateEncryptionKey(1, 0)
-	fmt.Println("initEncryptionKey", string(initEncryptionKey))
-
 	return &XBogus{
 		Array:         arr,
 		Character:     GetBase("s2"),
-		UaKey:         initEncryptionKey,
+		UaKey:         generateEncryptionKey(1, 0),
 		UserAgent:     userAgent,
 		TiktokEncoder: NewTiktokEncoder(),
 	}
@@ -248,9 +244,6 @@ func (xb *XBogus) GetXBogus(urlPath string) (string, string, string) {
 
 	timer := int(time.Now().Unix())
 	ct := 1508145731
-
-	fmt.Println("timer", timer)
-	fmt.Println("ct", ct)
 
 	newArray := []int{
 		64,

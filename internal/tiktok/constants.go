@@ -84,12 +84,11 @@ var (
 		"tz_name":             "%s", // will be replaced with timezone name
 		"referer":             referer,
 		"root_referer":        origin,
-		"msToken":             "",
 		"version_code":        "180800",
 		"webcast_sdk_version": "1.3.0",
 		"update_version_code": "1.3.0",
-		"screen_height":       "%d", // will be replaced with screen height
-		"screen_width":        "%d", // will be replaced with screen width
+		"screen_height":       "%s", // will be replaced with screen height
+		"screen_width":        "%s", // will be replaced with screen width
 		"region":              "%s", // will be replaced with region
 		"os":                  "%s", // will be replaced with os
 		"user_is_login":       "%s",

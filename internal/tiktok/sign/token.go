@@ -96,8 +96,6 @@ func (tm *TokenManager) GenTtwid(cookie string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("ttwid response:", resp)
-
 	for _, c := range resp.Cookies() {
 		if c.Name == "ttwid" {
 			return c.Value, nil

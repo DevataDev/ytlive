@@ -161,13 +161,13 @@ func (c *Client) formatRequestHeaders() map[string]string {
 	return headers
 }
 
-func (c *Client) SignUrl(url string, userAgent string) (string, string, string, error) {
+func (c *Client) SignUrl(rawUrl string, userAgent string) (string, string, string, error) {
 	msToken := c.tokenManager.GenRealMsToken(userAgent)
 	ttwid, _ := c.tokenManager.GenTtwid(c.cookie)
 	odinTT, _ := c.tokenManager.GenOdinTT()
-	signature := c.signatureManager.GenerateSignature(url, userAgent)
+	signature := c.signatureManager.GenerateSignature(rawUrl, userAgent)
 
-	newUrl := c.bogusManager.AppendQueryParams(url, map[string]string{
+	newUrl := c.bogusManager.AppendQueryParams(rawUrl, map[string]string{
 		"msToken": msToken,
 	})
 
@@ -179,7 +179,10 @@ func (c *Client) SignUrl(url string, userAgent string) (string, string, string, 
 	newUrl = c.bogusManager.AppendQueryParams(xbStr, map[string]string{
 		"_signature": signature,
 	})
-	return newUrl, ttwid, odinTT, nil
+
+	newUrlParsed, _ := url.Parse(newUrl)
+	newUrlParsed.RawQuery = newUrlParsed.Query().Encode()
+	return newUrlParsed.String(), ttwid, odinTT, nil
 }
 
 func (c *Client) Get(url string, isSign bool) (*req.Response, error) {
@@ -197,6 +200,7 @@ func (c *Client) Get(url string, isSign bool) (*req.Response, error) {
 		signedUrl = url
 	}
 
+	fmt.Println("Signed URL:", signedUrl)
 	return req.Get(signedUrl)
 }
 
