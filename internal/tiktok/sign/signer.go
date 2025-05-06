@@ -168,7 +168,7 @@ func (s *Signer) Sign(url string, params []string, userAgent string) string {
 
 	encryptedUserAgent := rc4Encrypt(initEncryptionKey, userAgentBytes)
 	fmt.Println("encryptedUserAgent: ", encryptedUserAgent)
-	encodedEncryptedUserAgent := customEncoding(encryptedUserAgent, "s0")
+	encodedEncryptedUserAgent := customBase64(encryptedUserAgent, "s0")
 	fmt.Println("encodedEncryptedUserAgent: ", encodedEncryptedUserAgent)
 	hashEncodedEncryptedUserAgent := md5Hex(encodedEncryptedUserAgent)
 	fmt.Println("hashEncodedEncryptedUserAgent: ", hashEncodedEncryptedUserAgent)
@@ -235,7 +235,7 @@ func (s *Signer) Sign(url string, params []string, userAgent string) string {
 	fmt.Println("ans: ", ans)
 	joinStr := VM110(2, 255, ans)
 	fmt.Println("joinStr: ", joinStr)
-	xBogus := customEncoding([]byte(joinStr), "s2")
+	xBogus := customBase64([]byte(joinStr), "s2")
 	fmt.Println("xBogus: ", xBogus)
 
 	url = urlEncodeParams(url, []string{"X-Bogus", xBogus})
@@ -476,13 +476,42 @@ func VM112(array []int) string {
 	return string(buffer)
 }
 
-func customEncoding(text []byte, baseIndex string) string {
+func customBase64(text []byte, baseIndex string) string {
 	bases := map[string]string{
 		"s0": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
 		"s1": "Dkdpgh4ZKsQB80/Mfvw36XI1R25+WUAlEi7NLboqYTOPuzmFjJnryx9HVGcaStCe=",
 		"s2": "Dkdpgh4ZKsQB80/Mfvw36XI1R25-WUAlEi7NLboqYTOPuzmFjJnryx9HVGcaStCe=",
 	}
 	base := bases[baseIndex]
+
+	//def b64_encode(
+	//     # they thought they could trick us with this shifty
+	//     string,
+	//     key_table="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
+	// ):
+	//     last_list = list()
+	//     for i in range(0, len(string), 3):
+	//         try:
+	//             num_1 = ord(string[i])
+	//             num_2 = ord(string[i + 1])
+	//             num_3 = ord(string[i + 2])
+	//             arr_1 = num_1 >> 2
+	//             arr_2 = (3 & num_1) << 4 | (num_2 >> 4)
+	//             arr_3 = ((15 & num_2) << 2) | (num_3 >> 6)
+	//             arr_4 = 63 & num_3
+
+	//         except IndexError:
+	//             arr_1 = num_1 >> 2
+	//             arr_2 = ((3 & num_1) << 4) | 0
+	//             arr_3 = 64
+	//             arr_4 = 64
+
+	//         last_list.append(arr_1)
+	//         last_list.append(arr_2)
+	//         last_list.append(arr_3)
+	//         last_list.append(arr_4)
+
+	//     return "".join([key_table[value] for value in last_list])
 
 	result := ""
 	i := 0

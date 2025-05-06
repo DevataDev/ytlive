@@ -2,19 +2,45 @@ package sign
 
 import (
 	"crypto/md5"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
 )
 
 type XBogus struct {
-	Array     [128]*int
-	Character string
-	UaKey     []byte
-	UserAgent string
-	XB        string
-	Params    string
+	Array         [128]*int
+	Character     string
+	UaKey         []byte
+	UserAgent     string
+	XB            string
+	Params        string
+	TiktokEncoder *TiktokEncoder
+}
+
+var (
+	Bases = map[string]string{
+		"s0": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
+		"s1": "Dkdpgh4ZKsQB80/Mfvw36XI1R25+WUAlEi7NLboqYTOPuzmFjJnryx9HVGcaStCe=",
+		"s2": "Dkdpgh4ZKsQB80/Mfvw36XI1R25-WUAlEi7NLboqYTOPuzmFjJnryx9HVGcaStCe=",
+	}
+)
+
+const (
+	InitBogusHash = "d41d8cd98f00b204e9800998ecf8427e"
+)
+
+func GetBase(base string) string {
+	return Bases[base]
+}
+
+func generateEncryptionKey(arg0 int, arg1 int) []byte {
+	buffer := make([]byte, 3)
+
+	buffer[0] = byte(arg0 / 256)
+	buffer[1] = byte(arg0 % 256)
+	buffer[2] = byte(arg1 % 256)
+
+	return buffer
 }
 
 func NewXBogus(userAgent string) *XBogus {
@@ -36,11 +62,16 @@ func NewXBogus(userAgent string) *XBogus {
 		userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0"
 	}
 
+	fmt.Println("userAgent", userAgent)
+	initEncryptionKey := generateEncryptionKey(1, 0)
+	fmt.Println("initEncryptionKey", string(initEncryptionKey))
+
 	return &XBogus{
-		Array:     arr,
-		Character: "Dkdpgh4ZKsQB80/Mfvw36XI1R25-WUAlEi7NLboqYTOPuzmFjJnryx9HVGcaStCe=",
-		UaKey:     []byte{0x00, 0x01, 0x0c},
-		UserAgent: userAgent,
+		Array:         arr,
+		Character:     GetBase("s2"),
+		UaKey:         initEncryptionKey,
+		UserAgent:     userAgent,
+		TiktokEncoder: NewTiktokEncoder(),
 	}
 }
 
@@ -73,6 +104,14 @@ func (xb *XBogus) md5(input interface{}) string {
 	}
 	hash := md5.Sum(data)
 	return fmt.Sprintf("%x", hash)
+}
+
+func (xb *XBogus) converIntToString(arg0 int) string {
+	return string(rune(arg0))
+}
+
+func (xb *XBogus) mergeIntAndStringg(arg0 int, arg1 int, arg3 string) string {
+	return xb.converIntToString(arg0) + xb.converIntToString(arg1) + arg3
 }
 
 func (xb *XBogus) encodingConversion(data []byte) string {
@@ -114,46 +153,156 @@ func (xb *XBogus) calculation(a, b, c byte) string {
 		string(xb.Character[x&63])
 }
 
-func (xb *XBogus) GetXBogus(urlPath string) (string, string, string) {
-	array1 := xb.md5StrToArray(xb.md5(
-		base64.StdEncoding.EncodeToString(
-			rc4Encrypt(xb.UaKey, []byte(xb.UserAgent)),
-		),
-	))
+func (xb *XBogus) b64Encode(text []byte, baseIndex string) string {
+	base := GetBase(baseIndex)
+	result := ""
+	i := 0
+	textLen := len(text)
 
-	array2 := xb.md5StrToArray(xb.md5(xb.md5StrToArray("d41d8cd98f00b204e9800998ecf8427e")))
-	urlPathArray := xb.md5Encrypt(urlPath)
+	for i+3 <= textLen {
+		char1 := int(text[i]) & 0xFF
+		char2 := int(text[i+1]) & 0xFF
+		char3 := int(text[i+2]) & 0xFF
+		i += 3
+
+		triplet := (char1 << 16) | (char2 << 8) | char3
+
+		result += string(base[(triplet>>18)&0x3F])
+		result += string(base[(triplet>>12)&0x3F])
+		result += string(base[(triplet>>6)&0x3F])
+		result += string(base[triplet&0x3F])
+	}
+
+	if i < textLen {
+		char1 := int(text[i]) & 0xFF
+		i++
+		var char2 int
+		if i < textLen {
+			char2 = int(text[i]) & 0xFF
+			i++
+		} else {
+			char2 = 0
+		}
+		remaining := (char1 << 16) | (char2 << 8)
+
+		result += string(base[(remaining>>18)&0x3F])
+		result += string(base[(remaining>>12)&0x3F])
+
+		if i < textLen {
+			result += string(base[(remaining>>6)&0x3F])
+		} else {
+			result += "="
+		}
+		result += "="
+	}
+
+	return result
+}
+
+func (xb *XBogus) getQueryString(url string) string {
+	return url[strings.Index(url, "?")+1:] // get query string
+}
+
+func (xb *XBogus) intArrayToByteArray(array []int) []byte {
+	if len(array) < 19 {
+		return []byte{}
+	}
+	buffer := make([]byte, 19)
+	buffer[0] = byte(array[0])
+	buffer[1] = byte(array[10])
+	buffer[2] = byte(array[1])
+	buffer[3] = byte(array[11])
+	buffer[4] = byte(array[2])
+	buffer[5] = byte(array[12])
+	buffer[6] = byte(array[3])
+	buffer[7] = byte(array[13])
+	buffer[8] = byte(array[4])
+	buffer[9] = byte(array[14])
+	buffer[10] = byte(array[5])
+	buffer[11] = byte(array[15])
+	buffer[12] = byte(array[6])
+	buffer[13] = byte(array[16])
+	buffer[14] = byte(array[7])
+	buffer[15] = byte(array[17])
+	buffer[16] = byte(array[8])
+	buffer[17] = byte(array[18])
+	buffer[18] = byte(array[9])
+	return buffer
+}
+
+func (xb *XBogus) GetXBogus(urlPath string) (string, string, string) {
+	query := xb.getQueryString(urlPath)
+	hash1 := xb.md5(query)
+	decode1 := xb.TiktokEncoder.Decode(hash1)
+	hash2 := xb.md5(decode1)
+	decode2 := xb.TiktokEncoder.Decode(hash2) // executionStack[12]
+
+	initHashDecoded := xb.TiktokEncoder.Decode(InitBogusHash)
+	hashInitHashDecoded := xb.md5(initHashDecoded)
+	decodeHashInitHashDecoded := xb.TiktokEncoder.Decode(hashInitHashDecoded)
+
+	encryptedUserAgent := rc4Encrypt(xb.UaKey, []byte(xb.UserAgent))
+	encodedEncryptedUserAgent := xb.b64Encode(encryptedUserAgent, "s0")
+	hashEncodedEncryptedUserAgent := xb.md5(encodedEncryptedUserAgent)
+	decodeHashEncodedEncryptedUserAgent := xb.TiktokEncoder.Decode(hashEncodedEncryptedUserAgent)
 
 	timer := int(time.Now().Unix())
-	ct := 536919696
+	ct := 1508145731
+
+	fmt.Println("timer", timer)
+	fmt.Println("ct", ct)
 
 	newArray := []int{
-		64, 1, 1, 12,
-		int(urlPathArray[14]), int(urlPathArray[15]),
-		int(array2[14]), int(array2[15]),
-		int(array1[14]), int(array1[15]),
-		timer >> 24 & 255, timer >> 16 & 255, timer >> 8 & 255, timer & 255,
-		ct >> 24 & 255, ct >> 16 & 255, ct >> 8 & 255, ct & 255,
+		64,
+		0, // 1/256 as int is 0; if you need the float, handle separately!
+		1 % 256,
+		0,
+		int(decode2[14]),
+		int(decode2[15]),
+		int(decodeHashInitHashDecoded[14]),
+		int(decodeHashInitHashDecoded[15]),
+		int(decodeHashEncodedEncryptedUserAgent[14]),
+		int(decodeHashEncodedEncryptedUserAgent[15]),
+		(timer >> 24) & 0xFF,
+		(timer >> 16) & 0xFF,
+		(timer >> 8) & 0xFF,
+		timer & 0xFF,
+		(ct >> 24) & 0xFF,
+		(ct >> 16) & 0xFF,
+		(ct >> 8) & 0xFF,
+		ct & 0xFF,
 	}
 
-	xor := newArray[0]
+	key := newArray[0]
 	for _, val := range newArray[1:] {
-		xor ^= val
+		key ^= val
 	}
-	newArray = append(newArray, xor)
 
-	var array3, array4 []byte
-	for i := 0; i < len(newArray); i += 2 {
-		array3 = append(array3, byte(newArray[i]))
-		if i+1 < len(newArray) {
-			array4 = append(array4, byte(newArray[i+1]))
-		}
+	valuesArray2 := []int{
+		newArray[0],
+		newArray[2],
+		newArray[4],
+		newArray[6],
+		newArray[8],
+		newArray[10],
+		newArray[12],
+		newArray[14],
+		newArray[16],
+		key,
+		newArray[1],
+		newArray[3],
+		newArray[5],
+		newArray[7],
+		newArray[9],
+		newArray[11],
+		newArray[13],
+		newArray[15],
+		newArray[17],
 	}
-	merged := append(array3, array4...)
 
 	rc4Key := []byte{255}
-	converted := xb.encodingConversion(merged)
-	rc4Data := rc4Encrypt(rc4Key, []byte(converted))
+	converted := xb.intArrayToByteArray(valuesArray2)
+	rc4Data := rc4Encrypt(rc4Key, converted)
 	garbled := xb.encodingConversion2(2, 255, string(rc4Data))
 
 	var xbStr strings.Builder
@@ -164,4 +313,51 @@ func (xb *XBogus) GetXBogus(urlPath string) (string, string, string) {
 	xb.XB = xbStr.String()
 	xb.Params = urlPath + "&X-Bogus=" + xb.XB
 	return xb.Params, xb.XB, xb.UserAgent
+
+	// strFromValue := xb.intArrayToByteArray(valuesArray2)
+	// fmt.Println("strFromValue", strFromValue)
+	// strKey := xb.converIntToString(255)
+
+	// ans := rc4Encrypt([]byte(strKey), strFromValue)
+	// fmt.Println("ans", ans)
+
+	// xbStr := xb.b64Encode([]byte(xb.mergeIntAndStringg(2, 255, string(ans))), "s2")
+	// fmt.Println("xbStr", xbStr)
+
+	// // 	const X_Bogus = VM231(VM110(2, 255, ans), "s2");
+
+	// //   url = VM66(url, ["X-Bogus", X_Bogus]);
+	// return "", "", ""
+	// xb.XB = xbStr.String()
+	// xb.Params = urlPath + "&X-Bogus=" + xb.XB
+	// return xb.Params, xb.XB, xb.UserAgent
+}
+
+func (xb *XBogus) sortQueryParams(baseUrl string, params []string) string {
+	var queryString string
+	var paramString string
+
+	for i := 0; i < len(params); i++ {
+		if i%2 == 0 {
+			paramString = params[i]
+		} else {
+			queryString += "&" + paramString + "=" + params[i]
+		}
+	}
+
+	resultUrl := baseUrl
+
+	if len(queryString) > 1 {
+		queryString = queryString[1:]
+
+		hasExistingQuery := strings.Contains(baseUrl, "?")
+		separator := "?"
+		if hasExistingQuery {
+			separator = "&"
+		}
+
+		resultUrl += separator + queryString
+	}
+
+	return resultUrl
 }

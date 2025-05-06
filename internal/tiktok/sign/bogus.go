@@ -8,6 +8,21 @@ import (
 
 type BogusManager struct{}
 
+func (bm *BogusManager) AppendQueryParams(url string, params map[string]string) string {
+	result := url
+	separator := "?"
+	if strings.Contains(url, "?") {
+		separator = "&"
+	}
+
+	for k, v := range params {
+		result += fmt.Sprintf("%s%s=%s", separator, k, v)
+		separator = "&"
+	}
+
+	return result
+}
+
 // xbStrToEndpoint generates the final endpoint with X-Bogus from a full query string.
 func (bm *BogusManager) XbStrToEndpoint(userAgent string, endpoint string) (string, error) {
 	xb := NewXBogus(userAgent)

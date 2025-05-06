@@ -20,16 +20,18 @@ type TiktokSignRequest struct {
 }
 
 type TiktokSignHandler struct {
-	TokenManager *sign.TokenManager
-	BogusManager *sign.BogusManager
-	Cookie       string
+	TokenManager     *sign.TokenManager
+	BogusManager     *sign.BogusManager
+	SignatureManager *sign.SignatureManager
+	Cookie           string
 }
 
 func NewTiktokSignHandler(config *configuration.Config) *TiktokSignHandler {
 	return &TiktokSignHandler{
-		TokenManager: sign.NewTokenManager(*config),
-		BogusManager: &sign.BogusManager{},
-		Cookie:       config.TikTok.Cookie,
+		TokenManager:     sign.NewTokenManager(*config),
+		BogusManager:     &sign.BogusManager{},
+		SignatureManager: sign.NewSignatureManager(),
+		Cookie:           config.TikTok.Cookie,
 	}
 }
 
@@ -51,7 +53,16 @@ func (h *TiktokSignHandler) Sign(c *gin.Context) {
 		return
 	}
 
-	_, err := h.BogusManager.XbStrToEndpoint(req.UserAgent, req.Url)
+	msToken := h.TokenManager.GenRealMsToken(req.UserAgent)
+	ttwid, _ := h.TokenManager.GenTtwid(h.Cookie)
+	odinTT, _ := h.TokenManager.GenOdinTT()
+	signature := h.SignatureManager.GenerateSignature(req.Url, req.UserAgent)
+
+	newUrl := h.BogusManager.AppendQueryParams(req.Url, map[string]string{
+		"msToken": msToken,
+	})
+
+	xbStr, err := h.BogusManager.XbStrToEndpoint(req.UserAgent, newUrl)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -60,35 +71,29 @@ func (h *TiktokSignHandler) Sign(c *gin.Context) {
 		return
 	}
 
-	newUrl := req.Url
+	// newUrl := req.Url
 
-	newUrl = removeQueryParams(newUrl, []string{"X-Bogus", "_signature", "ms_token", "X-Gnarly"})
-
-	signer := sign.Signer{}
-	newUrl = signer.Sign(newUrl, []string{}, req.UserAgent)
-	fmt.Println("newUrl: ", newUrl)
-
-	c.JSON(http.StatusOK, gin.H{
-		"url":     newUrl,
-		"success": true,
-		"message": "Sign success",
-	})
+	// newUrl = removeQueryParams(newUrl, []string{"X-Bogus", "_signature", "ms_token", "X-Gnarly"})
 
 	// msToken := h.TokenManager.GenRealMsToken(req.UserAgent)
 	// ttwid, _ := h.TokenManager.GenTtwid(h.Cookie)
 	// odinTT, _ := h.TokenManager.GenOdinTT()
 	// verifyFp := h.GenerateVerifyFp()
 	// newUrl = fmt.Sprintf("%s&ms_token=%s&verifyFp=%s", endpoint, msToken, verifyFp)
+	fmt.Println("signature", signature)
+	newUrl = h.BogusManager.AppendQueryParams(xbStr, map[string]string{
+		"_signature": signature,
+	})
 
-	// c.JSON(http.StatusOK, gin.H{
-	// 	"msToken":  msToken,
-	// 	"ttwid":    ttwid,
-	// 	"odinTT":   odinTT,
-	// 	"verifyFp": verifyFp,
-	// 	"url":      newUrl,
-	// 	"success":  true,
-	// 	"message":  "Sign success",
-	// })
+	c.JSON(http.StatusOK, gin.H{
+		"msToken":   msToken,
+		"ttwid":     ttwid,
+		"odinTT":    odinTT,
+		"signature": signature,
+		"url":       newUrl,
+		"success":   true,
+		"message":   "Sign success",
+	})
 }
 
 func removeQueryParams(destinationUrl string, params []string) string {

@@ -71,8 +71,6 @@ func (tm *TokenManager) GenRealMsToken(userAgent string) string {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("msToken response:", resp.Cookies())
-
 	for _, cookie := range resp.Cookies() {
 		if cookie.Name == "msToken" {
 			return cookie.Value
@@ -111,15 +109,10 @@ func (tm *TokenManager) GenTtwid(cookie string) (string, error) {
 func (tm *TokenManager) GenOdinTT() (string, error) {
 	req := tm.HttpClient.R()
 	resp, err := req.Get(tm.OdinTTConf.Url)
-	fmt.Println("odin_tt response:", resp)
-	fmt.Println("url odin_tt: ", tm.OdinTTConf.Url)
 	if err != nil {
 		return "", fmt.Errorf("odin_tt request failed: %w", err)
 	}
 	defer resp.Body.Close()
-
-	fmt.Println("odin_tt response:", resp)
-	fmt.Println("odin_tt response cookies:", resp.Cookies())
 
 	for _, c := range resp.Cookies() {
 		if c.Name == "odin_tt" {
