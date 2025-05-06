@@ -151,6 +151,11 @@ func (c *Client) formatRequestHeaders() map[string]string {
 	return headers
 }
 
+func (c *Client) Sign(url string) (string, error) {
+	xbogus := NewXBogus(c.userAgent)
+	return url, nil
+}
+
 func (c *Client) Get(url string, isSign bool) (*req.Response, error) {
 	req := c.httpClient.R()
 	req.SetHeaders(c.formatRequestHeaders())

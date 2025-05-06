@@ -71,16 +71,6 @@ func (h *TiktokSignHandler) Sign(c *gin.Context) {
 		return
 	}
 
-	// newUrl := req.Url
-
-	// newUrl = removeQueryParams(newUrl, []string{"X-Bogus", "_signature", "ms_token", "X-Gnarly"})
-
-	// msToken := h.TokenManager.GenRealMsToken(req.UserAgent)
-	// ttwid, _ := h.TokenManager.GenTtwid(h.Cookie)
-	// odinTT, _ := h.TokenManager.GenOdinTT()
-	// verifyFp := h.GenerateVerifyFp()
-	// newUrl = fmt.Sprintf("%s&ms_token=%s&verifyFp=%s", endpoint, msToken, verifyFp)
-	fmt.Println("signature", signature)
 	newUrl = h.BogusManager.AppendQueryParams(xbStr, map[string]string{
 		"_signature": signature,
 	})
