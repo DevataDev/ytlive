@@ -302,7 +302,7 @@ func main() {
 		tiktokCookie = cfg.TikTok.Cookie
 	}
 	// Mirror API
-	tiktokClient := tiktok.NewClient()
+	tiktokClient := tiktok.NewClient(*cfg)
 	tiktokClient.WithRegion("id")
 	tiktokClient.WithUserAgent(tiktokUserAgent)
 	if tiktokCookie != "" {

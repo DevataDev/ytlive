@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"net/url"
 	"strings"
+	"windsorf-youtube-live/internal/configuration"
+	"windsorf-youtube-live/internal/tiktok/sign"
 
 	"github.com/imroc/req/v3"
 )
@@ -20,31 +22,39 @@ type TikTokClientIface interface {
 }
 
 type Client struct {
-	httpClient *req.Client
-	userAgent  string
-	region     string
-	location   LocationPreset
-	device     DevicePreset
-	screen     ScreenPreset
-	cookie     string
-	lastRTT    string
+	httpClient       *req.Client
+	userAgent        string
+	region           string
+	location         LocationPreset
+	device           DevicePreset
+	screen           ScreenPreset
+	cookie           string
+	lastRTT          string
+	config           configuration.Config
+	tokenManager     *sign.TokenManager
+	signatureManager *sign.SignatureManager
+	bogusManager     *sign.BogusManager
 }
 
-func NewClient() *Client {
+func NewClient(config configuration.Config) *Client {
 	devicePreset := GetRandomDevicePreset()
 	locationPreset, _ := GetLocationPreset("ID")
 	screenPreset := GetRandomScreenPreset()
 	lastRTT := fmt.Sprintf("%d", rand.Intn(100)+100)
 
 	return &Client{
-		httpClient: req.ImpersonateChrome(),
-		userAgent:  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-		region:     "ID",
-		location:   locationPreset,
-		device:     devicePreset,
-		screen:     screenPreset,
-		cookie:     "",
-		lastRTT:    lastRTT,
+		httpClient:       req.ImpersonateChrome(),
+		userAgent:        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+		region:           "ID",
+		location:         locationPreset,
+		device:           devicePreset,
+		screen:           screenPreset,
+		cookie:           "",
+		lastRTT:          lastRTT,
+		config:           config,
+		tokenManager:     sign.NewTokenManager(config),
+		signatureManager: sign.NewSignatureManager(),
+		bogusManager:     &sign.BogusManager{},
 	}
 }
 
@@ -151,9 +161,25 @@ func (c *Client) formatRequestHeaders() map[string]string {
 	return headers
 }
 
-func (c *Client) Sign(url string) (string, error) {
-	xbogus := NewXBogus(c.userAgent)
-	return url, nil
+func (c *Client) SignUrl(url string, userAgent string) (string, string, string, error) {
+	msToken := c.tokenManager.GenRealMsToken(userAgent)
+	ttwid, _ := c.tokenManager.GenTtwid(c.cookie)
+	odinTT, _ := c.tokenManager.GenOdinTT()
+	signature := c.signatureManager.GenerateSignature(url, userAgent)
+
+	newUrl := c.bogusManager.AppendQueryParams(url, map[string]string{
+		"msToken": msToken,
+	})
+
+	xbStr, err := c.bogusManager.XbStrToEndpoint(userAgent, newUrl)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	newUrl = c.bogusManager.AppendQueryParams(xbStr, map[string]string{
+		"_signature": signature,
+	})
+	return newUrl, ttwid, odinTT, nil
 }
 
 func (c *Client) Get(url string, isSign bool) (*req.Response, error) {
@@ -166,8 +192,7 @@ func (c *Client) Get(url string, isSign bool) (*req.Response, error) {
 	var signedUrl string
 
 	if isSign {
-		responseSigned, _ := c.Sign(url)
-		signedUrl = responseSigned
+		signedUrl, _, _, _ = c.SignUrl(url, c.userAgent)
 	} else {
 		signedUrl = url
 	}
@@ -183,25 +208,23 @@ func (c *Client) Post(url string, body io.Reader, isSign bool) (*req.Response, e
 		req.SetHeader("Cookie", c.cookie)
 	}
 
+	var signedUrl string
+
 	if isSign {
-		responseSigned, _ := c.Sign(url)
-		url = responseSigned
+		signedUrl, _, _, _ = c.SignUrl(url, c.userAgent)
+	} else {
+		signedUrl = url
 	}
 
-	return req.SetBody(body).Post(url)
+	return req.SetBody(body).Post(signedUrl)
 }
 
-func (c *Client) Put(url string, body io.Reader, isSign bool) (*req.Response, error) {
+func (c *Client) Put(url string, body io.Reader) (*req.Response, error) {
 	c.httpClient.SetUserAgent(c.userAgent)
 	req := c.httpClient.R()
 	req.SetHeaders(defaultRequestHeaders)
 	if c.cookie != "" {
 		req.SetHeader("Cookie", c.cookie)
-	}
-
-	if isSign {
-		responseSigned, _ := c.Sign(url)
-		url = responseSigned
 	}
 
 	return req.SetBody(body).Put(url)
@@ -215,25 +238,15 @@ func (c *Client) Delete(url string, isSign bool) (*req.Response, error) {
 		req.SetHeader("Cookie", c.cookie)
 	}
 
-	if isSign {
-		responseSigned, _ := c.Sign(url)
-		url = responseSigned
-	}
-
 	return req.Delete(url)
 }
 
-func (c *Client) Head(url string, isSign bool) (*req.Response, error) {
+func (c *Client) Head(url string) (*req.Response, error) {
 	c.httpClient.SetUserAgent(c.userAgent)
 	req := c.httpClient.R()
 	req.SetHeaders(defaultRequestHeaders)
 	if c.cookie != "" {
 		req.SetHeader("Cookie", c.cookie)
-	}
-
-	if isSign {
-		responseSigned, _ := c.Sign(url)
-		url = responseSigned
 	}
 
 	return req.Head(url)
