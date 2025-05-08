@@ -200,7 +200,6 @@ func (c *Client) Get(url string, isSign bool) (*req.Response, error) {
 		signedUrl = url
 	}
 
-	fmt.Println("Signed URL:", signedUrl)
 	return req.Get(signedUrl)
 }
 

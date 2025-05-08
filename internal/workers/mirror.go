@@ -83,3 +83,43 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 		handlers.BroadcastMirrorRoomIsAliveUpdate(isAliveMap)
 	}
 }
+
+func (w *MirrorWorker) StartQueueChecker() {
+	fmt.Println("Starting queue checker...")
+	for {
+		time.Sleep(1 * time.Minute)
+		fmt.Println("Checking queue...")
+		var mirrorsToCheck []models.Mirror
+		w.DB.Where("status = ?", "queued").Find(&mirrorsToCheck)
+		fmt.Println("Found", len(mirrorsToCheck), "mirrors to check.")
+		for _, mirror := range mirrorsToCheck {
+			// check if stream key is used by another mirror
+			if mirror.StreamKey != "" {
+				var data models.Mirror
+				w.DB.Where("stream_key = ? AND room_id != ? AND status = 'live'", mirror.StreamKey, mirror.RoomId).First(&data)
+				if data.ID != "" {
+					fmt.Println("Stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
+					// check if FFmpeg is running
+					if data.FFmpegPID != nil && models.IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
+						fmt.Println("FFmpeg is running for another mirror", mirror.StreamKey, mirror.RoomId)
+						// update database
+						w.DB.Model(&mirror).Updates(map[string]interface{}{
+							"status":     "queued",
+							"ffmpeg_pid": nil,
+						})
+						continue
+					} else {
+						if data.FFmpegPID != nil && !models.IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
+							fmt.Println("FFmpeg is not running for another mirror", mirror.StreamKey, mirror.RoomId)
+							// update database
+							models.StopMirrorWorkerWithDatabase(data.ID, w.DB, false)
+							models.RemoveMirrorWorker(data.ID)
+							//start stream worker
+							models.StartMirrorWorkerWithDatabase(mirror.ID, w.TiktokClient, w.DB)
+						}
+					}
+				}
+			}
+		}
+	}
+}

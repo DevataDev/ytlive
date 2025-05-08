@@ -36,10 +36,13 @@ $(function() {
         mirrors.forEach(mirror => {
             let status = (mirror.Status || '').toLowerCase();
             let isLive = status === 'live';
+            let isQueued = status === 'queued';
             let canStart = mirror.IsAlive && mirror.StreamKey && !isLive;
             let aliveBadge = mirror.IsAlive ? '<span class="badge bg-success">Tiktok Host Online</span>' : `<span class="badge bg-secondary text-capitalize">Offline</span>`;
             let toggleBtn = isLive
                 ? `<button class="btn btn-danger btn-sm mirror-toggle w-100" data-id="${mirror.ID}" data-action="stop">Stop</button>`
+                : isQueued
+                ? `<button class="btn btn-warning btn-sm mirror-toggle w-100" data-id="${mirror.ID}" data-action="start" disabled>Queued</button>`
                 : `<button class="btn btn-success btn-sm mirror-toggle w-100" data-id="${mirror.ID}" data-action="start"${canStart ? '' : ' disabled'}>Start</button>`;
             let streamKeyField = `<input type="password" class="form-control form-control-sm mirror-streamkey" id="mirror-streamkey-input-${mirror.ID}" value="${mirror.StreamKey || ''}" style="max-width:180px;display:inline-block;">`;
             let streamKeySaveBtn = `<button class="btn btn-outline-success btn-sm ms-1 mirror-streamkey-save" data-id="${mirror.ID}" title="Save Stream Key"><i class="fa fa-save"></i></button>`;

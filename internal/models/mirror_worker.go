@@ -129,11 +129,21 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	// check if streamKey have been used by another mirror and FFmpeg is running
 	var data Mirror
 	var status string = "live"
-	database.Where("stream_key = ?", mirror.StreamKey).First(&data)
-	if data.ID != "" {
-		// check if FFmpeg is running
-		if IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
-			status = "queued"
+	if mirror.StreamKey != "" {
+		fmt.Println("Checking if stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
+		database.Where("stream_key = ? AND room_id != ? AND status = 'live'", mirror.StreamKey, mirror.RoomId).First(&data)
+		if data.ID != "" {
+			fmt.Println("Stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
+			// check if FFmpeg is running
+			if data.FFmpegPID != nil && IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
+				fmt.Println("FFmpeg is running for another mirror", mirror.StreamKey, mirror.RoomId)
+				status = "queued"
+				// update database
+				database.Model(&Mirror{}).Where("id = ?", mirror.ID).Updates(map[string]interface{}{
+					"Status":    "queued",
+					"FFmpegPID": nil,
+				})
+			}
 		}
 	}
 
@@ -155,6 +165,33 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		return worker, 0, nil
 	}
 
+	// check if room is still alive
+	isAlive, err := tiktokClient.CheckRoomIsAlive(mirror.RoomId)
+	if err != nil {
+		fmt.Println("Failed to check if room is still alive for mirror", mirrorID, "with error", err)
+		// if in database status not stopped, update to stopped
+		if mirror.Status != "stopped" {
+			database.Model(&Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
+				"Status":    "stopped",
+				"StoppedAt": time.Now().UTC(),
+			})
+		}
+		cancel()
+		return nil, 0, err
+	}
+	if !isAlive {
+		fmt.Println("Room is not alive for mirror", mirrorID)
+		if mirror.Status != "stopped" {
+			database.Model(&Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
+				"Status":    "stopped",
+				"StoppedAt": time.Now().UTC(),
+			})
+		}
+		// cancel context
+		cancel()
+		return nil, 0, errors.New("room is not alive")
+	}
+
 	var cmd *exec.Cmd
 	args := buildMirrorFfmpegArgs(worker.RTMPUrl, worker.StreamKey, worker.LiveUrl, worker.UserAgent)
 	cmd = exec.CommandContext(ctx, args[0], args[1:]...)
@@ -162,7 +199,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	worker.Cmd = cmd
 
 	// start cmd
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		fmt.Println("Failed to start FFmpeg:", err)
 		return nil, 0, err
@@ -170,7 +207,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 
 	// update database
 	database.Model(&Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
-		"Status":    status,
+		"Status":    "live",
 		"StartedAt": time.Now().UTC(),
 		"FFmpegPID": cmd.Process.Pid,
 	})

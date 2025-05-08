@@ -389,6 +389,7 @@ func main() {
 
 	mirrorWorker := workers.NewMirrorWorker(db, tiktokClient)
 	go mirrorWorker.StartMirrorRoomIsAliveChecker()
+	go mirrorWorker.StartQueueChecker()
 
 	// Create a context that is cancelled on SIGINT/SIGTERM
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
