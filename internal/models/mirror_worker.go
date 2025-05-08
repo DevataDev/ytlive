@@ -35,6 +35,18 @@ var (
 	MirrorRestartLock sync.Mutex
 )
 
+func (w *MirrorWorker) GetWorkerStatus() string {
+	return w.Status
+}
+
+func (w *MirrorWorker) GetFFmpegPID() int32 {
+	return int32(w.Cmd.Process.Pid)
+}
+
+func (w *MirrorWorker) IsQueued() bool {
+	return w.Status == "queued"
+}
+
 func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	pid := w.Cmd.Process.Pid
 	fmt.Println("Monitoring FFmpeg stats for mirror", w.MirrorID, "with PID", pid)
@@ -114,10 +126,21 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		return nil, 0, errors.New("mirror not found")
 	}
 
+	// check if streamKey have been used by another mirror and FFmpeg is running
+	var data Mirror
+	var status string = "live"
+	database.Where("stream_key = ?", mirror.StreamKey).First(&data)
+	if data.ID != "" {
+		// check if FFmpeg is running
+		if IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
+			status = "queued"
+		}
+	}
+
 	worker := &MirrorWorker{
 		MirrorID:     mirrorID,
 		CancelFunc:   cancel,
-		Status:       "live",
+		Status:       status,
 		DB:           database,
 		RTMPUrl:      mirror.RtmpUrl,
 		StreamKey:    mirror.StreamKey,
@@ -125,6 +148,11 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		UserAgent:    mirror.UserAgent,
 		RoomID:       mirror.RoomId,
 		TiktokClient: tiktokClient,
+	}
+
+	if status == "queued" {
+		AddMirrorWorker(worker)
+		return worker, 0, nil
 	}
 
 	var cmd *exec.Cmd
@@ -142,7 +170,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 
 	// update database
 	database.Model(&Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
-		"Status":    "live",
+		"Status":    status,
 		"StartedAt": time.Now().UTC(),
 		"FFmpegPID": cmd.Process.Pid,
 	})
