@@ -34,6 +34,7 @@ type Config struct {
 		OdinTT    OdinTT  `yaml:"odin_tt"`
 		Ttwid     Ttwid   `yaml:"ttwid"`
 	} `yaml:"tiktok"`
+	Youtube Youtube `yaml:youtube`
 }
 
 type Proxy struct {
@@ -58,4 +59,10 @@ type Ttwid struct {
 	Url    string `yaml:"url"`
 	Cookie string `yaml:"cookie"`
 	Data   string `yaml:"data"`
+}
+
+type Youtube struct {
+	RedirectURL  string `yaml:"redirectUrl"`
+	ClientId     string `yaml:"clientId"`
+	ClientSecret string `yaml:"clientSecret"`
 }

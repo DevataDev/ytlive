@@ -353,6 +353,13 @@ func main() {
 	r.GET("/api/tiktok/suggested-feed", tiktokHandler.GetSuggestedFeed)
 	// -- Tiktok End --
 
+	// -- Youtube start --
+
+	youtubeHandler := handlers.NewYoutubeHandler(db, cfg)
+	r.GET("/api/youtube/list-channels", handlers.JWTMiddleware(), youtubeHandler.ListChannels)
+	r.GET("/api/youtube/authorize", handlers.JWTMiddleware(), youtubeHandler.StartYouTubeOAuth)
+	r.GET("/api/youtube/callback", handlers.JWTMiddleware(), youtubeHandler.YouTubeOAuthCallback)
+
 	monitorHandler := handlers.MonitorHandler{DB: db}
 	r.POST("/api/monitors", handlers.JWTMiddleware(), monitorHandler.AddMonitor)
 	r.GET("/api/monitors", handlers.JWTMiddleware(), monitorHandler.ListMonitors)
