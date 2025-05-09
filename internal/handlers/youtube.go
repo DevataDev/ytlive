@@ -88,6 +88,16 @@ func (h *YoutubeHandler) YouTubeOAuthCallback(c *gin.Context) {
 		return
 	}
 
+	if ytResp == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch channel info"})
+		return
+	}
+
+	if ytResp.ID == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch channel info"})
+		return
+	}
+
 	// check if there is a channel with the same channel id
 	var channel models.Channels
 	h.DB.Where("channel_id = ?", ytResp.ID).Find(&channel)
