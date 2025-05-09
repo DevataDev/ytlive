@@ -229,15 +229,29 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 
 	if channel.ID != "" {
 		// create the event broadcast first
-		broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
-			"stream_id":     streamID,
-			"stream_key":    streamKey,
-			"channel_id":    channel.ChannelID,
-			"user_id":       channel.UserId,
-			"title":         "Watch Me Live",
-			"access_token":  *channel.AccessToken,
-			"refresh_token": *channel.RefreshToken,
-		})
+		accessToken := ""
+		if channel.AccessToken != nil {
+			accessToken = *channel.AccessToken
+		}
+		refreshToken := ""
+		if channel.RefreshToken != nil {
+			refreshToken = *channel.RefreshToken
+		}
+
+		if accessToken != "" && refreshToken != "" {
+			broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
+				"stream_id":     streamID,
+				"stream_key":    streamKey,
+				"channel_id":    channel.ChannelID,
+				"user_id":       channel.UserId,
+				"title":         "Watch Me Live",
+				"access_token":  accessToken,
+				"refresh_token": refreshToken,
+			})
+		} else {
+			// Optionally log or handle the missing token case
+			fmt.Printf("Missing access or refresh token for channel %s\n", channel.ChannelID)
+		}
 	}
 
 	var cmd *exec.Cmd

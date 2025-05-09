@@ -181,6 +181,14 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		} else {
 			title = "Watch Me Live"
 		}
+		accessToken := ""
+		if channel.AccessToken != nil {
+			accessToken = *channel.AccessToken
+		}
+		refreshToken := ""
+		if channel.RefreshToken != nil {
+			refreshToken = *channel.RefreshToken
+		}
 		// create the event broadcast first
 		broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
 			"stream_id":     mirrorID,
@@ -188,8 +196,8 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 			"channel_id":    channel.ChannelID,
 			"user_id":       channel.UserId,
 			"title":         title,
-			"access_token":  *channel.AccessToken,
-			"refresh_token": *channel.RefreshToken,
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
 		})
 	}
 
