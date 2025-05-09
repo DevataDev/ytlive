@@ -222,6 +222,18 @@ func main() {
 		c.FileFromFS("/channels-management.html", http.FS(staticFs))
 	})
 
+	// Privacy Policy page
+	r.GET("/privacy", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/privacy.html", http.FS(staticFs))
+	})
+
+	// Terms & Conditions page
+	r.GET("/terms", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/terms.html", http.FS(staticFs))
+	})
+
 	//callback
 	r.GET("/youtube/callback", func(c *gin.Context) {
 		staticFs, _ := fs.Sub(StaticFiles, "web/static")
