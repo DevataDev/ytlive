@@ -538,6 +538,51 @@ func (h *StreamHandler) SaveStreamKey(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Failed to update stream key."})
 		return
 	}
+
+	// // find stream key on channel
+	// if stream.StreamKey != "" && stream.ChannelId == "" {
+	// 	var channel []models.Channels
+	// 	if err := h.DB.Where("user_id = ? AND deleted_at IS NULL", c.GetString("user_id")).Find(&channel).Error; err != nil {
+	// 		c.JSON(500, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
+
+	// 	// looping untul find stream key
+	// 	for _, ch := range channel {
+	// 		if _, err := findYoutubeStreamKey(*ch.AccessToken, req.StreamKey); err != nil {
+	// 			continue
+	// 		}
+	// 		stream.ChannelId = ch.ChannelID
+	// 		if err := h.DB.Model(&models.Stream{}).Where("id = ?", id).Update("channel_id", ch.ID).Error; err != nil {
+	// 			c.JSON(500, gin.H{"error": err.Error()})
+	// 			return
+	// 		}
+	// 	}
+	// }
+	c.JSON(200, gin.H{"success": true})
+}
+
+func (h *StreamHandler) UpdateStreamChannelId(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		ChannelId string `json:"channel_id"`
+		StreamKey string `json:"stream_key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request."})
+		return
+	}
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Stream not found."})
+		return
+	}
+	stream.ChannelId = req.ChannelId
+	stream.StreamKey = req.StreamKey
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to update channel id."})
+		return
+	}
 	c.JSON(200, gin.H{"success": true})
 }
 

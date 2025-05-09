@@ -55,6 +55,87 @@ $(function() {
         window.location.href = "/upload";
     });
 
+    // --- Bind Channels Logic ---
+    let selectedStreamId = null;
+    $(document).on('click', '.bind-channel-btn', function() {
+        selectedStreamId = $(this).data('id');
+        $('#bindChannelModal').modal('show');
+        $('#channelSelect').empty();
+        $('#streamSelect').empty();
+        // Fetch channels
+        const token = localStorage.getItem('jwt_token');
+        $.ajax({
+            url: '/api/youtube/list-channels',
+            method: 'GET',
+            headers: { Authorization: 'Bearer ' + token },
+            success: function(res) {
+                if (res.channels && res.channels.length > 0) {
+                    $('#channelSelect').append('<option value="">Select a channel</option>');
+                    res.channels.forEach(function(ch) {
+                        $('#channelSelect').append(`<option value="${ch.ID}">${ch.ChannelName}</option>`);
+                    });
+                } else {
+                    $('#channelSelect').append('<option value="">No channels found</option>');
+                }
+                $('#streamSelect').empty();
+            },
+            error: function() {
+                $('#channelSelect').append('<option value="">Failed to load channels</option>');
+            }
+        });
+    });
+    // When channel is selected, fetch live streams for that channel
+    $('#channelSelect').on('change', function() {
+        const channelId = $(this).val();
+        $('#streamSelect').empty();
+        if (!channelId) return;
+        const token = localStorage.getItem('jwt_token');
+        $.ajax({
+            url: `/api/youtube/channel/${channelId}/streams`,
+            method: 'GET',
+            headers: { Authorization: 'Bearer ' + token },
+            success: function(res) {
+                if (res.streams && res.streams.length > 0) {
+                    $('#streamSelect').append('<option value="">Select a live stream</option>');
+                    res.streams.forEach(function(stream) {
+                        $('#streamSelect').append(`<option value="${stream.stream_key}">${stream.stream_key}</option>`);
+                    });
+                } else {
+                    $('#streamSelect').append('<option value="">No live streams found</option>');
+                }
+            },
+            error: function() {
+                $('#streamSelect').append('<option value="">Failed to load streams</option>');
+            }
+        });
+    });
+    // Bind button
+    $('#bindChannelSaveBtn').on('click', function() {
+        const channelId = $('#channelSelect').val();
+        const liveStreamId = $('#streamSelect').val();
+        if (!selectedStreamId || !channelId || !liveStreamId) {
+            alert('Please select both channel and live stream.');
+            return;
+        }
+        const token = localStorage.getItem('jwt_token');
+        $.ajax({
+            url: `/api/streams/${selectedStreamId}/channel-id`,
+            method: 'PUT',
+            headers: { Authorization: 'Bearer ' + token },
+            contentType: 'application/json',
+            data: JSON.stringify({ channel_id: channelId, stream_key: liveStreamId }),
+            success: function() {
+                $('#bindChannelModal').modal('hide');
+                showStreamToast('Channel bound successfully!', 'success');
+                fetchStreams();
+            },
+            error: function() {
+                alert('Failed to bind channel.');
+            }
+        });
+    });
+    // --- End Bind Channels Logic ---
+
     function renderStreamsTable(data) {
         const cardContainer = $("#stream-list-cards");
         cardContainer.empty();
@@ -80,7 +161,8 @@ $(function() {
             } else {
                 mainBtn = `<button class="btn btn-success btn-sm stream-start" data-id="${stream.ID}" ${startDisabled}>Start</button>`;
             }
-            let deleteBtn = `<button class="btn btn-secondary btn-sm stream-delete ms-2" data-id="${stream.ID}">Hapus Video</button>`;
+            let bindBtn = `<button class='btn btn-outline-primary btn-sm ms-2 bind-channel-btn' data-id='${stream.ID}'>Bind</button>`;
+            let deleteBtn = `<button class="btn btn-secondary btn-sm stream-delete ms-2" data-id="${stream.ID}">Hapus</button>`;
             let cloneBtn = `<button class="btn btn-info btn-sm stream-clone ms-2" data-id="${stream.ID}"><i class="fa fa-clone"></i> Clone</button>`;
 
             // --- File size formatting ---
@@ -147,6 +229,7 @@ $(function() {
                     <div class="d-flex align-items-center">
                         ${mainBtn}
                         ${deleteBtn}
+                        ${bindBtn}
                         ${cloneBtn}
                         ${liveBadge}
                     </div>

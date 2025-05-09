@@ -23,4 +23,6 @@ type Mirror struct {
 	FFmpegPID   *int           `gorm:"ffmpeg_pid;default:null" json:"FFmpegPID"`
 	Status      string         `gorm:"default:null" json:"Status"`   // "live", "stopped", "scheduled", etc.
 	UserId      string         `gorm:"not null;index" json:"UserId"` // New field for user reference
+	//optinal channel id
+	ChannelId string `gorm:"default:null" json:"ChannelId"`
 }

@@ -240,11 +240,61 @@ func (h *MirrorHandler) UpdateMirrorStreamKey(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Stream Key cannot be empty"})
 		return
 	}
+	var mirror models.Mirror
+	if err := h.DB.First(&mirror, "id = ?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Mirror not found"})
+		return
+	}
 	if err := h.DB.Model(&models.Mirror{}).Where("id = ?", id).Update("stream_key", req.StreamKey).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
+
+	// // find stream key on channel
+	// if mirror.StreamKey != "" && mirror.ChannelId == "" {
+	// 	var channel []models.Channels
+	// 	if err := h.DB.Where("user_id = ? AND deleted_at IS NULL", c.GetString("user_id")).Find(&channel).Error; err != nil {
+	// 		c.JSON(500, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
+
+	// 	// looping untul find stream key
+	// 	for _, ch := range channel {
+	// 		if _, err := findYoutubeStreamKey(*ch.AccessToken, req.StreamKey); err != nil {
+	// 			continue
+	// 		}
+	// 		mirror.ChannelId = ch.ChannelID
+	// 		if err := h.DB.Model(&models.Mirror{}).Where("id = ?", id).Update("channel_id", ch.ID).Error; err != nil {
+	// 			c.JSON(500, gin.H{"error": err.Error()})
+	// 			return
+	// 		}
+	// 	}
+	// }
 	c.JSON(200, gin.H{"status": "stream_key updated"})
+}
+
+func (h *MirrorHandler) UpdateMirrorChannelId(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		ChannelId string `json:"channel_id"`
+		StreamKey string `json:"stream_key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request."})
+		return
+	}
+	var mirror models.Mirror
+	if err := h.DB.First(&mirror, "id = ?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Mirror not found."})
+		return
+	}
+	mirror.ChannelId = req.ChannelId
+	mirror.StreamKey = req.StreamKey
+	if err := h.DB.Save(&mirror).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to update channel id."})
+		return
+	}
+	c.JSON(200, gin.H{"success": true})
 }
 
 func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, rtmpUrl string, streamKey string) {

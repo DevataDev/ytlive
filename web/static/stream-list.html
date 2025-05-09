@@ -94,6 +94,34 @@
     <!-- Stream List Cards -->
     <div id="stream-list-cards" class="row g-3">
         <!-- Stream cards will be dynamically inserted here -->
+</div>
+<!-- Bind Channel Modal -->
+<div class="modal fade" id="bindChannelModal" tabindex="-1" aria-labelledby="bindChannelModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="bindChannelModalLabel">Bind Channel to Stream</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="channelSelect" class="form-label">Select Channel</label>
+          <select class="form-select" id="channelSelect"></select>
+        </div>
+        <div class="mb-3">
+          <label for="streamSelect" class="form-label">Select Live Stream</label>
+          <select class="form-select" id="streamSelect"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="bindChannelSaveBtn">Bind</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="bindChannelModalBackdrop" class="modal-backdrop fade" style="display:none;"></div>
+<!-- End Bind Channel Modal -->
     </div>
     <!-- Video Preview Modal -->
     <div class="modal fade" id="videoPreviewModal" tabindex="-1" aria-labelledby="videoPreviewModalLabel" aria-hidden="true">

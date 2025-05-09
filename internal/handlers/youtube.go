@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -384,14 +385,14 @@ func CreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitl
 		return nil
 	}
 
+	fmt.Println(apiResp)
+
 	// find stream with streamKey
 	for _, stream := range streamListResp.Items {
+		fmt.Println(stream)
 		if stream.CDN.IngestionInfo.StreamName == streamKey && streamKey != "" {
-			// bound stream to broadcast
-			req.SetBody(map[string]interface{}{
-				"boundStreamId": stream.ID,
-			})
-			resp, err := req.Post("https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet&part=status&part=contentDetails&part=cdn&part=monitorStream")
+
+			resp, err := req.Get("https://www.googleapis.com/youtube/v3/liveBroadcasts/bind?part=snippet&id=" + apiResp.ID + "&streamId=" + stream.ID)
 			if err != nil {
 				return err
 			}
@@ -400,11 +401,14 @@ func CreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitl
 			if err != nil {
 				return err
 			}
+
+			fmt.Println(bodyString)
 			// parse as LiveBroadcast
 			var apiResp LiveBroadcast
 			if err := json.NewDecoder(bytes.NewReader(bodyString)).Decode(&apiResp); err != nil {
 				return err
 			}
+			fmt.Println(apiResp)
 			return nil
 		} else {
 			// use the first stream
@@ -475,7 +479,12 @@ func CreateYoutubeLiveStream(channelID string, accessToken string, streamTitle s
 	return nil
 }
 
+func refreshToken(refreshToken string) (string, error) {
+	return "", nil
+}
+
 func fetchYouTubeStreamList(accessToken string) (*LiveStreamListResponse, error) {
+	fmt.Println("Fetching YouTube stream list , accessToken: ", accessToken)
 	req, _ := http.NewRequest("GET", "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet&part=cdn&part=contentDetails&part=status&mine=true", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	client := &http.Client{}
@@ -490,6 +499,8 @@ func fetchYouTubeStreamList(accessToken string) (*LiveStreamListResponse, error)
 		return nil, err
 	}
 
+	fmt.Println(string(bodyString))
+
 	if err := json.NewDecoder(bytes.NewReader([]byte(string(bodyString)))).Decode(&apiResp); err != nil {
 		return nil, err
 	}
@@ -497,4 +508,55 @@ func fetchYouTubeStreamList(accessToken string) (*LiveStreamListResponse, error)
 		return nil, nil
 	}
 	return &apiResp, nil
+}
+
+func findYoutubeStreamKey(accessToken string, streamKey string) (string, error) {
+	streamListResp, err := fetchYouTubeStreamList(accessToken)
+	if err != nil {
+		return "", err
+	}
+	if len(streamListResp.Items) == 0 {
+		return "", nil
+	}
+	for _, stream := range streamListResp.Items {
+		if stream.CDN.IngestionInfo.StreamName == streamKey {
+			return stream.ID, nil
+		}
+	}
+	return "", nil
+}
+
+func (h *YoutubeHandler) ListStreamsByChannel(c *gin.Context) {
+	userID := c.GetString("user_id")
+	channelID := c.Param("id")
+	var channel models.Channels
+	if err := h.DB.Where("user_id = ? AND id = ? AND deleted_at IS NULL", userID, channelID).Find(&channel).Error; err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	accessToken := channel.AccessToken
+	streamListResp, err := fetchYouTubeStreamList(*accessToken)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	if streamListResp == nil {
+		c.JSON(200, gin.H{"streams": []string{}})
+		return
+	}
+
+	if len(streamListResp.Items) == 0 {
+		c.JSON(200, gin.H{"streams": []string{}})
+		return
+	}
+	var streams []map[string]interface{}
+	for _, stream := range streamListResp.Items {
+		streams = append(streams, map[string]interface{}{
+			"id":         stream.ID,
+			"title":      stream.Snippet.Title,
+			"stream_key": stream.CDN.IngestionInfo.StreamName,
+		})
+	}
+	c.JSON(200, gin.H{"streams": streams})
 }

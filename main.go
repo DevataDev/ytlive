@@ -310,6 +310,9 @@ func main() {
 
 	// DELETE /api/streams/:id endpoint
 	r.DELETE("/api/streams/:id", handlers.JWTMiddleware(), streamHandler.DeleteStream)
+
+	r.PUT("/api/streams/:id/channel-id", handlers.JWTMiddleware(), streamHandler.UpdateStreamChannelId)
+
 	// User management endpoints
 	userHandler := &handlers.UserHandler{DB: db}
 	r.GET("/api/users", handlers.JWTMiddleware(), userHandler.ListUsers)
@@ -346,6 +349,7 @@ func main() {
 	r.DELETE("/api/mirrors/:id", handlers.JWTMiddleware(), mirrorHandler.DeleteMirror)
 	r.PUT("/api/mirrors/:id/rtmp-url", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorRTMPUrl)
 	r.PUT("/api/mirrors/:id/stream-key", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorStreamKey)
+	r.PUT("/api/mirrors/:id/channel-id", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorChannelId)
 
 	broadcast.Bus.AddListener("default", broadcast.AddToMirror, func(e broadcast.Event) {
 		fmt.Println("Adding to mirror", e.Data)
@@ -390,6 +394,7 @@ func main() {
 	r.GET("/api/youtube/callback", youtubeHandler.YouTubeOAuthCallback)
 	r.POST("/api/youtube/create-live-broadcast", handlers.JWTMiddleware(), youtubeHandler.CreateYoutubeLiveBroadcast)
 	r.DELETE("/api/youtube/channels/:id", handlers.JWTMiddleware(), youtubeHandler.DeleteChannel)
+	r.GET("/api/youtube/channel/:id/streams", handlers.JWTMiddleware(), youtubeHandler.ListStreamsByChannel)
 	// r.POST("/api/youtube/create-live-stream", handlers.JWTMiddleware(), youtubeHandler.CreateYoutubeLiveStream)
 
 	monitorHandler := handlers.MonitorHandler{DB: db}
