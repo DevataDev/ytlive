@@ -228,7 +228,6 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	}
 
 	if channel.ID != "" {
-
 		// create the event broadcast first
 		broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
 			"stream_id":     streamID,

@@ -175,13 +175,19 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	}
 
 	if channel.ID != "" {
+		var title string
+		if mirror.Title != "" {
+			title = mirror.Title
+		} else {
+			title = "Watch Me Live"
+		}
 		// create the event broadcast first
 		broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
 			"stream_id":     mirrorID,
 			"stream_key":    mirror.StreamKey,
 			"channel_id":    channel.ChannelID,
 			"user_id":       channel.UserId,
-			"title":         mirror.Title,
+			"title":         title,
 			"access_token":  *channel.AccessToken,
 			"refresh_token": *channel.RefreshToken,
 		})
