@@ -178,10 +178,6 @@ type ytChannelsAPIResp struct {
 	Items []ytChannelResp `json:"items"`
 }
 
-type ytStreamAPIResp struct {
-	Items []LiveBroadcast `json:"items"`
-}
-
 type LiveBroadcast struct {
 	Kind                string                            `json:"kind"`
 	Etag                string                            `json:"etag"`
@@ -347,6 +343,8 @@ func CreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitl
 	client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: accessToken, RefreshToken: refreshToken},
 	))
+
+	fmt.Println("Creating YouTube live broadcast, accessToken: ", accessToken, " refreshToken: ", refreshToken)
 
 	request, err := http.NewRequest("POST", "https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet&part=status&part=contentDetails&part=cdn&part=monitorStream", nil)
 	if err != nil {
