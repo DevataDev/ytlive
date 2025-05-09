@@ -227,16 +227,19 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 		return nil, 0, err
 	}
 
-	// create the event broadcast first
-	broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
-		"stream_id":     streamID,
-		"stream_key":    streamKey,
-		"channel_id":    channel.ChannelID,
-		"user_id":       channel.UserId,
-		"title":         "Watch Me Live",
-		"access_token":  *channel.AccessToken,
-		"refresh_token": *channel.RefreshToken,
-	})
+	if channel.ID != "" {
+
+		// create the event broadcast first
+		broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
+			"stream_id":     streamID,
+			"stream_key":    streamKey,
+			"channel_id":    channel.ChannelID,
+			"user_id":       channel.UserId,
+			"title":         "Watch Me Live",
+			"access_token":  *channel.AccessToken,
+			"refresh_token": *channel.RefreshToken,
+		})
+	}
 
 	var cmd *exec.Cmd
 	args := buildFfmpegArgs(maxBitrate, loopVideo, filePath, streamKey, rtmpUrl, loopCount)
