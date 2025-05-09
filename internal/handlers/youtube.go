@@ -102,7 +102,7 @@ func (h *YoutubeHandler) YouTubeOAuthCallback(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update channel: " + err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"error": "Channel updated"})
+		c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Channel updated"})
 		return
 	}
 
@@ -119,7 +119,7 @@ func (h *YoutubeHandler) YouTubeOAuthCallback(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, channel)
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Channel created"})
 }
 
 func (h *YoutubeHandler) CreateYoutubeLiveBroadcast(c *gin.Context) {
