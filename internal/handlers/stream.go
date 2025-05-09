@@ -207,6 +207,7 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 		stream.ScheduledAt = nil
 		defaultLoopCount := -1
 		stream.LoopCount = &defaultLoopCount
+		stream.LoopVideo = false
 		if err := h.DB.Save(&stream).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stream"})
 			return

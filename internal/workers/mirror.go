@@ -28,7 +28,7 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 		time.Sleep(1 * time.Minute)
 		fmt.Println("Checking room is alive...")
 		var streamsToCheck []models.Mirror
-		w.DB.Where("(status = ? or status = ?) AND room_id IS NOT NULL", "live", "stopped").Find(&streamsToCheck)
+		w.DB.Where("(status = ? or status = ?) AND room_id IS NOT NULL", "live", "stopped", "queued").Find(&streamsToCheck)
 		fmt.Println("Found", len(streamsToCheck), "mirror to check.")
 		roomIds := make([]string, len(streamsToCheck))
 		for i, stream := range streamsToCheck {
@@ -114,6 +114,11 @@ func (w *MirrorWorker) StartQueueChecker() {
 							// update database
 							models.StopMirrorWorkerWithDatabase(data.ID, w.DB, false)
 							models.RemoveMirrorWorker(data.ID)
+							// update old mirror
+							w.DB.Model(&data).Updates(map[string]interface{}{
+								"status":     "stopped",
+								"ffmpeg_pid": nil,
+							})
 							//start stream worker
 							models.StartMirrorWorkerWithDatabase(mirror.ID, w.TiktokClient, w.DB)
 						}
