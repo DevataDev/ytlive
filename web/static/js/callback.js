@@ -10,7 +10,7 @@ function callback() {
         success: function(data) {
             console.log(data);
             if (data.status === 'success') {
-                $('#result').text(data.message).addClass('text-success');
+                $('#result').text(data.message + ' in 5 seconds redirect to channels').addClass('text-success');
                 // after 5 seconds redirect to channels
                 setTimeout(function() {
                     window.location.href = '/channels';
