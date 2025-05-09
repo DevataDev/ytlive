@@ -127,6 +127,12 @@ func main() {
 		log.Fatalf("failed to migrate monitor table: %v", err)
 	}
 
+	// Auto-migrate channels table
+	err = db.AutoMigrate(&models.Channels{})
+	if err != nil {
+		log.Fatalf("failed to migrate channels table: %v", err)
+	}
+
 	// Init device presets
 	tiktok.InitDevicePresets()
 
