@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -39,12 +40,18 @@ func NewYoutubeClient(config *configuration.Config) *YoutubeClient {
 }
 
 func (h *YoutubeClient) UpdateTokenInDB(oldRefreshToken string, accessToken string, refreshToken string) error {
+	if accessToken == "" {
+		fmt.Println("Invalid token for update in DB", accessToken, refreshToken, oldRefreshToken)
+		return nil
+	}
 	var channel models.Channels
 	if err := h.DB.Where("refresh_token = ?", oldRefreshToken).Find(&channel).Error; err != nil {
 		return err
 	}
 	channel.AccessToken = &accessToken
-	channel.RefreshToken = &refreshToken
+	if refreshToken != "" {
+		channel.RefreshToken = &refreshToken
+	}
 	if err := h.DB.Save(&channel).Error; err != nil {
 		return err
 	}
@@ -59,14 +66,25 @@ func (h *YoutubeClient) DoWithAutoRefresh(
 	refreshToken string,
 	updateTokenFunc func(newAccessToken string, newRefreshToken string, oldRefreshToken string),
 ) (*http.Response, error) {
+	fmt.Println("DoWithAutoRefresh", accessToken, " ", refreshToken)
+	if accessToken == "" {
+		return nil, errors.New("access token is empty, please re-login")
+	}
 	// 1. Do the request with the current access token
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	client := &http.Client{}
+	client := h.YoutubeOauthConfig.Client(context.Background(), &oauth2.Token{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	})
 	resp, _ := client.Do(req)
 
 	// 2. If token expired/invalid, refresh and retry ONCE
 	if resp.StatusCode == http.StatusUnauthorized {
 		resp.Body.Close()
+		fmt.Println("Token expired/invalid for channel", refreshToken)
+		if refreshToken == "" {
+			return nil, errors.New("refresh token is empty, please re-login")
+		}
 		newAccessToken, newRefreshToken, oldRefreshToken, err := h.RefreshYouTubeAccessToken(refreshToken)
 		if err != nil {
 			return nil, fmt.Errorf("failed to refresh token: %w", err)
@@ -78,9 +96,13 @@ func (h *YoutubeClient) DoWithAutoRefresh(
 		// Retry request with new token
 		req2 := req.Clone(req.Context())
 		req2.Header.Set("Authorization", "Bearer "+newAccessToken)
-		return client.Do(req2)
+		return h.YoutubeOauthConfig.Client(context.Background(), &oauth2.Token{
+			AccessToken:  newAccessToken,
+			RefreshToken: newRefreshToken,
+		}).Do(req2)
 	}
 
+	fmt.Println("Request successful for channel", resp)
 	// 3. Return the original response
 	return resp, nil
 }
@@ -465,9 +487,10 @@ func (h *YoutubeClient) RefreshYouTubeAccessToken(refreshToken string) (string, 
 }
 
 func (h *YoutubeClient) FetchYouTubeStreamList(accessToken string, refreshToken string) (*LiveStreamListResponse, error) {
-	req, _ := http.NewRequest("GET", "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet&part=cdn&part=contentDetails&part=status&mine=true", nil)
+	req, _ := http.NewRequest("GET", "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet&part=cdn&part=contentDetails&part=status&mine=true&maxResults=1000", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	resp, err := h.DoWithAutoRefresh(req, accessToken, refreshToken, func(newAccessToken string, newRefreshToken string, oldRefreshToken string) {
+		fmt.Println("Updating token in DB for fetch youtube stream list", oldRefreshToken, newAccessToken, newRefreshToken)
 		h.UpdateTokenInDB(oldRefreshToken, newAccessToken, newRefreshToken)
 	})
 	if err != nil {

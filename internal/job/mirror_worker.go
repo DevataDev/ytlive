@@ -180,7 +180,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		"stream_key":    mirror.StreamKey,
 		"channel_id":    channel.ChannelID,
 		"user_id":       channel.UserId,
-		"title":         "Watch " + mirror.DisplayName + " Live",
+		"title":         mirror.Title,
 		"access_token":  *channel.AccessToken,
 		"refresh_token": *channel.RefreshToken,
 	})

@@ -360,7 +360,7 @@ $(function() {
                 if (res.streams && res.streams.length > 0) {
                     $('#streamSelect').append('<option value="">Select a live stream</option>');
                     res.streams.forEach(function(stream) {
-                        $('#streamSelect').append(`<option value="${stream.stream_key}">${stream.stream_key}</option>`);
+                        $('#streamSelect').append(`<option value="${stream.stream_key}">${stream.title} - ${stream.stream_key}</option>`);
                     });
                 } else {
                     $('#streamSelect').append('<option value="">No live streams found</option>');

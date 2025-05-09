@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"windsorf-youtube-live/internal/broadcast"
 	"windsorf-youtube-live/internal/configuration"
@@ -58,7 +59,7 @@ func (h *YoutubeHandler) StartYouTubeOAuth(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
 		return
 	}
-	url := h.YoutubeClient.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	url := h.YoutubeClient.YoutubeOauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	c.JSON(http.StatusOK, gin.H{"auth_url": url})
 }
 
@@ -76,6 +77,10 @@ func (h *YoutubeHandler) YouTubeOAuthCallback(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to exchange token: " + err.Error()})
 		return
 	}
+
+	fmt.Println("Access token", token.AccessToken)
+	fmt.Println("Refresh token", token.RefreshToken)
+
 	// Fetch channel info from YouTube API
 	ytResp, err := h.YoutubeClient.FetchYouTubeChannel(token.AccessToken, token.RefreshToken)
 	if err != nil {
@@ -139,7 +144,15 @@ func (h *YoutubeHandler) ListStreamsByChannel(c *gin.Context) {
 		return
 	}
 	accessToken := channel.AccessToken
-	streamListResp, err := h.YoutubeClient.FetchYouTubeStreamList(*accessToken, *channel.RefreshToken)
+	refreshToken := channel.RefreshToken
+	if accessToken == nil || refreshToken == nil {
+		c.JSON(500, gin.H{"error": "Access token or refresh token is nil"})
+		return
+	}
+	fmt.Println("Access token", *accessToken)
+	fmt.Println("Refresh token", *refreshToken)
+
+	streamListResp, err := h.YoutubeClient.FetchYouTubeStreamList(*accessToken, *refreshToken)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
