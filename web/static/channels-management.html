@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage TikTok User Monitor</title>
-    <meta name="description" content="YukLive! Monitor Manager">
+    <title>YukLive! Youtube Channels Manager</title>
+    <meta name="description" content="YukLive! Youtube Channels Manager">
     <meta name="author" content="YukLive!">
     <link rel="icon" type="image/png" href="/static/favicon.png">
     <link rel="stylesheet" href="/static/css/style.css">
@@ -46,10 +46,10 @@
                             <a href="/search" class="nav-link">TikTok Search</a>
                         </li>
                         <li class="nav-item">
-                            <a href="/monitor" class="nav-link active">Monitor</a>
+                            <a href="/monitor" class="nav-link">Monitor</a>
                         </li>
                         <li class="nav-item" id="menuManageChannels">
-                            <a href="/channels" class="nav-link">Manage Channels</a>
+                            <a href="/channels" class="nav-link active">Manage Channels</a>
                         </li>
                     </ul>
                     <button id="logoutBtn" class="btn btn-outline-secondary ms-lg-2">Logout</button>
@@ -61,41 +61,32 @@
         <div class="container-fluid container-xl dashboard-container">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
-                    <span class="badge bg-info me-2">Monitor Count: <span id="countMonitor">-</span></span>
+                    <span class="badge bg-info me-2">Channels Count: <span id="countChannels">-</span></span>
                 </div>
-                <form id="add-monitor-form" class="d-flex gap-2">
-                    <input type="text" id="uniqueId" name="uniqueId" class="form-control" placeholder="TikTok Unique ID" required>
-                    <button type="submit" class="btn btn-success">Add Monitor</button>
+                <form id="add-channel-form" class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success">Add Channel</button>
                 </form>
             </div>
             <section>
-                <h2>Monitored Users</h2>
+                <h2>Channels</h2>
                 <div class="table-responsive" style="max-height:60vh;overflow-y:auto;">
-                <table id="monitor-table" class="table table-striped align-middle">
+                <table id="channels-table" class="table table-striped align-middle">
                     <thead>
                         <tr>
-                            <th>Unique ID</th>
-                            <th>RTMP URL</th>
-                            <th>Stream Key</th>
-                            <th>Is Live</th>
+                            <th>Channel ID</th>
+                            <th>Channel Name</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Monitor rows will be injected here -->
-                        <tr data-monitor-id="monitor-1">
+                        <!-- Channel rows will be injected here -->
+                        <tr data-channel-id="channel-1">
                             <td>unique-id-1</td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" id="rtmp-url-1" value="rtmp://example.com/live/1">
-                                <button class="btn btn-sm btn-primary" id="save-rtmp-url-1">Save</button>
+                               name
                             </td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" id="stream-key-1" value="stream-key-1">
-                                <button class="btn btn-sm btn-primary" id="save-stream-key-1">Save</button>
-                            </td>
-                            <td>Yes</td>
-                            <td>
-                                <button class="btn btn-sm btn-danger" id="delete-monitor-1">Delete</button>
+                                <button class="btn btn-sm btn-danger" id="delete-channel-1">Delete</button>
                             </td>
                         </tr>
                     </tbody>
@@ -104,11 +95,24 @@
             </section>
         </div>
     </main>
+    <div class="modal fade" id="authorizeModal" tabindex="-1" aria-labelledby="authorizeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="authorizeModalLabel">Authorize</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Auth iframe will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
     <footer class="footer mt-auto py-3 bg-light border-top text-center w-100">
         <span class="text-muted">&copy; 2025 Yuk Live! By PT Jejaring Internet Bersama</span>
     </footer>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/monitor-management.js?v=0.4.2"></script>
+    <script src="/static/js/channels-management.js?v=0.4.2"></script>
 </body>
 </html>

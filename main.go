@@ -216,6 +216,12 @@ func main() {
 		c.FileFromFS("/search-list.html", http.FS(staticFs))
 	})
 
+	// Channels page
+	r.GET("/channels", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/channels-management.html", http.FS(staticFs))
+	})
+
 	r.GET("/", func(c *gin.Context) {
 		// check if user is logged in
 		_, exists := c.Get("user_id")
@@ -360,11 +366,13 @@ func main() {
 	// -- Tiktok End --
 
 	// -- Youtube start --
-
 	youtubeHandler := handlers.NewYoutubeHandler(db, cfg)
 	r.GET("/api/youtube/list-channels", handlers.JWTMiddleware(), youtubeHandler.ListChannels)
 	r.GET("/api/youtube/authorize", handlers.JWTMiddleware(), youtubeHandler.StartYouTubeOAuth)
-	r.GET("/api/youtube/callback", handlers.JWTMiddleware(), youtubeHandler.YouTubeOAuthCallback)
+	r.GET("/api/youtube/callback", youtubeHandler.YouTubeOAuthCallback)
+	r.POST("/api/youtube/create-live-broadcast", handlers.JWTMiddleware(), youtubeHandler.CreateYoutubeLiveBroadcast)
+	r.DELETE("/api/youtube/channels/:id", handlers.JWTMiddleware(), youtubeHandler.DeleteChannel)
+	// r.POST("/api/youtube/create-live-stream", handlers.JWTMiddleware(), youtubeHandler.CreateYoutubeLiveStream)
 
 	monitorHandler := handlers.MonitorHandler{DB: db}
 	r.POST("/api/monitors", handlers.JWTMiddleware(), monitorHandler.AddMonitor)
