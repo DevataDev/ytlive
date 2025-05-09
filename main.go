@@ -222,6 +222,12 @@ func main() {
 		c.FileFromFS("/channels-management.html", http.FS(staticFs))
 	})
 
+	//callback
+	r.GET("/youtube/callback", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/callback.html", http.FS(staticFs))
+	})
+
 	r.GET("/", func(c *gin.Context) {
 		// check if user is logged in
 		_, exists := c.Get("user_id")

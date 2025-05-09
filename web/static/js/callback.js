@@ -4,10 +4,9 @@ function callback() {
     const code = urlParams.get('code');
     const state = urlParams.get('state');
     resp = $.ajax({
-        url: '/api/youtube/callback',
+        url: '/api/youtube/callback?code=' + code + '&state=' + state,
         method: 'GET',
         headers: { Authorization: 'Bearer ' + jwtToken },
-        params: { code: code, state: state },
         success: function(data) {
             console.log(data);
             if (data.status === 'success') {
@@ -23,3 +22,8 @@ function callback() {
         }
     });
 }
+
+$(document).ready(function() {
+    callback();
+});
+

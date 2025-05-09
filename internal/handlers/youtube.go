@@ -1,10 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"io"
 	"net/http"
 	"time"
 	"windsorf-youtube-live/internal/configuration"
@@ -42,18 +43,12 @@ func NewYoutubeHandler(db *gorm.DB, config *configuration.Config) *YoutubeHandle
 // ListChannels lists YouTube channels connected by the authenticated user
 func (h *YoutubeHandler) ListChannels(c *gin.Context) {
 	userID := c.GetString("user_id") // Assumes user_id is set in context
-	fmt.Println(userID)
 	var channels []models.Channels
-	// if err := h.DB.Where("user_id = ?", userID).Find(&channels).Error; err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	// 	return
-	// }
-
-	// list all channels
-	if err := h.DB.Find(&channels).Error; err != nil {
+	if err := h.DB.Where("user_id = ?", userID).Find(&channels).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{"channels": channels})
 }
 
@@ -91,7 +86,6 @@ func (h *YoutubeHandler) YouTubeOAuthCallback(c *gin.Context) {
 	}
 
 	// check if there is a channel with the same channel id
-	fmt.Println(ytResp.ID)
 	var channel models.Channels
 	h.DB.Where("channel_id = ?", ytResp.ID).Find(&channel)
 	if channel.ID != "" {
@@ -131,8 +125,13 @@ func (h *YoutubeHandler) CreateYoutubeLiveBroadcast(c *gin.Context) {
 		return
 	}
 
+	if req.ChannelID == "" || req.StreamTitle == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
 	var channel models.Channels
-	if err := h.DB.Where("user_id = ? AND channel_id = ?", userID, req.ChannelID).Find(&channel).Error; err != nil {
+	if err := h.DB.Where("user_id = ? AND (channel_id = ? OR id = ?)", userID, req.ChannelID, req.ChannelID).Find(&channel).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -217,8 +216,8 @@ type LiveBroadcastStatus struct {
 	LifeCycleStatus         string `json:"lifeCycleStatus"`
 	PrivacyStatus           string `json:"privacyStatus"`
 	RecordingStatus         string `json:"recordingStatus"`
-	MadeForKids             string `json:"madeForKids"`
-	SelfDeclaredMadeForKids string `json:"selfDeclaredMadeForKids"`
+	MadeForKids             bool   `json:"madeForKids"`
+	SelfDeclaredMadeForKids bool   `json:"selfDeclaredMadeForKids"`
 }
 
 type LiveBroadcastContentDetails struct {
@@ -232,7 +231,7 @@ type LiveBroadcastContentDetails struct {
 	ClosedCaptionsType          string                     `json:"closedCaptionsType"`
 	Projection                  string                     `json:"projection"`
 	EnableLowLatency            bool                       `json:"enableLowLatency"`
-	LatencyPreference           bool                       `json:"latencyPreference"`
+	LatencyPreference           string                     `json:"latencyPreference"`
 	EnableAutoStart             bool                       `json:"enableAutoStart"`
 	EnableAutoStop              bool                       `json:"enableAutoStop"`
 }
@@ -256,6 +255,72 @@ type LiveBroadcastCuepointSchedule struct {
 	PauseAdsUntil      string `json:"pauseAdsUntil"`
 	ScheduleStrategy   string `json:"scheduleStrategy"`
 	RepeatIntervalSecs int    `json:"repeatIntervalSecs"`
+}
+
+type LiveStream struct {
+	Kind           string                   `json:"kind"`
+	Etag           string                   `json:"etag"`
+	ID             string                   `json:"id"`
+	Snippet        LiveStreamSnippet        `json:"snippet"`
+	CDN            LiveStreamCDN            `json:"cdn"`
+	Status         LiveStreamStatus         `json:"status"`
+	ContentDetails LiveStreamContentDetails `json:"contentDetails"`
+}
+
+type LiveStreamSnippet struct {
+	PublishedAt     string `json:"publishedAt"`
+	ChannelId       string `json:"channelId"`
+	Title           string `json:"title"`
+	Description     string `json:"description"`
+	IsDefaultStream bool   `json:"isDefaultStream"`
+}
+
+type LiveStreamCDN struct {
+	IngestionType string                  `json:"ingestionType"`
+	IngestionInfo LiveStreamIngestionInfo `json:"ingestionInfo"`
+	Resolution    string                  `json:"resolution"`
+	FrameRate     string                  `json:"frameRate"`
+}
+
+type LiveStreamIngestionInfo struct {
+	StreamName             string `json:"streamName"`
+	IngestionAddress       string `json:"ingestionAddress"`
+	BackupIngestionAddress string `json:"backupIngestionAddress"`
+}
+
+type LiveStreamStatus struct {
+	StreamStatus string                 `json:"streamStatus"`
+	HealthStatus LiveStreamHealthStatus `json:"healthStatus"`
+}
+
+type LiveStreamHealthStatus struct {
+	Status                string                         `json:"status"`
+	LastUpdateTimeSeconds uint64                         `json:"lastUpdateTimeSeconds"`
+	ConfigurationIssues   []LiveStreamConfigurationIssue `json:"configurationIssues"`
+}
+
+type LiveStreamConfigurationIssue struct {
+	Type        string `json:"type"`
+	Severity    string `json:"severity"`
+	Reason      string `json:"reason"`
+	Description string `json:"description"`
+}
+
+type LiveStreamContentDetails struct {
+	ClosedCaptionsIngestionUrl string `json:"closedCaptionsIngestionUrl"`
+	IsReusable                 bool   `json:"isReusable"`
+}
+
+type LiveStreamListResponse struct {
+	Kind     string       `json:"kind"`
+	Etag     string       `json:"etag"`
+	PageInfo PageInfo     `json:"pageInfo"`
+	Items    []LiveStream `json:"items"`
+}
+
+type PageInfo struct {
+	TotalResults   int `json:"totalResults"`
+	ResultsPerPage int `json:"resultsPerPage"`
 }
 
 func fetchYouTubeChannel(accessToken string) (*ytChannelResp, error) {
@@ -287,20 +352,25 @@ func CreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitl
 		"snippet": map[string]interface{}{
 			"title":              streamTitle,
 			"scheduledStartTime": time.Now().Format("2006-01-02 15:04:05"),
+			"description":        "Watch " + streamTitle + " live stream",
 		},
 		"status": map[string]interface{}{
 			"privacyStatus": "public",
 		},
 	})
-	resp, err := req.Post("https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet,status")
+	resp, err := req.Post("https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet&part=status&part=contentDetails")
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
+	bodyString, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 	// parse as LiveBroadcast
 	var apiResp LiveBroadcast
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(bodyString)).Decode(&apiResp); err != nil {
 		return err
 	}
 
@@ -310,15 +380,51 @@ func CreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitl
 		return err
 	}
 
-	fmt.Println(streamListResp.Items)
-
 	if len(streamListResp.Items) == 0 {
 		return nil
 	}
 
 	// find stream with streamKey
 	for _, stream := range streamListResp.Items {
-		if stream.ContentDetails.BoundStreamId == streamKey {
+		if stream.CDN.IngestionInfo.StreamName == streamKey && streamKey != "" {
+			// bound stream to broadcast
+			req.SetBody(map[string]interface{}{
+				"boundStreamId": stream.ID,
+			})
+			resp, err := req.Post("https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet&part=status&part=contentDetails&part=cdn&part=monitorStream")
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			bodyString, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// parse as LiveBroadcast
+			var apiResp LiveBroadcast
+			if err := json.NewDecoder(bytes.NewReader(bodyString)).Decode(&apiResp); err != nil {
+				return err
+			}
+			return nil
+		} else {
+			// use the first stream
+			req.SetBody(map[string]interface{}{
+				"boundStreamId": streamListResp.Items[0].ID,
+			})
+			resp, err := req.Post("https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet&part=status&part=contentDetails&part=cdn&part=monitorStream")
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			bodyString, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return err
+			}
+			// parse as LiveBroadcast
+			var apiResp LiveBroadcast
+			if err := json.NewDecoder(bytes.NewReader(bodyString)).Decode(&apiResp); err != nil {
+				return err
+			}
 			return nil
 		}
 	}
@@ -341,7 +447,7 @@ func CreateYoutubeLiveStream(channelID string, accessToken string, streamTitle s
 			"privacyStatus": "public",
 		},
 	})
-	resp, err := req.Post("https://www.googleapis.com/youtube/v3/liveStreams?part=snippet,status")
+	resp, err := req.Post("https://www.googleapis.com/youtube/v3/liveStreams?part=snippet&part=cdn&part=contentDetails&part=status")
 	if err != nil {
 		return err
 	}
@@ -366,13 +472,11 @@ func CreateYoutubeLiveStream(channelID string, accessToken string, streamTitle s
 		return nil
 	}
 
-	fmt.Println(streamListResp.Items)
-
 	return nil
 }
 
-func fetchYouTubeStreamList(accessToken string) (*ytStreamAPIResp, error) {
-	req, _ := http.NewRequest("GET", "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet&mine=true", nil)
+func fetchYouTubeStreamList(accessToken string) (*LiveStreamListResponse, error) {
+	req, _ := http.NewRequest("GET", "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet&part=cdn&part=contentDetails&part=status&mine=true", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -380,9 +484,13 @@ func fetchYouTubeStreamList(accessToken string) (*ytStreamAPIResp, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	var apiResp ytStreamAPIResp
-	fmt.Println(resp.Body)
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+	var apiResp LiveStreamListResponse
+	bodyString, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.NewDecoder(bytes.NewReader([]byte(string(bodyString)))).Decode(&apiResp); err != nil {
 		return nil, err
 	}
 	if len(apiResp.Items) == 0 {
