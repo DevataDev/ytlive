@@ -7,23 +7,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 	"windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/models"
 
 	"github.com/gin-gonic/gin"
-	"github.com/imroc/req/v3"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"gorm.io/gorm"
 )
 
+type YoutubeClient struct {
+}
+
 type YoutubeHandler struct {
 	DB                 *gorm.DB
 	Config             *configuration.Config
 	YoutubeOauthConfig *oauth2.Config
-	HttpClient         *req.Client
 }
 
 func NewYoutubeHandler(db *gorm.DB, config *configuration.Config) *YoutubeHandler {
@@ -37,8 +40,57 @@ func NewYoutubeHandler(db *gorm.DB, config *configuration.Config) *YoutubeHandle
 			Scopes:       []string{"https://www.googleapis.com/auth/youtube", "https://www.googleapis.com/auth/userinfo.email"},
 			Endpoint:     google.Endpoint,
 		},
-		HttpClient: req.NewClient(),
 	}
+}
+
+func (h *YoutubeHandler) UpdateTokenInDB(oldRefreshToken string, accessToken string, refreshToken string) error {
+	var channel models.Channels
+	if err := h.DB.Where("refresh_token = ?", oldRefreshToken).Find(&channel).Error; err != nil {
+		return err
+	}
+	channel.AccessToken = &accessToken
+	channel.RefreshToken = &refreshToken
+	if err := h.DB.Save(&channel).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+// handler should have access to RefreshYouTubeAccessToken and DB for updating tokens
+
+func (h *YoutubeHandler) DoWithAutoRefresh(
+	req *http.Request,
+	accessToken string,
+	refreshToken string,
+	updateTokenFunc func(newAccessToken string, newRefreshToken string, oldRefreshToken string),
+) (*http.Response, error) {
+	// 1. Do the request with the current access token
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. If token expired/invalid, refresh and retry ONCE
+	if resp.StatusCode == http.StatusUnauthorized {
+		resp.Body.Close()
+		newAccessToken, newRefreshToken, oldRefreshToken, err := h.RefreshYouTubeAccessToken(refreshToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to refresh token: %w", err)
+		}
+		// Optionally update the token in DB or memory
+		if updateTokenFunc != nil {
+			updateTokenFunc(newAccessToken, newRefreshToken, oldRefreshToken)
+		}
+		// Retry request with new token
+		req2 := req.Clone(req.Context())
+		req2.Header.Set("Authorization", "Bearer "+newAccessToken)
+		return client.Do(req2)
+	}
+
+	// 3. Return the original response
+	return resp, nil
 }
 
 // ListChannels lists YouTube channels connected by the authenticated user
@@ -80,7 +132,7 @@ func (h *YoutubeHandler) YouTubeOAuthCallback(c *gin.Context) {
 		return
 	}
 	// Fetch channel info from YouTube API
-	ytResp, err := fetchYouTubeChannel(token.AccessToken)
+	ytResp, err := h.fetchYouTubeChannel(token.AccessToken, token.RefreshToken)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch channel info: " + err.Error()})
 		return
@@ -137,7 +189,7 @@ func (h *YoutubeHandler) CreateYoutubeLiveBroadcast(c *gin.Context) {
 		return
 	}
 
-	if err := CreateYoutubeLiveBroadcast(channel.ChannelID, *channel.AccessToken, req.StreamTitle, req.StreamKey, *channel.RefreshToken); err != nil {
+	if err := h.createYoutubeLiveBroadcast(channel.ChannelID, *channel.AccessToken, req.StreamTitle, req.StreamKey, *channel.RefreshToken); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -320,10 +372,10 @@ type PageInfo struct {
 	ResultsPerPage int `json:"resultsPerPage"`
 }
 
-func fetchYouTubeChannel(accessToken string) (*ytChannelResp, error) {
+func (h *YoutubeHandler) fetchYouTubeChannel(accessToken string, refreshToken string) (*ytChannelResp, error) {
+	client := oauth2.NewClient(context.Background(), h.getTokenSource(accessToken, refreshToken))
 	req, _ := http.NewRequest("GET", "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -339,12 +391,8 @@ func fetchYouTubeChannel(accessToken string) (*ytChannelResp, error) {
 	return &apiResp.Items[0], nil
 }
 
-func CreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitle string, streamKey string, refreshToken string) error {
-	client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: accessToken, RefreshToken: refreshToken},
-	))
-
-	fmt.Println("Creating YouTube live broadcast, accessToken: ", accessToken, " refreshToken: ", refreshToken)
+func (h *YoutubeHandler) createYoutubeLiveBroadcast(channelID string, accessToken string, streamTitle string, streamKey string, refreshToken string) error {
+	client := oauth2.NewClient(context.Background(), h.getTokenSource(accessToken, refreshToken))
 
 	request, err := http.NewRequest("POST", "https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet&part=status&part=contentDetails&part=cdn&part=monitorStream", nil)
 	if err != nil {
@@ -367,7 +415,9 @@ func CreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitl
 		return err
 	}
 	request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-	resp, err := client.Do(request)
+	resp, err := h.DoWithAutoRefresh(request, accessToken, refreshToken, func(newAccessToken string, newRefreshToken string, oldRefreshToken string) {
+		h.UpdateTokenInDB(oldRefreshToken, newAccessToken, newRefreshToken)
+	})
 	if err != nil {
 		return err
 	}
@@ -384,7 +434,7 @@ func CreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitl
 	}
 
 	// get live streams list
-	streamListResp, err := fetchYouTubeStreamList(accessToken, refreshToken)
+	streamListResp, err := h.fetchYouTubeStreamList(accessToken, refreshToken)
 	if err != nil {
 		return err
 	}
@@ -421,15 +471,8 @@ func CreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitl
 			fmt.Println(apiResp)
 			return nil
 		} else {
-			// use the first stream
-			body := map[string]interface{}{
-				"boundStreamId": streamListResp.Items[0].ID,
-			}
-			bodyBytes, err := json.Marshal(body)
-			if err != nil {
-				return err
-			}
-			request, err := http.NewRequest("POST", "https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet&part=status&part=contentDetails&part=cdn&part=monitorStream", bytes.NewBuffer(bodyBytes))
+
+			request, err := http.NewRequest("GET", "https://www.googleapis.com/youtube/v3/liveBroadcasts/bind?part=snippet&part=status&part=contentDetails&part=cdn&part=monitorStream&id="+apiResp.ID+"&streamId="+stream.ID, nil)
 			if err != nil {
 				return err
 			}
@@ -455,11 +498,7 @@ func CreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitl
 	return nil
 }
 
-func CreateYoutubeLiveStream(channelID string, accessToken string, refreshToken string, streamTitle string) error {
-	client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: accessToken, RefreshToken: refreshToken},
-	))
-
+func (h *YoutubeHandler) createYoutubeLiveStream(channelID string, accessToken string, refreshToken string, streamTitle string) error {
 	body := map[string]interface{}{
 		"snippet": map[string]interface{}{
 			"title":              streamTitle,
@@ -478,10 +517,13 @@ func CreateYoutubeLiveStream(channelID string, accessToken string, refreshToken 
 
 	request, err := http.NewRequest("POST", "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet&part=cdn&part=contentDetails&part=status", bytes.NewBuffer(bodyBytes))
 	if err != nil {
+
 		return err
 	}
 	request.Header.Set("Authorization", "Bearer "+accessToken)
-	resp, err := client.Do(request)
+	resp, err := h.DoWithAutoRefresh(request, accessToken, refreshToken, func(newAccessToken string, newRefreshToken string, oldRefreshToken string) {
+		h.UpdateTokenInDB(oldRefreshToken, newAccessToken, newRefreshToken)
+	})
 	if err != nil {
 		return err
 	}
@@ -493,7 +535,7 @@ func CreateYoutubeLiveStream(channelID string, accessToken string, refreshToken 
 	}
 
 	// get stream list
-	_, err = fetchYouTubeStreamList(accessToken, refreshToken)
+	_, err = h.fetchYouTubeStreamList(accessToken, refreshToken)
 	if err != nil {
 		return err
 	}
@@ -501,18 +543,55 @@ func CreateYoutubeLiveStream(channelID string, accessToken string, refreshToken 
 	return nil
 }
 
-func refreshToken(refreshToken string) (string, error) {
-	return "", nil
+func (h *YoutubeHandler) getTokenSource(accessToken string, refreshToken string) oauth2.TokenSource {
+	config := &oauth2.Config{
+		ClientID:     h.Config.Youtube.ClientId,
+		ClientSecret: h.Config.Youtube.ClientSecret,
+		Endpoint:     google.Endpoint,
+		Scopes:       []string{"https://www.googleapis.com/auth/youtube"},
+		RedirectURL:  h.Config.Youtube.RedirectURL,
+	}
+	token := &oauth2.Token{RefreshToken: refreshToken, AccessToken: accessToken}
+	return config.TokenSource(context.Background(), token)
 }
 
-func fetchYouTubeStreamList(accessToken string, refreshToken string) (*LiveStreamListResponse, error) {
-	fmt.Println("Fetching YouTube stream list , accessToken: ", accessToken)
-	client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: accessToken, RefreshToken: refreshToken},
-	))
+func (h *YoutubeHandler) RefreshYouTubeAccessToken(refreshToken string) (string, string, string, error) {
+	data := url.Values{}
+	data.Set("client_id", h.Config.Youtube.ClientId)
+	data.Set("client_secret", h.Config.Youtube.ClientSecret)
+	data.Set("refresh_token", refreshToken)
+	data.Set("grant_type", "refresh_token")
+
+	resp, err := http.PostForm("https://oauth2.googleapis.com/token", data)
+	if err != nil {
+		return "", "", "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	var result struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		TokenType    string `json:"token_type"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", "", "", err
+	}
+
+	return result.AccessToken, result.RefreshToken, refreshToken, nil
+}
+
+func (h *YoutubeHandler) fetchYouTubeStreamList(accessToken string, refreshToken string) (*LiveStreamListResponse, error) {
 	req, _ := http.NewRequest("GET", "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet&part=cdn&part=contentDetails&part=status&mine=true", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	resp, err := client.Do(req)
+	resp, err := h.DoWithAutoRefresh(req, accessToken, refreshToken, func(newAccessToken string, newRefreshToken string, oldRefreshToken string) {
+		h.UpdateTokenInDB(oldRefreshToken, newAccessToken, newRefreshToken)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -534,8 +613,8 @@ func fetchYouTubeStreamList(accessToken string, refreshToken string) (*LiveStrea
 	return &apiResp, nil
 }
 
-func findYoutubeStreamKey(accessToken string, refreshToken string, streamKey string) (string, error) {
-	streamListResp, err := fetchYouTubeStreamList(accessToken, refreshToken)
+func (h *YoutubeHandler) findYoutubeStreamKey(accessToken string, refreshToken string, streamKey string) (string, error) {
+	streamListResp, err := h.fetchYouTubeStreamList(accessToken, refreshToken)
 	if err != nil {
 		return "", err
 	}
@@ -559,7 +638,7 @@ func (h *YoutubeHandler) ListStreamsByChannel(c *gin.Context) {
 		return
 	}
 	accessToken := channel.AccessToken
-	streamListResp, err := fetchYouTubeStreamList(*accessToken, *channel.RefreshToken)
+	streamListResp, err := h.fetchYouTubeStreamList(*accessToken, *channel.RefreshToken)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
