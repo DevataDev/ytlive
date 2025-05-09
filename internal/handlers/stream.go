@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -511,7 +512,7 @@ func (h *StreamHandler) GetDriveUploadProgress(c *gin.Context) {
 		return
 	}
 	// Use a simple in-memory map for demo; replace with Redis/db for production
-	progress, ok := models.GetDriveProgress(driveLink)
+	progress, ok := job.GetDriveProgress(driveLink)
 	if !ok {
 		c.JSON(http.StatusOK, gin.H{"progress": 0, "status": "Starting..."})
 		return
@@ -536,6 +537,51 @@ func (h *StreamHandler) SaveStreamKey(c *gin.Context) {
 	stream.StreamKey = req.StreamKey
 	if err := h.DB.Save(&stream).Error; err != nil {
 		c.JSON(500, gin.H{"error": "Failed to update stream key."})
+		return
+	}
+
+	// // find stream key on channel
+	// if stream.StreamKey != "" && stream.ChannelId == "" {
+	// 	var channel []models.Channels
+	// 	if err := h.DB.Where("user_id = ? AND deleted_at IS NULL", c.GetString("user_id")).Find(&channel).Error; err != nil {
+	// 		c.JSON(500, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
+
+	// 	// looping untul find stream key
+	// 	for _, ch := range channel {
+	// 		if _, err := findYoutubeStreamKey(*ch.AccessToken, req.StreamKey); err != nil {
+	// 			continue
+	// 		}
+	// 		stream.ChannelId = ch.ChannelID
+	// 		if err := h.DB.Model(&models.Stream{}).Where("id = ?", id).Update("channel_id", ch.ID).Error; err != nil {
+	// 			c.JSON(500, gin.H{"error": err.Error()})
+	// 			return
+	// 		}
+	// 	}
+	// }
+	c.JSON(200, gin.H{"success": true})
+}
+
+func (h *StreamHandler) UpdateStreamChannelId(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		ChannelId string `json:"channel_id"`
+		StreamKey string `json:"stream_key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request."})
+		return
+	}
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Stream not found."})
+		return
+	}
+	stream.ChannelId = req.ChannelId
+	stream.StreamKey = req.StreamKey
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to update channel id."})
 		return
 	}
 	c.JSON(200, gin.H{"success": true})
@@ -586,7 +632,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 	}
 	// Start FFmpeg goroutine (using models.AddWorker)
 	go func(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, db *gorm.DB) {
-		worker, pid, err := models.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, db)
+		worker, pid, err := job.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, db)
 		if err == nil {
 			fmt.Println("FFmpeg started for stream", streamID, "with PID", pid)
 			fmt.Println("FFmpeg PID stored in worker", worker.FfmpegPID)
@@ -619,7 +665,7 @@ func (h *StreamHandler) StopStreamBackground(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Stream is not live."})
 		return
 	}
-	err := models.StopStreamWorker(stream.ID)
+	err := job.StopStreamWorker(stream.ID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Failed to stop stream."})
 		return
@@ -647,7 +693,7 @@ func (h *StreamHandler) DeleteStream(c *gin.Context) {
 	}
 	// Optionally: stop the stream if it's live
 	if stream.Status == "live" {
-		_ = models.StopStreamWorker(stream.ID)
+		_ = job.StopStreamWorker(stream.ID)
 	}
 	// Remove video file if exists
 	if stream.FilePath != nil && *stream.FilePath != "" {

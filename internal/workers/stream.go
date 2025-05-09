@@ -5,6 +5,7 @@ import (
 	"time"
 	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/handlers"
+	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 
 	"gorm.io/gorm"
@@ -44,9 +45,9 @@ func (w *StreamWorker) StartMonitorStream() {
 				fmt.Println("Stream", stream.ID, "has not started yet, skipping. start time:", stream.ScheduledStartAt)
 				continue
 			}
-			models.RestartLock.Lock()
-			_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
-			models.RestartLock.Unlock()
+			job.RestartLock.Lock()
+			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
+			job.RestartLock.Unlock()
 			if err == nil {
 				fmt.Println("Stream", stream.ID, "started successfully.")
 				w.DB.Model(&stream).Updates(map[string]interface{}{
@@ -65,9 +66,9 @@ func (w *StreamWorker) StartMonitorStream() {
 		for _, stream := range streamsToStop {
 			// check end time
 			if stream.ScheduledEndAt.Before(now) {
-				models.RestartLock.Lock()
-				_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
-				models.RestartLock.Unlock()
+				job.RestartLock.Lock()
+				_ = job.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
+				job.RestartLock.Unlock()
 				// remove scheduled_at and scheduled_end_at
 				w.DB.Model(&stream).Updates(map[string]interface{}{
 					"Status":         "stopped",
@@ -96,15 +97,15 @@ func (w *StreamWorker) StartScheduledStream() {
 			// check if ffmpeg is running by the pid
 			if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
 				// check if process is still running
-				if models.IsProcessRunning(*stream.FfmpegPID) {
+				if job.IsProcessRunning(*stream.FfmpegPID) {
 					fmt.Println("Stream", stream.ID, "is already running with PID", *stream.FfmpegPID)
 					continue
 				}
 			}
-			models.RestartLock.Lock()
-			_ = models.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
-			_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
-			models.RestartLock.Unlock()
+			job.RestartLock.Lock()
+			_ = job.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
+			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
+			job.RestartLock.Unlock()
 			if err != nil {
 				fmt.Println("Failed to restart stream", stream.ID, ":", err)
 				continue
@@ -125,19 +126,19 @@ func (w *StreamWorker) StartOneTimeRestarter() {
 		// check if ffmpeg is running by the pid
 		if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
 			// check if process is still running
-			if models.IsProcessRunning(*stream.FfmpegPID) {
+			if job.IsProcessRunning(*stream.FfmpegPID) {
 				fmt.Println("Stream", stream.ID, "is already running with PID", *stream.FfmpegPID)
 				continue
 			}
 		}
 		// lock
-		models.RestartLock.Lock()
+		job.RestartLock.Lock()
 		if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
 			fmt.Println("Stopping stream", stream.ID, "with PID", *stream.FfmpegPID)
-			models.StopStreamWorker(stream.ID)
+			job.StopStreamWorker(stream.ID)
 		}
-		_, _, err := models.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
-		models.RestartLock.Unlock()
+		_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
+		job.RestartLock.Unlock()
 
 		if err != nil {
 			fmt.Println("Failed to restart stream", stream.ID, ":", err)

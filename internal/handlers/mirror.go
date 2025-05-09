@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 	"windsorf-youtube-live/internal/broadcast"
+	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/tiktok"
 
@@ -112,13 +113,18 @@ func (h *MirrorHandler) AddMirror(c *gin.Context) {
 		return
 	}
 
-	fmt.Println(liveUrl)
-
 	var displayName string
 	if _, ok := roomInfo["owner"]; ok {
 		displayName = roomInfo["owner"].(map[string]interface{})["display_id"].(string)
 	} else {
 		displayName = "Room ID " + roomID
+	}
+
+	var title string
+	if _, ok := roomInfo["title"]; ok {
+		title = roomInfo["title"].(string)
+	} else {
+		title = "Watch " + displayName + " live stream"
 	}
 
 	// Compose Mirror model
@@ -133,6 +139,7 @@ func (h *MirrorHandler) AddMirror(c *gin.Context) {
 		UpdatedAt:   time.Now(),
 		StreamKey:   "",
 		Status:      "stopped",
+		Title:       title,
 		UserId:      c.GetString("user_id"),
 		UserAgent:   h.TikTok.GetUserAgent(),
 	}
@@ -160,7 +167,7 @@ func (h *MirrorHandler) StartMirror(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Cannot start: StreamKey missing or mirror is not alive"})
 		return
 	}
-	_, _, err := models.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB)
+	_, _, err := job.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -180,7 +187,7 @@ func (h *MirrorHandler) StopMirror(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Mirror is not live"})
 		return
 	}
-	err := models.StopMirrorWorkerWithDatabase(mirror.ID, h.DB, true)
+	err := job.StopMirrorWorkerWithDatabase(mirror.ID, h.DB, true)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -197,7 +204,7 @@ func (h *MirrorHandler) DeleteMirror(c *gin.Context) {
 		return
 	}
 	// Stop the worker if running
-	_ = models.StopMirrorWorkerWithDatabase(mirror.ID, h.DB, true)
+	_ = job.StopMirrorWorkerWithDatabase(mirror.ID, h.DB, true)
 	if err := h.DB.Delete(&mirror).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -240,11 +247,61 @@ func (h *MirrorHandler) UpdateMirrorStreamKey(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Stream Key cannot be empty"})
 		return
 	}
+	var mirror models.Mirror
+	if err := h.DB.First(&mirror, "id = ?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Mirror not found"})
+		return
+	}
 	if err := h.DB.Model(&models.Mirror{}).Where("id = ?", id).Update("stream_key", req.StreamKey).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
+
+	// // find stream key on channel
+	// if mirror.StreamKey != "" && mirror.ChannelId == "" {
+	// 	var channel []models.Channels
+	// 	if err := h.DB.Where("user_id = ? AND deleted_at IS NULL", c.GetString("user_id")).Find(&channel).Error; err != nil {
+	// 		c.JSON(500, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
+
+	// 	// looping untul find stream key
+	// 	for _, ch := range channel {
+	// 		if _, err := findYoutubeStreamKey(*ch.AccessToken, req.StreamKey); err != nil {
+	// 			continue
+	// 		}
+	// 		mirror.ChannelId = ch.ChannelID
+	// 		if err := h.DB.Model(&models.Mirror{}).Where("id = ?", id).Update("channel_id", ch.ID).Error; err != nil {
+	// 			c.JSON(500, gin.H{"error": err.Error()})
+	// 			return
+	// 		}
+	// 	}
+	// }
 	c.JSON(200, gin.H{"status": "stream_key updated"})
+}
+
+func (h *MirrorHandler) UpdateMirrorChannelId(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		ChannelId string `json:"channel_id"`
+		StreamKey string `json:"stream_key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request."})
+		return
+	}
+	var mirror models.Mirror
+	if err := h.DB.First(&mirror, "id = ?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Mirror not found."})
+		return
+	}
+	mirror.ChannelId = req.ChannelId
+	mirror.StreamKey = req.StreamKey
+	if err := h.DB.Save(&mirror).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to update channel id."})
+		return
+	}
+	c.JSON(200, gin.H{"success": true})
 }
 
 func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, rtmpUrl string, streamKey string) {
@@ -303,6 +360,17 @@ func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, r
 		displayName = "Room ID " + roomID
 	}
 
+	fmt.Println("DisplayName: " + displayName)
+	fmt.Println("LiveUrl: " + liveUrl)
+	fmt.Println("RoomINfo: ", roomInfo)
+
+	var title string
+	if _, ok := roomInfo["title"]; ok {
+		title = roomInfo["title"].(string)
+	} else {
+		title = "Watch " + displayName + " live stream"
+	}
+
 	destinationRtmpUrl := "rtmp://a.rtmp.youtube.com/live2/"
 
 	if rtmpUrl != "" {
@@ -322,6 +390,7 @@ func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, r
 		StreamKey:   streamKey,
 		Status:      "stopped",
 		UserId:      userID,
+		Title:       title,
 		UserAgent:   h.TikTok.GetUserAgent(),
 	}
 
@@ -330,7 +399,7 @@ func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, r
 		return
 	}
 
-	_, _, err = models.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB)
+	_, _, err = job.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB)
 	if err != nil {
 		fmt.Println("Failed to start mirror worker: " + err.Error())
 		return

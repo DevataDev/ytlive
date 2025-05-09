@@ -38,7 +38,7 @@ $(function() {
             let isLive = false;
             let viewCount = formatNumber(liveFeed.stats.total_user);
             let aliveBadge = '<span class="badge bg-success">Tiktok Host Online</span>';
-            let addToMirrorBtn = `<button class="btn btn-success btn-sm live-add-mirror w-100" data-id="${liveFeed.id_str}" data-action="addMirror">Add to Mirror</button>`;
+            let addToMirrorBtn = `<button class="btn btn-success btn-sm live-add-mirror w-100" data-id="${liveFeed.id_str}" data-title="${liveFeed.title}" data-action="addMirror">Add to Mirror</button>`;
             // Use video.js + hls.js + flv.js for preview
             // let videoPlayer = `
             //     <video id="mirror-video-${mirror.ID}" class="video-js vjs-default-skin vjs-fluid" controls preload="auto" style="max-height:180px;background:#000;width:100%;"></video>
@@ -214,7 +214,7 @@ $(function() {
                 </script>`;
             }
             const addToMirrorBtn = `
-                <button class="btn btn-success btn-sm search-add-mirror w-100" data-id="${searchFeed.id_str}" data-action="addMirror">Add to Mirror</button>
+                <button class="btn btn-success btn-sm search-add-mirror w-100" data-id="${searchFeed.id_str}" data-title="${searchFeed.title}" data-action="addMirror">Add to Mirror</button>
             `;
             const aliveBadge = `<span class="badge bg-success">Alive</span>`;
             cardContainer.append(`

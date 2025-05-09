@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -106,14 +107,14 @@ func BroadcastStreamStats() {
 	for {
 		<-ticker.C
 		stats := make(map[string]interface{})
-		models.WorkersMu.Lock()
-		for id, worker := range models.Workers {
+		job.WorkersMu.Lock()
+		for id, worker := range job.Workers {
 			stats[id] = map[string]interface{}{
 				"cpu": worker.Stats.CPUPercent,
 				"mem": worker.Stats.RSSBytes,
 			}
 		}
-		models.WorkersMu.Unlock()
+		job.WorkersMu.Unlock()
 		streamListClientsMu.Lock()
 		for c := range streamListClients {
 			c.WriteJSON(map[string]interface{}{

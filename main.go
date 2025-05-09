@@ -15,6 +15,7 @@ import (
 	"windsorf-youtube-live/internal/cache"
 	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/handlers"
+	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/tiktok"
 	"windsorf-youtube-live/internal/workers"
@@ -127,6 +128,12 @@ func main() {
 		log.Fatalf("failed to migrate monitor table: %v", err)
 	}
 
+	// Auto-migrate channels table
+	err = db.AutoMigrate(&models.Channels{})
+	if err != nil {
+		log.Fatalf("failed to migrate channels table: %v", err)
+	}
+
 	// Init device presets
 	tiktok.InitDevicePresets()
 
@@ -210,6 +217,30 @@ func main() {
 		c.FileFromFS("/search-list.html", http.FS(staticFs))
 	})
 
+	// Channels page
+	r.GET("/channels", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/channels-management.html", http.FS(staticFs))
+	})
+
+	// Privacy Policy page
+	r.GET("/privacy", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/privacy.html", http.FS(staticFs))
+	})
+
+	// Terms & Conditions page
+	r.GET("/terms", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/terms.html", http.FS(staticFs))
+	})
+
+	//callback
+	r.GET("/youtube/callback", func(c *gin.Context) {
+		staticFs, _ := fs.Sub(StaticFiles, "web/static")
+		c.FileFromFS("/callback.html", http.FS(staticFs))
+	})
+
 	r.GET("/", func(c *gin.Context) {
 		// check if user is logged in
 		_, exists := c.Get("user_id")
@@ -280,6 +311,9 @@ func main() {
 
 	// DELETE /api/streams/:id endpoint
 	r.DELETE("/api/streams/:id", handlers.JWTMiddleware(), streamHandler.DeleteStream)
+
+	r.PUT("/api/streams/:id/channel-id", handlers.JWTMiddleware(), streamHandler.UpdateStreamChannelId)
+
 	// User management endpoints
 	userHandler := &handlers.UserHandler{DB: db}
 	r.GET("/api/users", handlers.JWTMiddleware(), userHandler.ListUsers)
@@ -316,6 +350,7 @@ func main() {
 	r.DELETE("/api/mirrors/:id", handlers.JWTMiddleware(), mirrorHandler.DeleteMirror)
 	r.PUT("/api/mirrors/:id/rtmp-url", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorRTMPUrl)
 	r.PUT("/api/mirrors/:id/stream-key", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorStreamKey)
+	r.PUT("/api/mirrors/:id/channel-id", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorChannelId)
 
 	broadcast.Bus.AddListener("default", broadcast.AddToMirror, func(e broadcast.Event) {
 		fmt.Println("Adding to mirror", e.Data)
@@ -352,6 +387,16 @@ func main() {
 
 	r.GET("/api/tiktok/suggested-feed", tiktokHandler.GetSuggestedFeed)
 	// -- Tiktok End --
+
+	// -- Youtube start --
+	youtubeHandler := handlers.NewYoutubeHandler(db, cfg)
+	r.GET("/api/youtube/list-channels", handlers.JWTMiddleware(), youtubeHandler.ListChannels)
+	r.GET("/api/youtube/authorize", handlers.JWTMiddleware(), youtubeHandler.StartYouTubeOAuth)
+	r.GET("/api/youtube/callback", youtubeHandler.YouTubeOAuthCallback)
+	r.POST("/api/youtube/create-live-broadcast", handlers.JWTMiddleware(), youtubeHandler.CreateYoutubeLiveBroadcast)
+	r.DELETE("/api/youtube/channels/:id", handlers.JWTMiddleware(), youtubeHandler.DeleteChannel)
+	r.GET("/api/youtube/channel/:id/streams", handlers.JWTMiddleware(), youtubeHandler.ListStreamsByChannel)
+	// r.POST("/api/youtube/create-live-stream", handlers.JWTMiddleware(), youtubeHandler.CreateYoutubeLiveStream)
 
 	monitorHandler := handlers.MonitorHandler{DB: db}
 	r.POST("/api/monitors", handlers.JWTMiddleware(), monitorHandler.AddMonitor)
@@ -424,9 +469,9 @@ func main() {
 
 	// Kill all running stream workers (FFmpeg processes)
 	log.Println("Killing all running stream workers...")
-	for id := range models.Workers {
+	for id := range job.Workers {
 		log.Println("Killing stream worker for stream", id)
-		_ = models.StopStreamWorker(id)
+		_ = job.StopStreamWorker(id)
 	}
 
 	server.Shutdown(context.Background())

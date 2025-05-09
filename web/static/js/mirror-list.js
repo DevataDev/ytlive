@@ -52,6 +52,7 @@ $(function() {
                   <input type="text" class="form-control mirror-rtmp-url" id="mirror-rtmpurl-input-${mirror.ID}" value="${mirror.RtmpUrl || ''}" placeholder="RTMP URL" />
                   <button class="btn btn-outline-success mirror-rtmpurl-save" data-id="${mirror.ID}" title="Save RTMP URL"><i class="fa fa-save"></i></button>
                 </div>`;
+            let bindBtn = `<button class='btn btn-outline-primary btn-sm w-100 mt-2 bind-channel-btn' data-id='${mirror.ID}'>Bind</button>`;
             let deleteBtn = `<button class="btn btn-outline-danger btn-sm mirror-delete w-100 mt-2" data-id="${mirror.ID}"><i class="fa fa-trash"></i> Delete</button>`;
             // Use video.js + hls.js + flv.js for preview
             // let videoPlayer = `
@@ -148,6 +149,7 @@ $(function() {
                             <div class="mb-2 mt-3">
                                 ${toggleBtn}
                                 ${deleteBtn}
+                                ${bindBtn}
                             </div>
                         </div>
                     </div>
@@ -315,6 +317,86 @@ $(function() {
         });
     });
 
+    // --- Bind Channels Logic ---
+    let selectedMirrorId = null;
+    $(document).on('click', '.bind-channel-btn', function() {
+        selectedMirrorId = $(this).data('id');
+        $('#bindChannelModal').modal('show');
+        $('#channelSelect').empty();
+        $('#streamSelect').empty();
+        // Fetch channels
+        const token = localStorage.getItem('jwt_token');
+        $.ajax({
+            url: '/api/youtube/list-channels',
+            method: 'GET',
+            headers: { Authorization: 'Bearer ' + token },
+            success: function(res) {
+                if (res.channels && res.channels.length > 0) {
+                    $('#channelSelect').append('<option value="">Select a channel</option>');
+                    res.channels.forEach(function(ch) {
+                        $('#channelSelect').append(`<option value="${ch.ID}">${ch.ChannelName}</option>`);
+                    });
+                } else {
+                    $('#channelSelect').append('<option value="">No channels found</option>');
+                }
+                $('#streamSelect').empty();
+            },
+            error: function() {
+                $('#channelSelect').append('<option value="">Failed to load channels</option>');
+            }
+        });
+    });
+    // When channel is selected, fetch live streams for that channel
+    $('#channelSelect').on('change', function() {
+        const channelId = $(this).val();
+        $('#streamSelect').empty();
+        if (!channelId) return;
+        const token = localStorage.getItem('jwt_token');
+        $.ajax({
+            url: `/api/youtube/channel/${channelId}/streams`,
+            method: 'GET',
+            headers: { Authorization: 'Bearer ' + token },
+            success: function(res) {
+                if (res.streams && res.streams.length > 0) {
+                    $('#streamSelect').append('<option value="">Select a live stream</option>');
+                    res.streams.forEach(function(stream) {
+                        $('#streamSelect').append(`<option value="${stream.stream_key}">${stream.title} - ${stream.stream_key}</option>`);
+                    });
+                } else {
+                    $('#streamSelect').append('<option value="">No live streams found</option>');
+                }
+            },
+            error: function() {
+                $('#streamSelect').append('<option value="">Failed to load streams</option>');
+            }
+        });
+    });
+    // Bind button
+    $('#bindChannelSaveBtn').on('click', function() {
+        const channelId = $('#channelSelect').val();
+        const liveStreamId = $('#streamSelect').val();
+        if (!selectedMirrorId || !channelId || !liveStreamId) {
+            alert('Please select both channel and live stream.');
+            return;
+        }
+        const token = localStorage.getItem('jwt_token');
+        $.ajax({
+            url: `/api/mirrors/${selectedMirrorId}/channel-id`,
+            method: 'PUT',
+            headers: { Authorization: 'Bearer ' + token },
+            contentType: 'application/json',
+            data: JSON.stringify({ channel_id: channelId, stream_key: liveStreamId }),
+            success: function() {
+                $('#bindChannelModal').modal('hide');
+                showSnackbar('Channel bound successfully!', false);
+                fetchMirrors();
+            },
+            error: function() {
+                alert('Failed to bind channel.');
+            }
+        });
+    });
+    // --- End Bind Channels Logic ---
     // Initial load
     fetchMirrors();
 });

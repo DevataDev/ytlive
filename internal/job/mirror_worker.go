@@ -1,4 +1,4 @@
-package models
+package job
 
 import (
 	"context"
@@ -8,25 +8,28 @@ import (
 	"sync"
 	"time"
 	"windsorf-youtube-live/internal/broadcast"
+	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/tiktok"
+	"windsorf-youtube-live/internal/youtube"
 
 	"github.com/shirou/gopsutil/v3/process"
 	"gorm.io/gorm"
 )
 
 type MirrorWorker struct {
-	MirrorID     string
-	CancelFunc   context.CancelFunc
-	Status       string
-	DB           *gorm.DB
-	RTMPUrl      string
-	StreamKey    string
-	LiveUrl      string
-	UserAgent    string
-	RoomID       string
-	Cmd          *exec.Cmd
-	StopChan     chan struct{}
-	TiktokClient tiktok.TikTokClientIface
+	MirrorID      string
+	CancelFunc    context.CancelFunc
+	Status        string
+	DB            *gorm.DB
+	RTMPUrl       string
+	StreamKey     string
+	LiveUrl       string
+	UserAgent     string
+	RoomID        string
+	Cmd           *exec.Cmd
+	StopChan      chan struct{}
+	TiktokClient  tiktok.TikTokClientIface
+	YoutubeClient *youtube.YoutubeClient
 }
 
 var (
@@ -72,7 +75,7 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				if w.Status != "live" {
 					if w.Status == "user_stopped" {
 						// update database
-						w.DB.Model(&Mirror{}).Where("id = ?", w.MirrorID).Updates(map[string]interface{}{
+						w.DB.Model(&models.Mirror{}).Where("id = ?", w.MirrorID).Updates(map[string]interface{}{
 							"Status":    "stopped",
 							"StoppedAt": time.Now().UTC(),
 						})
@@ -94,7 +97,7 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 					fmt.Println("Room is not alive for mirror", w.MirrorID)
 					w.Status = "stopped"
 					// Delete from database
-					w.DB.Delete(&Mirror{}, w.MirrorID)
+					w.DB.Delete(&models.Mirror{}, w.MirrorID)
 					StopMirrorWorkerWithDatabase(w.MirrorID, w.DB, false)
 					RemoveMirrorWorker(w.MirrorID)
 					return
@@ -117,7 +120,7 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokClientIface, database *gorm.DB) (*MirrorWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// get mirror from database
-	var mirror Mirror
+	var mirror models.Mirror
 	database.Where("id = ?", mirrorID).First(&mirror)
 
 	if mirror.ID == "" {
@@ -127,7 +130,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	}
 
 	// check if streamKey have been used by another mirror and FFmpeg is running
-	var data Mirror
+	var data models.Mirror
 	var status string = "live"
 	if mirror.StreamKey != "" {
 		fmt.Println("Checking if stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
@@ -139,7 +142,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 				fmt.Println("FFmpeg is running for another mirror", mirror.StreamKey, mirror.RoomId)
 				status = "queued"
 				// update database
-				database.Model(&Mirror{}).Where("id = ?", mirror.ID).Updates(map[string]interface{}{
+				database.Model(&models.Mirror{}).Where("id = ?", mirror.ID).Updates(map[string]interface{}{
 					"Status":    "queued",
 					"FFmpegPID": nil,
 				})
@@ -165,13 +168,30 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		return worker, 0, nil
 	}
 
+	// get channel info
+	var channel models.Channels
+	if err := database.Where("user_id = ? AND (channel_id = ? OR id = ?)", mirror.UserId, mirror.ChannelId, mirror.ChannelId).Find(&channel).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// create the event broadcast first
+	broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
+		"stream_id":     mirrorID,
+		"stream_key":    mirror.StreamKey,
+		"channel_id":    channel.ChannelID,
+		"user_id":       channel.UserId,
+		"title":         mirror.Title,
+		"access_token":  *channel.AccessToken,
+		"refresh_token": *channel.RefreshToken,
+	})
+
 	// check if room is still alive
 	isAlive, err := tiktokClient.CheckRoomIsAlive(mirror.RoomId)
 	if err != nil {
 		fmt.Println("Failed to check if room is still alive for mirror", mirrorID, "with error", err)
 		// if in database status not stopped, update to stopped
 		if mirror.Status != "stopped" {
-			database.Model(&Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
+			database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
 				"Status":    "stopped",
 				"StoppedAt": time.Now().UTC(),
 			})
@@ -182,7 +202,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	if !isAlive {
 		fmt.Println("Room is not alive for mirror", mirrorID)
 		if mirror.Status != "stopped" {
-			database.Model(&Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
+			database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
 				"Status":    "stopped",
 				"StoppedAt": time.Now().UTC(),
 			})
@@ -206,7 +226,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	}
 
 	// update database
-	database.Model(&Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
+	database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
 		"Status":    "live",
 		"StartedAt": time.Now().UTC(),
 		"FFmpegPID": cmd.Process.Pid,
@@ -228,7 +248,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 
 func StopMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB, userStop bool) error {
 	// get mirror from database
-	var mirror Mirror
+	var mirror models.Mirror
 	database.Where("id = ?", mirrorID).First(&mirror)
 
 	if mirror.ID == "" {
@@ -248,7 +268,7 @@ func StopMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB, userStop b
 	}
 
 	// update database
-	database.Model(&Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
+	database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
 		"Status":    "stopped",
 		"StoppedAt": time.Now().UTC(),
 	})

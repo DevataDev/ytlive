@@ -28,4 +28,6 @@ type Stream struct {
 	LoopCount        *int           `gorm:"column:loop_count;default:-1" json:"LoopCount,omitempty"`
 	UserId           string         `gorm:"not null;index" json:"UserId"` // New field for user reference
 	FileSizeBytes    int64          `gorm:"-" json:"FileSizeBytes,omitempty"`
+	//optional channel id
+	ChannelId string `gorm:"default:null" json:"ChannelId"`
 }

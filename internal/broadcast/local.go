@@ -5,13 +5,14 @@ import "sync"
 type EventType string
 
 const (
-	RefreshStream  EventType = "refresh_stream"
-	StopStream     EventType = "stop_stream"
-	RefreshMirror  EventType = "refresh_mirror"
-	StartMirror    EventType = "start_mirror"
-	StartStream    EventType = "start_stream"
-	AddToMirror    EventType = "add_to_mirror"
-	RefreshMonitor EventType = "refresh_monitor"
+	RefreshStream   EventType = "refresh_stream"
+	StopStream      EventType = "stop_stream"
+	RefreshMirror   EventType = "refresh_mirror"
+	StartMirror     EventType = "start_mirror"
+	StartStream     EventType = "start_stream"
+	AddToMirror     EventType = "add_to_mirror"
+	RefreshMonitor  EventType = "refresh_monitor"
+	CreateBroadcast EventType = "create_broadcast"
 )
 
 type Event struct {
