@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 	"windsorf-youtube-live/internal/handlers"
+	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/tiktok"
 
@@ -54,20 +55,20 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 					})
 					// delete from database
 					w.DB.Delete(&stream)
-					models.MirrorRestartLock.Lock()
-					models.StopMirrorWorkerWithDatabase(stream.ID, w.DB, false)
-					models.RemoveMirrorWorker(stream.ID)
-					models.MirrorRestartLock.Unlock()
+					job.MirrorRestartLock.Lock()
+					job.StopMirrorWorkerWithDatabase(stream.ID, w.DB, false)
+					job.RemoveMirrorWorker(stream.ID)
+					job.MirrorRestartLock.Unlock()
 					// send websocket message
 					handlers.BroadcastMirrorRoomIsAliveUpdate(isAliveMap)
 					// send broadcast message
 					handlers.BroadcastMirrorUpdateList()
 					continue
 				}
-				models.MirrorRestartLock.Lock()
-				_ = models.StopMirrorWorkerWithDatabase(stream.ID, w.DB, false) // Ensures ffmpeg is killed
-				models.RemoveMirrorWorker(stream.ID)
-				models.MirrorRestartLock.Unlock()
+				job.MirrorRestartLock.Lock()
+				_ = job.StopMirrorWorkerWithDatabase(stream.ID, w.DB, false) // Ensures ffmpeg is killed
+				job.RemoveMirrorWorker(stream.ID)
+				job.MirrorRestartLock.Unlock()
 				w.DB.Model(&stream).Updates(map[string]interface{}{
 					"status":   "stopped",
 					"is_alive": false,
@@ -100,7 +101,7 @@ func (w *MirrorWorker) StartQueueChecker() {
 				if data.ID != "" {
 					fmt.Println("Stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
 					// check if FFmpeg is running
-					if data.FFmpegPID != nil && models.IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
+					if data.FFmpegPID != nil && job.IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
 						fmt.Println("FFmpeg is running for another mirror", mirror.StreamKey, mirror.RoomId)
 						// update database
 						w.DB.Model(&mirror).Updates(map[string]interface{}{
@@ -109,18 +110,18 @@ func (w *MirrorWorker) StartQueueChecker() {
 						})
 						continue
 					} else {
-						if data.FFmpegPID != nil && !models.IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
+						if data.FFmpegPID != nil && !job.IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
 							fmt.Println("FFmpeg is not running for another mirror", mirror.StreamKey, mirror.RoomId)
 							// update database
-							models.StopMirrorWorkerWithDatabase(data.ID, w.DB, false)
-							models.RemoveMirrorWorker(data.ID)
+							job.StopMirrorWorkerWithDatabase(data.ID, w.DB, false)
+							job.RemoveMirrorWorker(data.ID)
 							// update old mirror
 							w.DB.Model(&data).Updates(map[string]interface{}{
 								"status":     "stopped",
 								"ffmpeg_pid": nil,
 							})
 							//start stream worker
-							models.StartMirrorWorkerWithDatabase(mirror.ID, w.TiktokClient, w.DB)
+							job.StartMirrorWorkerWithDatabase(mirror.ID, w.TiktokClient, w.DB)
 						}
 					}
 				}

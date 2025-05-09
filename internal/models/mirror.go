@@ -10,6 +10,7 @@ type Mirror struct {
 	ID          string `gorm:"primaryKey"`
 	RoomId      string `gorm:"default:null" json:"RoomId"`
 	DisplayName string `gorm:"default:null" json:"DisplayName"`
+	Title       string `gorm:"default:null" json:"Title"`
 	LiveUrl     string `gorm:"default:null" json:"LiveUrl"`
 	RtmpUrl     string `gorm:"default:null" json:"RtmpUrl"`
 	StreamKey   string `gorm:"default:null" json:"StreamKey"`

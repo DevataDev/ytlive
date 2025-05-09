@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -511,7 +512,7 @@ func (h *StreamHandler) GetDriveUploadProgress(c *gin.Context) {
 		return
 	}
 	// Use a simple in-memory map for demo; replace with Redis/db for production
-	progress, ok := models.GetDriveProgress(driveLink)
+	progress, ok := job.GetDriveProgress(driveLink)
 	if !ok {
 		c.JSON(http.StatusOK, gin.H{"progress": 0, "status": "Starting..."})
 		return
@@ -631,7 +632,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 	}
 	// Start FFmpeg goroutine (using models.AddWorker)
 	go func(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, db *gorm.DB) {
-		worker, pid, err := models.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, db)
+		worker, pid, err := job.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, db)
 		if err == nil {
 			fmt.Println("FFmpeg started for stream", streamID, "with PID", pid)
 			fmt.Println("FFmpeg PID stored in worker", worker.FfmpegPID)
@@ -664,7 +665,7 @@ func (h *StreamHandler) StopStreamBackground(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Stream is not live."})
 		return
 	}
-	err := models.StopStreamWorker(stream.ID)
+	err := job.StopStreamWorker(stream.ID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Failed to stop stream."})
 		return
@@ -692,7 +693,7 @@ func (h *StreamHandler) DeleteStream(c *gin.Context) {
 	}
 	// Optionally: stop the stream if it's live
 	if stream.Status == "live" {
-		_ = models.StopStreamWorker(stream.ID)
+		_ = job.StopStreamWorker(stream.ID)
 	}
 	// Remove video file if exists
 	if stream.FilePath != nil && *stream.FilePath != "" {

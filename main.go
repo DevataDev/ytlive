@@ -15,6 +15,7 @@ import (
 	"windsorf-youtube-live/internal/cache"
 	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/handlers"
+	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/tiktok"
 	"windsorf-youtube-live/internal/workers"
@@ -468,9 +469,9 @@ func main() {
 
 	// Kill all running stream workers (FFmpeg processes)
 	log.Println("Killing all running stream workers...")
-	for id := range models.Workers {
+	for id := range job.Workers {
 		log.Println("Killing stream worker for stream", id)
-		_ = models.StopStreamWorker(id)
+		_ = job.StopStreamWorker(id)
 	}
 
 	server.Shutdown(context.Background())

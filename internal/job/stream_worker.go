@@ -1,4 +1,4 @@
-package models
+package job
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm"
 
 	"windsorf-youtube-live/internal/broadcast"
+	"windsorf-youtube-live/internal/models"
 )
 
 type StreamWorker struct {
@@ -171,7 +172,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				fmt.Println("FFmpeg process stopped for stream from monitoring", w.StreamID)
 				if !w.LoopVideo {
 					// update stream status to stopped
-					w.DB.Model(&Stream{}).Where("id = ?", w.StreamID).Updates(map[string]interface{}{
+					w.DB.Model(&models.Stream{}).Where("id = ?", w.StreamID).Updates(map[string]interface{}{
 						"Status": "stopped",
 					})
 					RestartLock.Lock()
@@ -215,6 +216,28 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 		DB:         database,
 	}
 
+	var stream models.Stream
+	if err := database.Where("id = ?", worker.StreamID).Find(&stream).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// get channel info
+	var channel models.Channels
+	if err := database.Where("user_id = ? AND (channel_id = ? OR id = ?)", stream.UserId, stream.ChannelId, stream.ChannelId).Find(&channel).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// create the event broadcast first
+	broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
+		"stream_id":     streamID,
+		"stream_key":    streamKey,
+		"channel_id":    channel.ChannelID,
+		"user_id":       channel.UserId,
+		"title":         "Watch Me Live",
+		"access_token":  *channel.AccessToken,
+		"refresh_token": *channel.RefreshToken,
+	})
+
 	var cmd *exec.Cmd
 	args := buildFfmpegArgs(maxBitrate, loopVideo, filePath, streamKey, rtmpUrl, loopCount)
 
@@ -229,7 +252,7 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	}
 
 	// update database
-	database.Model(&Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
+	database.Model(&models.Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
 		"Status":    "live",
 		"StartedAt": time.Now().UTC(),
 		"FfmpegPID": &cmd.Process.Pid,

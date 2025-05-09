@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 	config "windsorf-youtube-live/internal/configuration"
+	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -51,12 +52,12 @@ func (pr *ProgressReader) Read(p []byte) (int, error) {
 func (pr *ProgressReader) printProgress() {
 	if pr.TotalSize > 0 {
 		percentage := float64(pr.BytesRead) / float64(pr.TotalSize) * 100
-		models.SetDriveProgress(pr.url, map[string]interface{}{"status": "Downloading...", "progress": percentage})
+		job.SetDriveProgress(pr.url, map[string]interface{}{"status": "Downloading...", "progress": percentage})
 		if percentage >= 100 {
 			// delay 2 seconds
 			time.Sleep(2 * time.Second)
-			models.SetDriveProgress(pr.url, map[string]interface{}{"status": "Done", "progress": 100})
-			models.ClearDriveProgress(pr.url)
+			job.SetDriveProgress(pr.url, map[string]interface{}{"status": "Done", "progress": 100})
+			job.ClearDriveProgress(pr.url)
 		}
 		fmt.Printf("\rDownloading... %.2f%% (%d/%d bytes)", percentage, pr.BytesRead, pr.TotalSize)
 	} else {
@@ -66,7 +67,7 @@ func (pr *ProgressReader) printProgress() {
 
 // Downloads a public Google Drive file using its file ID
 func downloadDriveFile(client *http.Client, url string, destPath string, driveLink string) error {
-	models.SetDriveProgress(driveLink, map[string]interface{}{"status": "Download Starting...", "progress": 1})
+	job.SetDriveProgress(driveLink, map[string]interface{}{"status": "Download Starting...", "progress": 1})
 	resp, err := client.Get(url)
 	if err != nil {
 		return err
@@ -267,35 +268,35 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 	var googleDriveLink *string
 	var filePath *string
 	if driveLink != "" {
-		models.SetDriveProgress(driveLink, map[string]interface{}{"status": "Starting...", "progress": 0})
+		job.SetDriveProgress(driveLink, map[string]interface{}{"status": "Starting...", "progress": 0})
 		// Offload Google Drive download to background goroutine
 		go func(userID string, driveLink string) {
 			fileID := extractDriveFileID(driveLink)
 			if fileID == "" {
-				models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Invalid Google Drive link", "progress": 0})
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Invalid Google Drive link", "progress": 0})
 				return
 			}
 			srv, err := drive.NewService(ctx, option.WithAPIKey(h.Config.Google.ApiKey))
 			if err != nil {
-				models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Google Drive API error", "progress": 0})
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Google Drive API error", "progress": 0})
 				return
 			}
 			file, err := srv.Files.Get(fileID).Do()
 			if err != nil {
-				models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Google Drive file not accessible", "progress": 0})
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Google Drive file not accessible", "progress": 0})
 				return
 			}
 			client := http.DefaultClient
 			downloadUrl, err := generateDownloadUrl(client, file)
 			if err != nil {
-				models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate download URL", "progress": 0})
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate download URL", "progress": 0})
 				return
 			}
 			fileNameWithoutExtension := strings.ReplaceAll(file.OriginalFilename, "."+file.FileExtension, "")
 			downloadName := fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(fileNameWithoutExtension))
 			destPath := "./uploads/" + downloadName
 			if err := downloadDriveFile(client, downloadUrl, destPath, driveLink); err != nil {
-				models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Download failed: " + err.Error(), "progress": 0})
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Download failed: " + err.Error(), "progress": 0})
 				return
 			}
 			// Register the stream in the DB after download completes
@@ -303,7 +304,7 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 			ms := ulid.Timestamp(time.Now())
 			id, err := ulid.New(ms, entropy)
 			if err != nil {
-				models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate ID", "progress": 100})
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate ID", "progress": 100})
 				return
 			}
 			stream := models.Stream{
@@ -315,10 +316,10 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 				UserId:          userID,
 			}
 			if err := h.DB.Create(&stream).Error; err != nil {
-				models.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to register stream", "progress": 100})
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to register stream", "progress": 100})
 				return
 			}
-			models.SetDriveProgress(driveLink, map[string]interface{}{"message": "Done", "progress": 100})
+			job.SetDriveProgress(driveLink, map[string]interface{}{"message": "Done", "progress": 100})
 		}(userID.(string), driveLink)
 		// Respond immediately so UI is not blocked
 		c.JSON(http.StatusOK, gin.H{"message": "Google Drive download started"})
