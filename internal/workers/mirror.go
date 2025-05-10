@@ -104,10 +104,12 @@ func (w *MirrorWorker) StartQueueChecker() {
 					if data.FFmpegPID != nil && job.IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
 						fmt.Println("FFmpeg is running for another mirror", mirror.StreamKey, mirror.RoomId)
 						// update database
-						w.DB.Model(&mirror).Updates(map[string]interface{}{
-							"status":     "queued",
-							"ffmpeg_pid": nil,
-						})
+						mirror.Status = "queued"
+						mirror.FFmpegPID = nil
+
+						if err := w.DB.Save(&mirror).Error; err != nil {
+							fmt.Println("Failed to update new mirror data : ", err.Error())
+						}
 						continue
 					} else {
 						if data.FFmpegPID != nil && !job.IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
@@ -116,10 +118,13 @@ func (w *MirrorWorker) StartQueueChecker() {
 							job.StopMirrorWorkerWithDatabase(data.ID, w.DB, false)
 							job.RemoveMirrorWorker(data.ID)
 							// update old mirror
-							w.DB.Model(&data).Updates(map[string]interface{}{
-								"status":     "stopped",
-								"ffmpeg_pid": nil,
-							})
+							data.FFmpegPID = nil
+							data.Status = "stopped"
+
+							if err := w.DB.Save(&data).Error; err != nil {
+								fmt.Println("Failed to update old data : ", err.Error())
+							}
+
 							//start stream worker
 							job.StartMirrorWorkerWithDatabase(mirror.ID, w.TiktokClient, w.DB)
 						}
