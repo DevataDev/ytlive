@@ -29,7 +29,7 @@ builds:
           - CXX=zig c++ -target x86_64-windows-gnu
           - CGO_ENABLED=1
         ldflags:
-          - -s -w -extldflags "-static"
+          - -s -w
 
       - goos: windows
         goarch: 'arm64'
