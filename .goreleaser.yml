@@ -29,6 +29,9 @@ builds:
           - CGO_ENABLED=1
         ldflags:
           - -s -w
+          - "-X windsorf-youtube-live/internal/version.Version={{.Version}}"
+          - "-X windsorf-youtube-live/internal/version.Commit={{.Commit}}"
+          - "-X windsorf-youtube-live/internal/version.Date={{.Date}}"
 
       - goos: windows
         goarch: 'arm64'
@@ -40,6 +43,9 @@ builds:
           - CXX=zig c++ -target aarch64-windows-gnu
         ldflags:
           - -s -w
+          - "-X windsorf-youtube-live/internal/version.Version={{.Version}}"
+          - "-X windsorf-youtube-live/internal/version.Commit={{.Commit}}"
+          - "-X windsorf-youtube-live/internal/version.Date={{.Date}}"
 
       - goos: linux
         goarch: amd64
@@ -51,6 +57,9 @@ builds:
           - CGO_ENABLED=1
         ldflags:
           - -s -w
+          - "-X windsorf-youtube-live/internal/version.Version={{.Version}}"
+          - "-X windsorf-youtube-live/internal/version.Commit={{.Commit}}"
+          - "-X windsorf-youtube-live/internal/version.Date={{.Date}}"
       
       - goos: linux
         goarch: arm64
@@ -62,6 +71,9 @@ builds:
           - CGO_ENABLED=1
         ldflags:
           - -s -w
+          - "-X windsorf-youtube-live/internal/version.Version={{.Version}}"
+          - "-X windsorf-youtube-live/internal/version.Commit={{.Commit}}"
+          - "-X windsorf-youtube-live/internal/version.Date={{.Date}}"
       
       - goos: linux
         goarch: mips64
@@ -73,6 +85,9 @@ builds:
           - CGO_ENABLED=1
         ldflags:
           - -s -w
+          - "-X windsorf-youtube-live/internal/version.Version={{.Version}}"
+          - "-X windsorf-youtube-live/internal/version.Commit={{.Commit}}"
+          - "-X windsorf-youtube-live/internal/version.Date={{.Date}}"
 
       
       - goos: darwin
@@ -86,6 +101,9 @@ builds:
           - CXX=zig c++ -target aarch64-macos-none -F{{ .Env.SDK_PATH }}/System/Library/Frameworks
         ldflags:
           - -s -w
+          - "-X windsorf-youtube-live/internal/version.Version={{.Version}}"
+          - "-X windsorf-youtube-live/internal/version.Commit={{.Commit}}"
+          - "-X windsorf-youtube-live/internal/version.Date={{.Date}}"
       
       - goos: darwin
         goarch: amd64
@@ -97,7 +115,10 @@ builds:
           - CC=zig cc -target x86_64-macos-none -F{{ .Env.SDK_PATH }}/System/Library/Frameworks
           - CXX=zig c++ -target x86_64-macos-none -F{{ .Env.SDK_PATH }}/System/Library/Frameworks
         ldflags:
-          - -s -w 
+          - -s -w
+          - "-X windsorf-youtube-live/internal/version.Version={{.Version}}"
+          - "-X windsorf-youtube-live/internal/version.Commit={{.Commit}}"
+          - "-X windsorf-youtube-live/internal/version.Date={{.Date}}" 
 
 changelog:
   sort: asc
