@@ -1,4 +1,4 @@
-PACKAGE_NAME          := github.com/goreleaser/goreleaser-cross-example
+PACKAGE_NAME          := windsorf-youtube-live
 GOLANG_CROSS_VERSION  ?= v1.21.5
 
 SYSROOT_DIR     ?= sysroots
