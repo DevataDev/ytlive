@@ -403,6 +403,14 @@ func main() {
 	tiktokSignHandler := handlers.NewTiktokSignHandler(cfg)
 	r.POST("/api/tiktok/sign", tiktokSignHandler.Sign)
 
+	r.GET("/api/version", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"version": version.Version,
+			"commit":  version.Commit,
+			"date":    version.Date,
+		})
+	})
+
 	liveWorker := workers.NewLiveWorker(tiktokClient, db, broadcast.Bus)
 	liveWorker.StartUserMonitoring()
 
