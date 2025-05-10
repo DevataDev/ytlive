@@ -253,11 +253,13 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	}
 
 	// update database
-	database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
-		"Status":    "live",
-		"StartedAt": time.Now().UTC(),
-		"FFmpegPID": cmd.Process.Pid,
-	})
+	timeNow := time.Now().UTC()
+	mirror.Status = "live"
+	mirror.StartedAt = &timeNow
+	mirror.FFmpegPID = &cmd.Process.Pid
+	if err := database.Save(&mirror).Error; err != nil {
+		fmt.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
+	}
 
 	// Start stats monitor goroutine
 	stopChan := make(chan struct{})
