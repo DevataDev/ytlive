@@ -21,6 +21,51 @@ builds:
       - "-X windsorf-youtube-live/internal/version.Version={{.Version}}"
       - "-X windsorf-youtube-live/internal/version.Commit={{.Commit}}"
       - "-X windsorf-youtube-live/internal/version.Date={{.Date}}"
+    overrides:
+      - goos: windows
+        goarch: amd64
+        env:
+          - CC=x86_64-w64-mingw32-gcc
+          - CXX=x86_64-w64-mingw32-g++
+          - CGO_ENABLED=1
+        ldflags:
+          - -s -w -extldflags "-static"
+
+      - goos: windows
+        goarch: '386'
+        env:
+          - CC=i686-w64-mingw32-gcc
+          - CXX=i686-w64-mingw32-g++
+          - CGO_ENABLED=1
+        ldflags:
+          - -s -w -extldflags "-static"
+      
+      - goos: linux
+        goarch: arm64
+        env:
+          - CC=aarch64-linux-gnu-gcc
+          - CXX=aarch64-linux-gnu-g++
+          - CGO_ENABLED=1
+        ldflags:
+          - -s -w -extldflags "-static"
+      
+      - goos: linux
+        goarch: mips64
+        env:
+          - CC=mips64-linux-gnu-gcc
+          - CXX=mips64-linux-gnu-g++
+          - CGO_ENABLED=1
+        ldflags:
+          - -s -w -extldflags "-static"
+      
+      - goos: linux
+        goarch: mips64le
+        env:
+          - CC=mips64le-linux-gnu-gcc
+          - CXX=mips64le-linux-gnu-g++
+          - CGO_ENABLED=1
+        ldflags:
+          - -s -w -extldflags "-static"
 
 changelog:
   sort: asc
