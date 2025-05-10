@@ -88,7 +88,6 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 func (w *MirrorWorker) StartQueueChecker() {
 	fmt.Println("Starting queue checker...")
 	for {
-		time.Sleep(1 * time.Minute)
 		fmt.Println("Checking queue...")
 		var mirrorsToCheck []models.Mirror
 		w.DB.Where("status = ?", "queued").Find(&mirrorsToCheck)
@@ -131,6 +130,8 @@ func (w *MirrorWorker) StartQueueChecker() {
 					}
 				}
 			}
+
+			time.Sleep(1 * time.Minute)
 		}
 	}
 }
