@@ -26,8 +26,8 @@ builds:
         flags: 
           - -trimpath
         env:
-          - CC=zig c -target x86_64-windows-gnu
-          - CC=zig c++ -target x86_64-windows-gnu
+          - CC=zig cc -target x86_64-windows-gnu
+          - CXX=zig c++ -target x86_64-windows-gnu
           - CGO_ENABLED=1
         ldflags:
           - -s -w -extldflags "-static"
@@ -38,7 +38,7 @@ builds:
           - -trimpath
         env:
           - CGO_ENABLED=1
-          - CC=zig c -target aarch64-windows-gnu
+          - CC=zig cc -target aarch64-windows-gnu
           - CXX=zig c++ -target aarch64-windows-gnu
         ldflags:
           - -s -w -extldflags "-static"
@@ -48,7 +48,7 @@ builds:
         flags: 
           - -trimpath
         env:
-          - CC=zig c -target x86_64-linux-musl
+          - CC=zig cc -target x86_64-linux-musl
           - CXX=zig c++ -target x86_64-linux-musl
           - CGO_ENABLED=1
         ldflags:
@@ -59,7 +59,7 @@ builds:
         flags: 
           - -trimpath
         env:
-          - CC=zig c -target mips64-linux-musl
+          - CC=zig cc -target mips64-linux-musl
           - CXX=zig c++ -target mips64-linux-musl
           - CGO_ENABLED=1
         ldflags:
@@ -73,7 +73,7 @@ builds:
           - -buildmode=pie
         env:
           - CGO_ENABLED=1
-          - CC=zig c -target aarch64-macos-none -F{{ .Env.SDK_PATH }}/System/Library/Frameworks
+          - CC=zig cc -target aarch64-macos-none -F{{ .Env.SDK_PATH }}/System/Library/Frameworks
           - CXX=zig c++ -target aarch64-macos-none -F{{ .Env.SDK_PATH }}/System/Library/Frameworks
         ldflags:
           - -s -w
@@ -85,7 +85,7 @@ builds:
           - -buildmode=pie
         env:
           - CGO_ENABLED=1
-          - CC=zig c -target x86_64-macos-none -F{{ .Env.SDK_PATH }}/System/Library/Frameworks
+          - CC=zig cc -target x86_64-macos-none -F{{ .Env.SDK_PATH }}/System/Library/Frameworks
           - CXX=zig c++ -target x86_64-macos-none -F{{ .Env.SDK_PATH }}/System/Library/Frameworks
         ldflags:
           - -s -w 
