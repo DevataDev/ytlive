@@ -399,6 +399,7 @@ func main() {
 	r.DELETE("/api/monitors", handlers.JWTMiddleware(), monitorHandler.RemoveMonitor)
 	r.PUT("/api/monitors/:id/rtmp-url", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorRTMPUrl)
 	r.PUT("/api/monitors/:id/stream-key", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorStreamKey)
+	r.PUT("/api/monitors/:id/channel-id", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorChannelId)
 
 	tiktokSignHandler := handlers.NewTiktokSignHandler(cfg)
 	r.POST("/api/tiktok/sign", tiktokSignHandler.Sign)
@@ -413,6 +414,9 @@ func main() {
 
 	liveWorker := workers.NewLiveWorker(tiktokClient, db, broadcast.Bus)
 	liveWorker.StartUserMonitoring()
+
+	tokenWorker := workers.NewRefresherTokenWorker(cfg, db)
+	go tokenWorker.Run()
 
 	// Periodically broadcast server metrics to all websocket clients
 	go func() {

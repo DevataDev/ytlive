@@ -19,4 +19,6 @@ type Monitor struct {
 	StreamKey     string `gorm:"default:null" json:"StreamKey"`
 	UserId        string `gorm:"not null;index" json:"UserId"`
 	IsLive        bool   `gorm:"default:false" json:"IsLive"`
+	// optional channel id
+	ChannelId string `gorm:"default:null" json:"ChannelId"`
 }

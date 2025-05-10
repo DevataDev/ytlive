@@ -161,3 +161,30 @@ func (h *MonitorHandler) UpdateMonitorStreamKey(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"monitor": monitor})
 }
+
+func (h *MonitorHandler) UpdateMonitorChannelId(c *gin.Context) {
+	var req struct {
+		ChannelId string `json:"channel_id"`
+		StreamKey string `json:"stream_key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	id := c.Param("id")
+
+	var monitor models.Monitor
+	if err := h.DB.Where("(unique_id = ? OR id = ?)", id, id).First(&monitor).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Monitor not found"})
+		return
+	}
+	monitor.ChannelId = req.ChannelId
+	monitor.StreamKey = req.StreamKey
+
+	if err := h.DB.Save(&monitor).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update monitor"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"monitor": monitor})
+}

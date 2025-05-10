@@ -26,7 +26,10 @@ async function fetchMonitors() {
                 </td>
                 <td>${monitor.IsLive ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>'}</td>
                 <td>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary btn-sm bind-channel-btn" data-id="${monitor.ID}">Bind</button>
                     <button class="btn btn-outline-danger btn-sm" onclick="removeMonitor('${monitor.ID}')">Remove</button>
+                </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -84,6 +87,8 @@ async function removeMonitor(uniqueId) {
     fetchMonitors();
 }
 
+let selectedMonitorId = null;
+
 function initMonitor() {
     document.getElementById('add-monitor-form').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -140,4 +145,100 @@ function startWebsockerForBroadcastMonitoring() {
         setTimeout(startWebsockerForBroadcastMonitoring, 2000);
     };
 }   
+
+
+function showMonitorToast(message, type) {
+    const toast = document.getElementById('monitorToast');
+    const toastBody = document.getElementById('monitorToastBody');
+    toastBody.textContent = message;
+    toast.classList.remove('text-bg-danger', 'text-bg-success');
+    if (type === 'success') {
+        toast.classList.add('text-bg-success');
+    } else {
+        toast.classList.add('text-bg-danger');
+    }
+    const toastBootstrap = bootstrap.Toast.getOrCreateInstance(toast);
+    toastBootstrap.show();
+}
+
+// --- Bind Channels Logic ---
+let selectedStreamId = null;
+$(document).on('click', '.bind-channel-btn', function() {
+    selectedStreamId = $(this).data('id');
+    $('#bindChannelModal').modal('show');
+    $('#channelSelect').empty();
+    $('#streamSelect').empty();
+    // Fetch channels
+    const token = localStorage.getItem('jwt_token');
+    $.ajax({
+        url: '/api/youtube/list-channels',
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + token },
+        success: function(res) {
+            if (res.channels && res.channels.length > 0) {
+                $('#channelSelect').append('<option value="">Select a channel</option>');
+                res.channels.forEach(function(ch) {
+                    $('#channelSelect').append(`<option value="${ch.ID}">${ch.ChannelName}</option>`);
+                });
+            } else {
+                $('#channelSelect').append('<option value="">No channels found</option>');
+            }
+            $('#streamSelect').empty();
+        },
+        error: function() {
+            $('#channelSelect').append('<option value="">Failed to load channels</option>');
+        }
+    });
+});
+// When channel is selected, fetch live streams for that channel
+$('#channelSelect').on('change', function() {
+    const channelId = $(this).val();
+    $('#streamSelect').empty();
+    if (!channelId) return;
+    const token = localStorage.getItem('jwt_token');
+    $.ajax({
+        url: `/api/youtube/channel/${channelId}/streams`,
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + token },
+        success: function(res) {
+            if (res.streams && res.streams.length > 0) {
+                $('#streamSelect').append('<option value="">Select a live stream</option>');
+                res.streams.forEach(function(stream) {
+                    $('#streamSelect').append(`<option value="${stream.stream_key}">${stream.title} - ${stream.stream_key}</option>`);
+                });
+            } else {
+                $('#streamSelect').append('<option value="">No live streams found</option>');
+            }
+        },
+        error: function() {
+            $('#streamSelect').append('<option value="">Failed to load streams</option>');
+        }
+    });
+});
+// Bind button
+$('#bindChannelSaveBtn').on('click', function() {
+    const channelId = $('#channelSelect').val();
+    const liveStreamId = $('#streamSelect').val();
+    if (!selectedStreamId || !channelId || !liveStreamId) {
+        alert('Please select both channel and live stream.');
+        return;
+    }
+    const token = localStorage.getItem('jwt_token');
+    $.ajax({
+        url: `/api/monitors/${selectedStreamId}/channel-id`,
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + token },
+        contentType: 'application/json',
+        data: JSON.stringify({ channel_id: channelId, stream_key: liveStreamId }),
+        success: function() {
+            $('#bindChannelModal').modal('hide');
+            showMonitorToast('Channel bound successfully!', 'success');
+            fetchMonitors();
+        },
+        error: function() {
+            showMonitorToast('Failed to bind channel.', 'error');
+        }
+    });
+});
+// --- End Bind Channels Logic ---
 

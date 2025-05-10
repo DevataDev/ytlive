@@ -78,9 +78,6 @@ func (h *YoutubeHandler) YouTubeOAuthCallback(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("Access token", token.AccessToken)
-	fmt.Println("Refresh token", token.RefreshToken)
-
 	// Fetch channel info from YouTube API
 	ytResp, err := h.YoutubeClient.FetchYouTubeChannel(token.AccessToken, token.RefreshToken)
 	if err != nil {
@@ -103,7 +100,9 @@ func (h *YoutubeHandler) YouTubeOAuthCallback(c *gin.Context) {
 	h.DB.Where("channel_id = ?", ytResp.ID).Find(&channel)
 	if channel.ID != "" {
 		channel.AccessToken = &token.AccessToken
-		channel.RefreshToken = &token.RefreshToken
+		if token.RefreshToken != "" {
+			channel.RefreshToken = &token.RefreshToken
+		}
 		channel.UserId = string(userID)
 		if err := h.DB.Save(&channel).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update channel: " + err.Error()})
@@ -121,6 +120,7 @@ func (h *YoutubeHandler) YouTubeOAuthCallback(c *gin.Context) {
 		AccessToken:  &token.AccessToken,
 		RefreshToken: &token.RefreshToken,
 		UserId:       string(userID),
+		ExpiresAt:    &token.Expiry,
 	}
 	if err := h.DB.Create(&channel).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

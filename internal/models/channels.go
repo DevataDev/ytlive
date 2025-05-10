@@ -7,11 +7,12 @@ import (
 )
 
 type Channels struct {
-	ID           string  `gorm:"primaryKey"`
-	ChannelID    string  `gorm:"not null"`
-	ChannelName  string  `gorm:"not null"`
-	AccessToken  *string `gorm:"default:null;size:2000"` // Optional
-	RefreshToken *string `gorm:"default:null;size:2000"` // Optional
+	ID           string     `gorm:"primaryKey"`
+	ChannelID    string     `gorm:"not null"`
+	ChannelName  string     `gorm:"not null"`
+	AccessToken  *string    `gorm:"default:null;size:2000"` // Optional
+	RefreshToken *string    `gorm:"default:null;size:2000"` // Optional
+	ExpiresAt    *time.Time `gorm:"default:null"`           // Optional
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DeletedAt    gorm.DeletedAt `gorm:"index"`
