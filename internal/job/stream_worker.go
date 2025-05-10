@@ -238,7 +238,7 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 			refreshToken = *channel.RefreshToken
 		}
 
-		if accessToken != "" && refreshToken != "" {
+		if accessToken != "" {
 			broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
 				"stream_id":     streamID,
 				"stream_key":    streamKey,
@@ -248,9 +248,6 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 				"access_token":  accessToken,
 				"refresh_token": refreshToken,
 			})
-		} else {
-			// Optionally log or handle the missing token case
-			fmt.Printf("Missing access or refresh token for channel %s\n", channel.ChannelID)
 		}
 	}
 
