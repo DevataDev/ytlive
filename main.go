@@ -18,6 +18,7 @@ import (
 	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/tiktok"
+	"windsorf-youtube-live/internal/version"
 	"windsorf-youtube-live/internal/workers"
 
 	"gorm.io/driver/mysql"
@@ -34,12 +35,6 @@ import (
 
 //go:embed web/static/* web/static
 var StaticFiles embed.FS
-
-var (
-	version = "devel"
-	commit  = "unknown"
-	date    = "unknown"
-)
 
 var (
 	ctx               = context.Background()
@@ -451,12 +446,17 @@ func main() {
 		handlers.WebSocketHandlerWithContext(ctx, c)
 	})
 
+	fmt.Println("Starting YukLive...")
+	fmt.Println("Version: " + version.Version)
+	fmt.Println("Commit: " + version.Commit)
+	fmt.Println("Date: " + version.Date)
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port),
 		Handler: r,
 	}
 
-	log.Println("Server started at http://" + cfg.App.Host + ":" + fmt.Sprintf("%d", cfg.App.Port))
+	fmt.Println("Server started at http://" + cfg.App.Host + ":" + fmt.Sprintf("%d", cfg.App.Port))
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %s\n", err)

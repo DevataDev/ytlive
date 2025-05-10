@@ -16,6 +16,10 @@ builds:
       - amd64
       - arm64
       - mips64
+    ldflags:
+      - "-X windsorf-youtube-live/internal/version.Version={{.Version}}"
+      - "-X windsorf-youtube-live/internal/version.Commit={{.Commit}}"
+      - "-X windsorf-youtube-live/internal/version.Date={{.Date}}"
 
 changelog:
   sort: asc
