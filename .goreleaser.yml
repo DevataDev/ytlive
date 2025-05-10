@@ -1,0 +1,43 @@
+before:
+  hooks:
+    - go generate
+    - go mod download
+
+builds:
+  - id: ytlive
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - freebsd
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - mips64
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+nfpms:
+  - id: ytlive
+    package_name: ytlive
+    file_name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    vendor: YukLive
+    homepage: https://yuklive.my.id
+    maintainer: YukLive <yuklive@yuklive.my.id>
+    description: YukLive is an utility to easier process TikTok and YouTube live streaming.
+    license: MIT
+    section: utils
+    priority: extra
+    builds:
+      - ytlive
+
+    formats:
+      - deb
+      - rpm
