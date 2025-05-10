@@ -40,10 +40,10 @@ builds:
           - CC=zig cc -target aarch64-windows-gnu
           - CXX=zig c++ -target aarch64-windows-gnu
         ldflags:
-          - -s -w -extldflags "-static"
-      
+          - -s -w
+
       - goos: linux
-        goarch: arm64
+        goarch: amd64
         flags: 
           - -trimpath
         env:
@@ -51,7 +51,18 @@ builds:
           - CXX=zig c++ -target x86_64-linux-musl
           - CGO_ENABLED=1
         ldflags:
-          - -s -w -extldflags "-static"
+          - -s -w
+      
+      - goos: linux
+        goarch: arm64
+        flags: 
+          - -trimpath
+        env:
+          - CC=zig cc -target aarch64-linux-musl
+          - CXX=zig c++ -target aarch64-linux-musl
+          - CGO_ENABLED=1
+        ldflags:
+          - -s -w
       
       - goos: linux
         goarch: mips64
