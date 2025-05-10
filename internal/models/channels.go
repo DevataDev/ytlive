@@ -10,8 +10,8 @@ type Channels struct {
 	ID           string  `gorm:"primaryKey"`
 	ChannelID    string  `gorm:"not null"`
 	ChannelName  string  `gorm:"not null"`
-	AccessToken  *string `gorm:"default:null;length:2000"` // Optional
-	RefreshToken *string `gorm:"default:null;length:2000"` // Optional
+	AccessToken  *string `gorm:"default:null;size:2000"` // Optional
+	RefreshToken *string `gorm:"default:null;size:2000"` // Optional
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DeletedAt    gorm.DeletedAt `gorm:"index"`
