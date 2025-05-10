@@ -392,6 +392,7 @@ func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, r
 		UserId:      userID,
 		Title:       title,
 		UserAgent:   h.TikTok.GetUserAgent(),
+		ChannelId:   channelId,
 	}
 
 	if err := h.DB.Create(&mirror).Error; err != nil {
