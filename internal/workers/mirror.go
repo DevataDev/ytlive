@@ -44,15 +44,18 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 		// update database
 		for _, stream := range streamsToCheck {
 			if isAliveMap[stream.RoomId] {
-				w.DB.Model(&stream).Updates(map[string]interface{}{
-					"is_alive": true,
-				})
+				stream.IsAlive = true
+
+				if err := w.DB.Save(&stream).Error; err != nil {
+					fmt.Println("Failed to update mirror : ", err.Error())
+				}
 			} else {
 				// stop stream worker
 				if stream.Status == "stopped" {
-					w.DB.Model(&stream).Updates(map[string]interface{}{
-						"is_alive": false,
-					})
+					stream.IsAlive = false
+					if err := w.DB.Save(&stream).Error; err != nil {
+						fmt.Println("Failed to update mirror : ", err.Error())
+					}
 					// delete from database
 					w.DB.Delete(&stream)
 					job.MirrorRestartLock.Lock()
@@ -69,10 +72,13 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 				_ = job.StopMirrorWorkerWithDatabase(stream.ID, w.DB, false) // Ensures ffmpeg is killed
 				job.RemoveMirrorWorker(stream.ID)
 				job.MirrorRestartLock.Unlock()
-				w.DB.Model(&stream).Updates(map[string]interface{}{
-					"status":   "stopped",
-					"is_alive": false,
-				})
+
+				stream.Status = "stopped"
+				stream.IsAlive = false
+
+				if err := w.DB.Save(&stream).Error; err != nil {
+					fmt.Println("Failed to update mirror : ", err.Error())
+				}
 				// delete from database
 				w.DB.Delete(&stream)
 				// send broadcast message
