@@ -297,10 +297,12 @@ func StopMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB, userStop b
 	}
 
 	// update database
-	database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
-		"Status":    "stopped",
-		"StoppedAt": time.Now().UTC(),
-	})
+	timeNow := time.Now().UTC()
+	mirror.Status = "stopped"
+	mirror.StoppedAt = &timeNow
+	if err := database.Save(&mirror).Error; err != nil {
+		fmt.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
+	}
 
 	return nil
 }
@@ -333,7 +335,7 @@ func buildMirrorFfmpegArgs(rtmpUrl string, streamKey string, liveUrl string, use
 	} else {
 		ffmpegUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
 	}
-	fmt.Println("FFmpeg User Agent:", ffmpegUserAgent)
+
 	if rtmpUrl != "" {
 		if rtmpUrl[len(rtmpUrl)-1] != '/' {
 			fullRtmpUrl = rtmpUrl + "/" + streamKey
