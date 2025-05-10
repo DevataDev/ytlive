@@ -94,7 +94,15 @@
     <!-- Stream List Cards -->
     <div id="stream-list-cards" class="row g-3">
         <!-- Stream cards will be dynamically inserted here -->
-</div>
+    </div>
+    <!-- Pagination Bar -->
+    <div class="d-flex justify-content-center mt-4 mb-5">
+        <nav>
+            <ul class="pagination justify-content-center" id="pagination">
+                <!-- Pagination will be injected here -->
+            </ul>
+        </nav>
+    </div>
 <!-- Bind Channel Modal -->
 <div class="modal fade" id="bindChannelModal" tabindex="-1" aria-labelledby="bindChannelModalLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -142,14 +150,9 @@
         </div>
       </div>
     </div>
-    <nav>
-        <ul class="pagination justify-content-center" id="pagination">
-            <!-- Pagination will be injected here -->
-        </ul>
-    </nav>
-</div>
-<footer class="text-center text-muted py-3 fixed-bottom bg-white border-top shadow-sm" id="footer"></footer>
+
 <!-- Bootstrap Toast Container -->
+<footer class="text-center text-muted py-3 fixed-bottom bg-white border-top shadow-sm" id="footer"></footer>
 <div aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
   <div id="streamToast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="d-flex">
