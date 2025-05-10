@@ -113,7 +113,6 @@
 </div>
 <footer class="text-center text-muted py-3" id="footer"></footer>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="/static/js/dashboard.js"></script>
 <script>
 const sinceYear = 2025;
 const nowYear = new Date().getFullYear();
@@ -127,9 +126,15 @@ fetch('/api/version')
       versionStr = ` | <span class='text-secondary'>Version: ${data.version} (<code>${data.commit.slice(0,7)}</code>)</span>`;
     }
     document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama${versionStr}`;
+    const script = document.createElement('script');
+    script.src = `/static/js/dashboard.js?v=${data.version ? data.version : '0.4.3'}`;
+    document.body.appendChild(script);
   })
   .catch(() => {
     document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama`;
+    const script = document.createElement('script');
+    script.src = `/static/js/dashboard.js?v=0.4.3`;
+    document.body.appendChild(script);
   });
 
 // Show User Management menu if user is admin

@@ -139,14 +139,19 @@ fetch('/api/version')
       versionStr = ` | <span class='text-secondary'>Version: ${data.version} (<code>${data.commit.slice(0,7)}</code>)</span>`;
     }
     document.querySelector('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama${versionStr}`;
+    const script = document.createElement('script');
+    script.src = `/static/js/user-management.js?v=${data.version ? data.version : '0.4.3'}`;
+    document.body.appendChild(script);
   })
   .catch(() => {
     document.querySelector('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama`;
+    const script = document.createElement('script');
+    script.src = `/static/js/user-management.js?v=0.4.3`;
+    document.body.appendChild(script);
   });
         </script>
     </div>
 </footer>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="/static/js/user-management.js?v=0.4.3"></script>
 </body>
 </html>

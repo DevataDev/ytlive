@@ -84,7 +84,7 @@ async function removeMonitor(uniqueId) {
     fetchMonitors();
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+function initMonitor() {
     document.getElementById('add-monitor-form').addEventListener('submit', async function(e) {
         e.preventDefault();
         const uniqueId = document.getElementById('uniqueId').value;
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchMonitors();
     });
     fetchMonitors();
-});
+}
 
 function updateMonitorIsLiveBadge(uniqueId, isLive) {
     const badge = document.querySelector(`#monitor-table tr[data-monitor-id="monitor-${uniqueId}"] td:nth-child(4) .badge`);

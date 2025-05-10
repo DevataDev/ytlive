@@ -59,7 +59,3 @@ async function removeChannel(uniqueId) {
     fetchChannels();
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    fetchChannels();
-});
-
