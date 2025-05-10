@@ -123,19 +123,27 @@ func (w *LiveWorker) StartLiveMonitoring(username string, userID string, rtmpUrl
 				if err := w.DB.Save(&monitorInDb).Error; err != nil {
 					fmt.Println("Failed to update monitor for user", username, "with error", err.Error())
 				}
+
+				var channelId string
+				if monitorInDb.ChannelId != "" {
+					channelId = monitorInDb.ChannelId
+				} else {
+					channelId = ""
+				}
+
 				w.Bus.Broadcast(broadcast.AddToMirror, map[string]interface{}{
 					"username":   username,
 					"user_id":    userID,
 					"rtmp_url":   rtmpUrl,
 					"stream_key": streamKey,
-					"channel_id": monitorInDb.ChannelId,
+					"channel_id": channelId,
 				})
 
 				w.Bus.Broadcast(broadcast.RefreshMonitor, map[string]interface{}{
 					"id":         monitorID,
 					"unique_id":  username,
 					"is_live":    true,
-					"channel_id": monitorInDb.ChannelId,
+					"channel_id": channelId,
 				})
 				w.StopLiveMonitoring(monitorID)
 				//break and stop go routine
