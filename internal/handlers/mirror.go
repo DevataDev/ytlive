@@ -304,7 +304,7 @@ func (h *MirrorHandler) UpdateMirrorChannelId(c *gin.Context) {
 	c.JSON(200, gin.H{"success": true})
 }
 
-func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, rtmpUrl string, streamKey string) {
+func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, rtmpUrl string, streamKey string, channelId string) {
 	var roomID string
 	if checkAllNumber(username) {
 		roomID = username

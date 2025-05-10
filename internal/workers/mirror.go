@@ -97,7 +97,7 @@ func (w *MirrorWorker) StartQueueChecker() {
 		fmt.Println("Checking queue...")
 		var mirrorsToCheck []models.Mirror
 		w.DB.Where("status = ?", "queued").Find(&mirrorsToCheck)
-		fmt.Println("Found", len(mirrorsToCheck), "mirrors to check.")
+		fmt.Println("Found", len(mirrorsToCheck), "mirrors on queue to check.")
 		for _, mirror := range mirrorsToCheck {
 			// check if stream key is used by another mirror
 			if mirror.StreamKey != "" {

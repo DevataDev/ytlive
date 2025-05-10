@@ -128,11 +128,14 @@ func (w *LiveWorker) StartLiveMonitoring(username string, userID string, rtmpUrl
 					"user_id":    userID,
 					"rtmp_url":   rtmpUrl,
 					"stream_key": streamKey,
+					"channel_id": monitorInDb.ChannelId,
 				})
+
 				w.Bus.Broadcast(broadcast.RefreshMonitor, map[string]interface{}{
-					"id":        monitorID,
-					"unique_id": username,
-					"is_live":   true,
+					"id":         monitorID,
+					"unique_id":  username,
+					"is_live":    true,
+					"channel_id": monitorInDb.ChannelId,
 				})
 				w.StopLiveMonitoring(monitorID)
 				//break and stop go routine

@@ -354,7 +354,7 @@ func main() {
 			fmt.Println("Failed to add to mirror, invalid data type")
 			return
 		}
-		mirrorHandler.AddMirrorFromBroadcast(data["username"].(string), data["user_id"].(string), data["rtmp_url"].(string), data["stream_key"].(string))
+		mirrorHandler.AddMirrorFromBroadcast(data["username"].(string), data["user_id"].(string), data["rtmp_url"].(string), data["stream_key"].(string), data["channel_id"].(string))
 	})
 
 	broadcast.Bus.AddListener("default", broadcast.RefreshMonitor, func(e broadcast.Event) {

@@ -142,10 +142,11 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 				fmt.Println("FFmpeg is running for another mirror", mirror.StreamKey, mirror.RoomId)
 				status = "queued"
 				// update database
-				database.Model(&models.Mirror{}).Where("id = ?", mirror.ID).Updates(map[string]interface{}{
-					"Status":    "queued",
-					"FFmpegPID": nil,
-				})
+				mirror.Status = "queued"
+				mirror.FFmpegPID = nil
+				if err := database.Save(&mirror).Error; err != nil {
+					fmt.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
+				}
 			}
 		}
 	}
@@ -179,7 +180,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		if mirror.Title != "" {
 			title = mirror.Title
 		} else {
-			title = "Watch Me Live"
+			title = "Watch " + mirror.DisplayName + " Live"
 		}
 		accessToken := ""
 		if channel.AccessToken != nil {
@@ -207,10 +208,12 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		fmt.Println("Failed to check if room is still alive for mirror", mirrorID, "with error", err)
 		// if in database status not stopped, update to stopped
 		if mirror.Status != "stopped" {
-			database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
-				"Status":    "stopped",
-				"StoppedAt": time.Now().UTC(),
-			})
+			timeNow := time.Now().UTC()
+			mirror.Status = "stopped"
+			mirror.StoppedAt = &timeNow
+			if err := database.Save(&mirror).Error; err != nil {
+				fmt.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
+			}
 		}
 		cancel()
 		return nil, 0, err
@@ -218,14 +221,22 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	if !isAlive {
 		fmt.Println("Room is not alive for mirror", mirrorID)
 		if mirror.Status != "stopped" {
-			database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Updates(map[string]interface{}{
-				"Status":    "stopped",
-				"StoppedAt": time.Now().UTC(),
-			})
+			timeNow := time.Now().UTC()
+			mirror.Status = "stopped"
+			mirror.StoppedAt = &timeNow
+			if err := database.Save(&mirror).Error; err != nil {
+				fmt.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
+			}
+			// delete from mirror workers
+			RemoveMirrorWorker(mirrorID)
+			// delete from database
+			database.Delete(&models.Mirror{}, mirrorID)
+			// broadcast to all ws clients
+			broadcast.Bus.Broadcast(broadcast.RefreshMirror, nil)
 		}
 		// cancel context
 		cancel()
-		return nil, 0, errors.New("room is not alive")
+		return nil, 0, errors.New("room is not alive anymore")
 	}
 
 	var cmd *exec.Cmd
