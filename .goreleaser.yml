@@ -39,7 +39,7 @@ nfpms:
     license: MIT
     section: utils
     priority: extra
-    builds:
+    ids:
       - ytlive
 
     formats:
