@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -360,9 +360,9 @@ func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, r
 		displayName = "Room ID " + roomID
 	}
 
-	fmt.Println("DisplayName: " + displayName)
-	fmt.Println("LiveUrl: " + liveUrl)
-	fmt.Println("RoomINfo: ", roomInfo)
+	log.Println("DisplayName: " + displayName)
+	log.Println("LiveUrl: " + liveUrl)
+	log.Println("RoomINfo: ", roomInfo)
 
 	var title string
 	if _, ok := roomInfo["title"]; ok {
@@ -396,13 +396,13 @@ func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, r
 	}
 
 	if err := h.DB.Create(&mirror).Error; err != nil {
-		fmt.Println("Failed to save mirror: " + err.Error())
+		log.Println("Failed to save mirror: " + err.Error())
 		return
 	}
 
 	_, _, err = job.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB)
 	if err != nil {
-		fmt.Println("Failed to start mirror worker: " + err.Error())
+		log.Println("Failed to start mirror worker: " + err.Error())
 		return
 	}
 }

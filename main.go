@@ -68,7 +68,7 @@ func main() {
 
 	if cfg.App.Sql == "mysql" {
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", cfg.MySQL.User, cfg.MySQL.Password, cfg.MySQL.Host, cfg.MySQL.Port, cfg.MySQL.DBName, cfg.MySQL.Params)
-		fmt.Println("Connecting to MySQL with DSN:", dsn)
+		log.Println("Connecting to MySQL with DSN:", dsn)
 		db, dbErr = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	} else if cfg.App.Sql == "sqlite3" {
 		// check if db file exists
@@ -348,10 +348,10 @@ func main() {
 	r.PUT("/api/mirrors/:id/channel-id", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorChannelId)
 
 	broadcast.Bus.AddListener("default", broadcast.AddToMirror, func(e broadcast.Event) {
-		fmt.Println("Adding to mirror", e.Data)
+		log.Println("Adding to mirror", e.Data)
 		data, ok := e.Data.(map[string]interface{})
 		if !ok {
-			fmt.Println("Failed to add to mirror, invalid data type")
+			log.Println("Failed to add to mirror, invalid data type")
 			return
 		}
 		mirrorHandler.AddMirrorFromBroadcast(data["username"].(string), data["user_id"].(string), data["rtmp_url"].(string), data["stream_key"].(string), data["channel_id"].(string))
@@ -360,7 +360,7 @@ func main() {
 	broadcast.Bus.AddListener("default", broadcast.RefreshMonitor, func(e broadcast.Event) {
 		data, ok := e.Data.(map[string]interface{})
 		if !ok {
-			fmt.Println("Failed to refresh monitor, invalid data type")
+			log.Println("Failed to refresh monitor, invalid data type")
 			return
 		}
 		handlers.BroadcastMonitorUpdate(data["id"].(string), data["unique_id"].(string), data["is_live"].(bool))
@@ -458,17 +458,17 @@ func main() {
 		handlers.WebSocketHandlerWithContext(ctx, c)
 	})
 
-	fmt.Println("Starting YukLive...")
-	fmt.Println("Version: " + version.Version)
-	fmt.Println("Commit: " + version.Commit)
-	fmt.Println("Date: " + version.Date)
+	log.Println("Starting YukLive...")
+	log.Println("Version: " + version.Version)
+	log.Println("Commit: " + version.Commit)
+	log.Println("Date: " + version.Date)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port),
 		Handler: r,
 	}
 
-	fmt.Println("Server started at http://" + cfg.App.Host + ":" + fmt.Sprintf("%d", cfg.App.Port))
+	log.Println("Server started at http://" + cfg.App.Host + ":" + fmt.Sprintf("%d", cfg.App.Port))
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %s\n", err)

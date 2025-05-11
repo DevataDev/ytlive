@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -334,7 +335,7 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 		fileName = fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(fileNameWithoutExtension))
 		uploadPath := "./uploads/" + fileName
 		if err := c.SaveUploadedFile(file, uploadPath); err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			c.JSON(500, gin.H{"error": "Failed to save file."})
 			return
 		}
@@ -365,7 +366,7 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 		UserId:          userID.(string),
 	}
 	if err := h.DB.Create(&stream).Error; err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		c.JSON(500, gin.H{"error": "Failed to save stream info."})
 		return
 	}

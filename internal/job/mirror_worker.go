@@ -3,7 +3,7 @@ package job
 import (
 	"context"
 	"errors"
-	"fmt"
+	"log"
 	"os/exec"
 	"sync"
 	"time"
@@ -52,7 +52,7 @@ func (w *MirrorWorker) IsQueued() bool {
 
 func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	pid := w.Cmd.Process.Pid
-	fmt.Println("Monitoring FFmpeg stats for mirror", w.MirrorID, "with PID", pid)
+	log.Println("Monitoring FFmpeg stats for mirror", w.MirrorID, "with PID", pid)
 	if pid == 0 {
 		return
 	}
@@ -67,7 +67,7 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 		default:
 			// check if process is still running
 			if !IsProcessAliveAndNotDefunct(pid) {
-				fmt.Println("FFmpeg process stopped for mirror from monitoring", w.MirrorID)
+				log.Println("FFmpeg process stopped for mirror from monitoring", w.MirrorID)
 				// restart stream worker
 				// how to prevent double restart?
 				// check if worker is already restarting
@@ -90,11 +90,11 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 
 				isAlive, err := w.TiktokClient.CheckRoomIsAlive(w.RoomID)
 				if err != nil {
-					fmt.Println("Failed to check if room is still alive for mirror", w.MirrorID, "with error", err)
+					log.Println("Failed to check if room is still alive for mirror", w.MirrorID, "with error", err)
 					return
 				}
 				if !isAlive {
-					fmt.Println("Room is not alive for mirror", w.MirrorID)
+					log.Println("Room is not alive for mirror", w.MirrorID)
 					w.Status = "stopped"
 					// Delete from database
 					w.DB.Delete(&models.Mirror{}, w.MirrorID)
@@ -133,19 +133,19 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	var data models.Mirror
 	var status string = "live"
 	if mirror.StreamKey != "" {
-		fmt.Println("Checking if stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
+		log.Println("Checking if stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
 		database.Where("stream_key = ? AND room_id != ? AND status = 'live'", mirror.StreamKey, mirror.RoomId).First(&data)
 		if data.ID != "" {
-			fmt.Println("Stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
+			log.Println("Stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
 			// check if FFmpeg is running
 			if data.FFmpegPID != nil && IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
-				fmt.Println("FFmpeg is running for another mirror", mirror.StreamKey, mirror.RoomId)
+				log.Println("FFmpeg is running for another mirror", mirror.StreamKey, mirror.RoomId)
 				status = "queued"
 				// update database
 				mirror.Status = "queued"
 				mirror.FFmpegPID = nil
 				if err := database.Save(&mirror).Error; err != nil {
-					fmt.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
+					log.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
 				}
 			}
 		}
@@ -205,27 +205,27 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	// check if room is still alive
 	isAlive, err := tiktokClient.CheckRoomIsAlive(mirror.RoomId)
 	if err != nil {
-		fmt.Println("Failed to check if room is still alive for mirror", mirrorID, "with error", err)
+		log.Println("Failed to check if room is still alive for mirror", mirrorID, "with error", err)
 		// if in database status not stopped, update to stopped
 		if mirror.Status != "stopped" {
 			timeNow := time.Now().UTC()
 			mirror.Status = "stopped"
 			mirror.StoppedAt = &timeNow
 			if err := database.Save(&mirror).Error; err != nil {
-				fmt.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
+				log.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
 			}
 		}
 		cancel()
 		return nil, 0, err
 	}
 	if !isAlive {
-		fmt.Println("Room is not alive for mirror", mirrorID)
+		log.Println("Room is not alive for mirror", mirrorID)
 		if mirror.Status != "stopped" {
 			timeNow := time.Now().UTC()
 			mirror.Status = "stopped"
 			mirror.StoppedAt = &timeNow
 			if err := database.Save(&mirror).Error; err != nil {
-				fmt.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
+				log.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
 			}
 			// delete from mirror workers
 			RemoveMirrorWorker(mirrorID)
@@ -248,7 +248,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	// start cmd
 	err = cmd.Start()
 	if err != nil {
-		fmt.Println("Failed to start FFmpeg:", err)
+		log.Println("Failed to start FFmpeg:", err)
 		return nil, 0, err
 	}
 
@@ -258,7 +258,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	mirror.StartedAt = &timeNow
 	mirror.FFmpegPID = &cmd.Process.Pid
 	if err := database.Save(&mirror).Error; err != nil {
-		fmt.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
+		log.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
 	}
 
 	// Start stats monitor goroutine
@@ -270,7 +270,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 
 	AddMirrorWorker(worker)
 
-	fmt.Println("FFmpeg process started for mirror", mirrorID, "with PID", cmd.Process.Pid)
+	log.Println("FFmpeg process started for mirror", mirrorID, "with PID", cmd.Process.Pid)
 
 	return worker, cmd.Process.Pid, nil
 }
@@ -301,7 +301,7 @@ func StopMirrorWorkerWithDatabase(mirrorID string, database *gorm.DB, userStop b
 	mirror.Status = "stopped"
 	mirror.StoppedAt = &timeNow
 	if err := database.Save(&mirror).Error; err != nil {
-		fmt.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
+		log.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
 	}
 
 	return nil

@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/base64"
-	"fmt"
+	"log"
 	"net/http"
 	"windsorf-youtube-live/internal/broadcast"
 	"windsorf-youtube-live/internal/configuration"
@@ -159,8 +159,8 @@ func (h *YoutubeHandler) ListStreamsByChannel(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Access token or refresh token is nil"})
 		return
 	}
-	fmt.Println("Access token", *accessToken)
-	fmt.Println("Refresh token", *refreshToken)
+	log.Println("Access token", *accessToken)
+	log.Println("Refresh token", *refreshToken)
 
 	streamListResp, err := h.YoutubeClient.FetchYouTubeStreamList(*accessToken, *refreshToken)
 	if err != nil {

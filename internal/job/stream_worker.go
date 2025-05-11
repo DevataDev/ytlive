@@ -3,6 +3,7 @@ package job
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -76,21 +77,21 @@ func GetWorker(streamID string) (*StreamWorker, bool) {
 func StopStreamWorker(streamID string) error {
 	worker, ok := GetWorker(streamID)
 	if !ok {
-		fmt.Println("Stream", streamID, "not found.")
+		log.Println("Stream", streamID, "not found.")
 		return nil // Already stopped
 	}
 
 	// update worker status
 	worker.Status = "stopped" // prevent double restart
-	fmt.Println("Stopping stream", streamID, "with status", worker.Status)
+	log.Println("Stopping stream", streamID, "with status", worker.Status)
 	// chceck if context still active
 	if worker.CancelFunc != nil {
-		fmt.Println("Cancelling context for stream", streamID)
+		log.Println("Cancelling context for stream", streamID)
 		worker.CancelFunc()
-		fmt.Println("Context cancelled for stream", streamID)
+		log.Println("Context cancelled for stream", streamID)
 		select {
 		case <-time.After(5 * time.Second):
-			fmt.Println("Timeout waiting for FFmpeg to exit after cancel, forcing kill...")
+			log.Println("Timeout waiting for FFmpeg to exit after cancel, forcing kill...")
 			// Force kill logic here (e.g., kill process)
 			if worker.Cmd != nil && worker.Cmd.Process != nil {
 				_ = worker.Cmd.Process.Kill()
@@ -104,27 +105,27 @@ func StopStreamWorker(streamID string) error {
 					_ = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
 				}
 			}
-			fmt.Println("FFmpeg process killed for stream", streamID)
+			log.Println("FFmpeg process killed for stream", streamID)
 		}
 	}
-	fmt.Println("Killing FFmpeg process for stream", streamID)
+	log.Println("Killing FFmpeg process for stream", streamID)
 	if worker.Cmd != nil && worker.Cmd.Process != nil {
 		_ = worker.Cmd.Process.Signal(syscall.SIGTERM)
-		fmt.Println("FFmpeg process signalled for stream", streamID)
+		log.Println("FFmpeg process signalled for stream", streamID)
 		// Wait for process to exit, then kill if still alive, timeout after 5 seconds
 		done := make(chan error, 1)
 		go func() {
 			done <- worker.Cmd.Wait()
-			fmt.Println("FFmpeg process exited for stream", streamID)
+			log.Println("FFmpeg process exited for stream", streamID)
 		}()
 		select {
 		case <-done:
-			fmt.Println("FFmpeg process exited for stream", streamID)
+			log.Println("FFmpeg process exited for stream", streamID)
 			// exited gracefully
 		case <-time.After(5 * time.Second):
 			if worker.Cmd != nil && worker.Cmd.Process != nil {
 				_ = worker.Cmd.Process.Kill()
-				fmt.Println("FFmpeg process killed for stream", streamID)
+				log.Println("FFmpeg process killed for stream", streamID)
 			} else {
 				// exec kill -9 <pid> if its linux
 				if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
@@ -132,7 +133,7 @@ func StopStreamWorker(streamID string) error {
 				} else if runtime.GOOS == "windows" {
 					_ = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
 				}
-				fmt.Println("FFmpeg process killed for stream", streamID)
+				log.Println("FFmpeg process killed for stream", streamID)
 			}
 			<-done // ensure Wait() returns
 		}
@@ -140,12 +141,12 @@ func StopStreamWorker(streamID string) error {
 
 	// Close stopChan to stop stats monitor goroutine
 	if worker.StopChan != nil {
-		fmt.Println("Closing stopChan for stream", streamID)
+		log.Println("Closing stopChan for stream", streamID)
 		worker.stopOnce.Do(func() { close(worker.StopChan) })
 	}
 	// Remove worker from map
 	if worker != nil {
-		fmt.Println("Removing worker for stream", streamID)
+		log.Println("Removing worker for stream", streamID)
 		RemoveWorker(streamID)
 	}
 	return nil
@@ -154,7 +155,7 @@ func StopStreamWorker(streamID string) error {
 // MonitorFFmpegStats monitors CPU and memory usage for the FFmpeg process
 func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	pid := w.Cmd.Process.Pid
-	fmt.Println("Monitoring FFmpeg stats for stream", w.StreamID, "with PID", pid)
+	log.Println("Monitoring FFmpeg stats for stream", w.StreamID, "with PID", pid)
 	if pid == 0 {
 		return
 	}
@@ -169,7 +170,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 		default:
 			// check if process is still running
 			if !IsProcessAliveAndNotDefunct(pid) {
-				fmt.Println("FFmpeg process stopped for stream from monitoring", w.StreamID)
+				log.Println("FFmpeg process stopped for stream from monitoring", w.StreamID)
 				if !w.LoopVideo {
 					// update stream status to stopped
 					w.DB.Model(&models.Stream{}).Where("id = ?", w.StreamID).Updates(map[string]interface{}{
@@ -182,7 +183,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 					broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
 					return
 				}
-				fmt.Println("Restarting stream From Monitoring", w.StreamID, "with status", w.Status)
+				log.Println("Restarting stream From Monitoring", w.StreamID, "with status", w.Status)
 				if w.Status != "live" {
 					return
 				}
@@ -260,7 +261,7 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	// start cmd
 	err := cmd.Start()
 	if err != nil {
-		fmt.Println("Failed to start FFmpeg:", err)
+		log.Println("Failed to start FFmpeg:", err)
 		return nil, 0, err
 	}
 
@@ -281,7 +282,7 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	}()
 
 	AddWorker(worker)
-	fmt.Println("FFmpeg process started for stream", streamID, "with PID", cmd.Process.Pid)
+	log.Println("FFmpeg process started for stream", streamID, "with PID", cmd.Process.Pid)
 	return worker, cmd.Process.Pid, nil
 }
 
@@ -335,30 +336,30 @@ func IsProcessAliveAndNotDefunct(pid int) bool {
 func SetDriveProgress(driveLink string, progress map[string]interface{}) {
 	driveProgressMu.Lock()
 	defer driveProgressMu.Unlock()
-	fmt.Println("Setting drive progress for", driveLink, progress)
+	log.Println("Setting drive progress for", driveLink, progress)
 	driveProgressMap[driveLink] = progress
-	fmt.Println("Drive progress set for", driveProgressMap)
+	log.Println("Drive progress set for", driveProgressMap)
 }
 
 // GetDriveProgress gets the progress/status for a drive link
 func GetDriveProgress(driveLink string) (map[string]interface{}, bool) {
 	driveProgressMu.RLock()
 	defer driveProgressMu.RUnlock()
-	fmt.Println("Getting drive progress for", driveLink, driveProgressMap)
+	log.Println("Getting drive progress for", driveLink, driveProgressMap)
 	if driveProgressMap == nil {
-		fmt.Println("Drive progress map is nil")
+		log.Println("Drive progress map is nil")
 		return nil, false
 	}
 	if _, ok := driveProgressMap[driveLink]; !ok {
-		fmt.Println("Drive progress not found for", driveLink)
+		log.Println("Drive progress not found for", driveLink)
 		return nil, false
 	}
 	progress, ok := driveProgressMap[driveLink]
 
 	if ok {
-		fmt.Println("Drive progress found for", driveLink, progress)
+		log.Println("Drive progress found for", driveLink, progress)
 		if progress == nil {
-			fmt.Println("Drive progress is nil for", driveLink)
+			log.Println("Drive progress is nil for", driveLink)
 			return nil, false
 		}
 	}

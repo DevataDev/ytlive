@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -634,8 +635,8 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 	go func(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, db *gorm.DB) {
 		worker, pid, err := job.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, db)
 		if err == nil {
-			fmt.Println("FFmpeg started for stream", streamID, "with PID", pid)
-			fmt.Println("FFmpeg PID stored in worker", worker.FfmpegPID)
+			log.Println("FFmpeg started for stream", streamID, "with PID", pid)
+			log.Println("FFmpeg PID stored in worker", worker.FfmpegPID)
 			db.Model(&models.Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
 				"ffmpeg_p_id": worker.FfmpegPID,
 				"status":      "live",

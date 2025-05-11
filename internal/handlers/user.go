@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -124,7 +124,7 @@ func (h *UserHandler) UpdateUserPassword(c *gin.Context) {
 		return
 	}
 	var loggedInUser models.User
-	fmt.Println(userID)
+	log.Println(userID)
 	if err := h.DB.First(&loggedInUser, "id = ?", userID).Error; err != nil || !loggedInUser.IsAdmin {
 		c.JSON(403, gin.H{"error": "Forbidden"})
 		return

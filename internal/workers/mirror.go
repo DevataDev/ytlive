@@ -1,7 +1,7 @@
 package workers
 
 import (
-	"fmt"
+	"log"
 	"time"
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/job"
@@ -24,20 +24,20 @@ func NewMirrorWorker(db *gorm.DB, tiktokClient *tiktok.Client) *MirrorWorker {
 }
 
 func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
-	fmt.Println("Starting mirror room is alive checker...")
+	log.Println("Starting mirror room is alive checker...")
 	for {
 		time.Sleep(1 * time.Minute)
-		fmt.Println("Checking room is alive...")
+		log.Println("Checking room is alive...")
 		var streamsToCheck []models.Mirror
 		w.DB.Where("(status = ? or status = ?) AND room_id IS NOT NULL", "live", "stopped", "queued").Find(&streamsToCheck)
-		fmt.Println("Found", len(streamsToCheck), "mirror to check.")
+		log.Println("Found", len(streamsToCheck), "mirror to check.")
 		roomIds := make([]string, len(streamsToCheck))
 		for i, stream := range streamsToCheck {
 			roomIds[i] = stream.RoomId
 		}
 		isAliveMap, err := w.TiktokClient.CheckMultipleRoomIsAlive(roomIds)
 		if err != nil {
-			fmt.Println("Failed to check room is alive for room", roomIds, ":", err)
+			log.Println("Failed to check room is alive for room", roomIds, ":", err)
 			continue
 		}
 
@@ -47,14 +47,14 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 				stream.IsAlive = true
 
 				if err := w.DB.Save(&stream).Error; err != nil {
-					fmt.Println("Failed to update mirror : ", err.Error())
+					log.Println("Failed to update mirror : ", err.Error())
 				}
 			} else {
 				// stop stream worker
 				if stream.Status == "stopped" {
 					stream.IsAlive = false
 					if err := w.DB.Save(&stream).Error; err != nil {
-						fmt.Println("Failed to update mirror : ", err.Error())
+						log.Println("Failed to update mirror : ", err.Error())
 					}
 					// delete from database
 					w.DB.Delete(&stream)
@@ -77,7 +77,7 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 				stream.IsAlive = false
 
 				if err := w.DB.Save(&stream).Error; err != nil {
-					fmt.Println("Failed to update mirror : ", err.Error())
+					log.Println("Failed to update mirror : ", err.Error())
 				}
 				// delete from database
 				w.DB.Delete(&stream)
@@ -92,33 +92,33 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 }
 
 func (w *MirrorWorker) StartQueueChecker() {
-	fmt.Println("Starting queue checker...")
+	log.Println("Starting queue checker...")
 	for {
-		fmt.Println("Checking queue...")
+		log.Println("Checking queue...")
 		var mirrorsToCheck []models.Mirror
 		w.DB.Where("status = ?", "queued").Find(&mirrorsToCheck)
-		fmt.Println("Found", len(mirrorsToCheck), "mirrors on queue to check.")
+		log.Println("Found", len(mirrorsToCheck), "mirrors on queue to check.")
 		for _, mirror := range mirrorsToCheck {
 			// check if stream key is used by another mirror
 			if mirror.StreamKey != "" {
 				var data models.Mirror
 				w.DB.Where("stream_key = ? AND room_id != ? AND status = 'live'", mirror.StreamKey, mirror.RoomId).First(&data)
 				if data.ID != "" {
-					fmt.Println("Stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
+					log.Println("Stream key is used by another mirror", mirror.StreamKey, mirror.RoomId)
 					// check if FFmpeg is running
 					if data.FFmpegPID != nil && job.IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
-						fmt.Println("FFmpeg is running for another mirror", mirror.StreamKey, mirror.RoomId)
+						log.Println("FFmpeg is running for another mirror", mirror.StreamKey, mirror.RoomId)
 						// update database
 						mirror.Status = "queued"
 						mirror.FFmpegPID = nil
 
 						if err := w.DB.Save(&mirror).Error; err != nil {
-							fmt.Println("Failed to update new mirror data : ", err.Error())
+							log.Println("Failed to update new mirror data : ", err.Error())
 						}
 						continue
 					} else {
 						if data.FFmpegPID != nil && !job.IsProcessAliveAndNotDefunct(*data.FFmpegPID) {
-							fmt.Println("FFmpeg is not running for another mirror", mirror.StreamKey, mirror.RoomId)
+							log.Println("FFmpeg is not running for another mirror", mirror.StreamKey, mirror.RoomId)
 							// update database
 							job.StopMirrorWorkerWithDatabase(data.ID, w.DB, false)
 							job.RemoveMirrorWorker(data.ID)
@@ -127,7 +127,7 @@ func (w *MirrorWorker) StartQueueChecker() {
 							data.Status = "stopped"
 
 							if err := w.DB.Save(&data).Error; err != nil {
-								fmt.Println("Failed to update old data : ", err.Error())
+								log.Println("Failed to update old data : ", err.Error())
 							}
 
 							//start stream worker

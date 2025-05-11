@@ -2,8 +2,8 @@ package workers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -37,7 +37,7 @@ func NewRefresherTokenWorker(cfg *configuration.Config, db *gorm.DB) *RefresherT
 }
 
 func (w *RefresherTokenWorker) Run() {
-	fmt.Println("RefresherTokenWorker is running")
+	log.Println("RefresherTokenWorker is running")
 	for {
 		var channels []models.Channels
 		// find channels where refresh_token is not null and refresh_token is not empty
@@ -51,7 +51,7 @@ func (w *RefresherTokenWorker) Run() {
 				}
 			}
 			w.QueueLock.Lock()
-			fmt.Println("Refreshing token for channel", channel.ID)
+			log.Println("Refreshing token for channel", channel.ID)
 			data := url.Values{}
 			data.Set("client_id", w.YoutubeOAuthConfig.ClientID)
 			data.Set("client_secret", w.YoutubeOAuthConfig.ClientSecret)
@@ -60,16 +60,16 @@ func (w *RefresherTokenWorker) Run() {
 
 			resp, err := http.PostForm("https://oauth2.googleapis.com/token", data)
 			if err != nil {
-				fmt.Println("Failed to refresh token for channel", channel.ID, err)
+				log.Println("Failed to refresh token for channel", channel.ID, err)
 				// need unlock ?
 				w.QueueLock.Unlock()
 				continue
 			}
 			defer resp.Body.Close()
 			body, err := ioutil.ReadAll(resp.Body)
-			fmt.Println(string(body))
+			log.Println(string(body))
 			if err != nil {
-				fmt.Println("Failed to read response body for channel", channel.ID, err)
+				log.Println("Failed to read response body for channel", channel.ID, err)
 				// need unlock ?
 				w.QueueLock.Unlock()
 				continue
@@ -81,13 +81,13 @@ func (w *RefresherTokenWorker) Run() {
 				TokenType    string  `json:"token_type"`
 			}
 			if err := json.Unmarshal(body, &result); err != nil {
-				fmt.Println("Failed to unmarshal response body for channel", channel.ID, err)
+				log.Println("Failed to unmarshal response body for channel", channel.ID, err)
 				// need unlock ?
 				w.QueueLock.Unlock()
 				continue
 			}
 			if result.AccessToken == "" {
-				fmt.Println("Failed to refresh token for channel", channel.ID, "access token is empty")
+				log.Println("Failed to refresh token for channel", channel.ID, "access token is empty")
 				// need unlock ?
 				w.QueueLock.Unlock()
 				continue
@@ -96,7 +96,7 @@ func (w *RefresherTokenWorker) Run() {
 				channel.RefreshToken = result.RefreshToken
 			}
 
-			fmt.Println(result)
+			log.Println(result)
 
 			newExpires := time.Now().Add(time.Duration(result.ExpiresIn) * time.Second)
 			channel.ExpiresAt = &newExpires
@@ -109,12 +109,12 @@ func (w *RefresherTokenWorker) Run() {
 			}
 			// update expires_at
 			if err := w.DB.Save(&channel).Error; err != nil {
-				fmt.Println("Failed to update channel", channel.ID, "access token and expires at", err)
+				log.Println("Failed to update channel", channel.ID, "access token and expires at", err)
 				// need unlock ?
 				w.QueueLock.Unlock()
 				continue
 			}
-			fmt.Println("Refreshed token for channel", channel.ID, " with new access token", result.AccessToken, " and expires at", newExpires)
+			log.Println("Refreshed token for channel", channel.ID, " with new access token", result.AccessToken, " and expires at", newExpires)
 			w.QueueLock.Unlock()
 		}
 		time.Sleep(60 * time.Second)

@@ -3,6 +3,7 @@ package tiktok
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 )
 
 type SearchResponse struct {
@@ -158,7 +159,7 @@ func (c *Client) Search(query string, offset int, limit int, searchID string) (*
 
 	var searchResponse SearchResponse
 	if err := json.NewDecoder(reader).Decode(&searchResponse); err != nil {
-		fmt.Println(`Failed to decode search response for`, query, `with error`, err)
+		log.Println(`Failed to decode search response for`, query, `with error`, err)
 		return nil, err
 	}
 

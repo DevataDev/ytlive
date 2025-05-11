@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 
 	"net/http"
 	"net/url"
@@ -41,20 +42,20 @@ func NewYoutubeClient(config *configuration.Config) *YoutubeClient {
 
 func (h *YoutubeClient) UpdateTokenInDB(oldRefreshToken string, accessToken string, refreshToken string) error {
 	if accessToken == "" {
-		fmt.Println("Invalid token for update in DB", accessToken, refreshToken, oldRefreshToken)
+		log.Println("Invalid token for update in DB", accessToken, refreshToken, oldRefreshToken)
 		return nil
 	}
 	if oldRefreshToken == "" {
-		fmt.Println("Invalid refresh token for update in DB", oldRefreshToken)
+		log.Println("Invalid refresh token for update in DB", oldRefreshToken)
 		return nil
 	}
 	if h.DB == nil {
-		fmt.Println("Invalid DB for update in DB")
+		log.Println("Invalid DB for update in DB")
 		return nil
 	}
 	var channel models.Channels
 	if err := h.DB.Where("refresh_token = ?", oldRefreshToken).Find(&channel).Error; err != nil {
-		fmt.Println("Failed to get channel for refresh token", oldRefreshToken, "with error", err.Error())
+		log.Println("Failed to get channel for refresh token", oldRefreshToken, "with error", err.Error())
 		return err
 	}
 	channel.AccessToken = &accessToken
@@ -62,7 +63,7 @@ func (h *YoutubeClient) UpdateTokenInDB(oldRefreshToken string, accessToken stri
 		channel.RefreshToken = &refreshToken
 	}
 	if err := h.DB.Save(&channel).Error; err != nil {
-		fmt.Println("Failed to update channel in DB", channel.ID, "with error", err.Error())
+		log.Println("Failed to update channel in DB", channel.ID, "with error", err.Error())
 		return err
 	}
 	return nil
@@ -76,7 +77,7 @@ func (h *YoutubeClient) DoWithAutoRefresh(
 	refreshToken string,
 	updateTokenFunc func(newAccessToken string, newRefreshToken string, oldRefreshToken string),
 ) (*http.Response, error) {
-	fmt.Println("DoWithAutoRefresh", accessToken, " ", refreshToken)
+	log.Println("DoWithAutoRefresh", accessToken, " ", refreshToken)
 	if accessToken == "" {
 		return nil, errors.New("access token is empty, please re-login")
 	}
@@ -91,7 +92,7 @@ func (h *YoutubeClient) DoWithAutoRefresh(
 	// 2. If token expired/invalid, refresh and retry ONCE
 	if resp.StatusCode == http.StatusUnauthorized {
 		resp.Body.Close()
-		fmt.Println("Token expired/invalid for channel", refreshToken)
+		log.Println("Token expired/invalid for channel", refreshToken)
 		if refreshToken == "" {
 			return nil, errors.New("refresh token is empty, please re-login")
 		}
@@ -112,7 +113,7 @@ func (h *YoutubeClient) DoWithAutoRefresh(
 		}).Do(req2)
 	}
 
-	fmt.Println("Request successful for channel", resp)
+	log.Println("Request successful for channel", resp)
 	// 3. Return the original response
 	return resp, nil
 }
@@ -500,7 +501,7 @@ func (h *YoutubeClient) FetchYouTubeStreamList(accessToken string, refreshToken 
 	req, _ := http.NewRequest("GET", "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet&part=cdn&part=contentDetails&part=status&mine=true&maxResults=1000", nil)
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	resp, err := h.DoWithAutoRefresh(req, accessToken, refreshToken, func(newAccessToken string, newRefreshToken string, oldRefreshToken string) {
-		fmt.Println("Updating token in DB for fetch youtube stream list", oldRefreshToken, newAccessToken, newRefreshToken)
+		log.Println("Updating token in DB for fetch youtube stream list", oldRefreshToken, newAccessToken, newRefreshToken)
 		h.UpdateTokenInDB(oldRefreshToken, newAccessToken, newRefreshToken)
 	})
 	if err != nil {

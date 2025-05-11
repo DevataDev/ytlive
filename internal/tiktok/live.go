@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -194,18 +195,18 @@ func (c *Client) CheckRoomIsAlive(roomID string) (bool, error) {
 
 	var response map[string]interface{}
 	if err := json.Unmarshal(body, &response); err != nil {
-		fmt.Println("Failed to unmarshal room info for room", roomID, "with error", err)
+		log.Println("Failed to unmarshal room info for room", roomID, "with error", err)
 		return false, err
 	}
 
 	if _, ok := response["data"]; !ok {
-		fmt.Println("Data not found for room", roomID)
+		log.Println("Data not found for room", roomID)
 		return false, ErrDataNotFound
 	}
 
 	dataBody := response["data"].([]interface{})
 	if len(dataBody) == 0 {
-		fmt.Println("Data is empty for room", roomID)
+		log.Println("Data is empty for room", roomID)
 		return false, ErrDataNotFound
 	}
 

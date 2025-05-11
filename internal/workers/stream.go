@@ -1,7 +1,7 @@
 package workers
 
 import (
-	"fmt"
+	"log"
 	"time"
 	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/handlers"
@@ -24,32 +24,32 @@ func NewStreamWorker(db *gorm.DB, config *config.Config) *StreamWorker {
 }
 
 func (w *StreamWorker) StartMonitorStream() {
-	fmt.Println("Starting stream scheduler...")
+	log.Println("Starting stream scheduler...")
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for {
 		<-ticker.C
 		now := time.Now().UTC()
-		fmt.Println("Checking for scheduled streams...")
+		log.Println("Checking for scheduled streams...")
 		// Start scheduled streams
 		var streamsToStart []models.Stream
 		w.DB.Where("status = ? AND scheduled_start_at <= ?", "scheduled", now).Find(&streamsToStart)
-		fmt.Println("Found", len(streamsToStart), "scheduled streams to start.")
+		log.Println("Found", len(streamsToStart), "scheduled streams to start.")
 		for _, stream := range streamsToStart {
 			if stream.StreamKey == "" || stream.FilePath == nil {
-				fmt.Println("Stream", stream.ID, "has no stream key or file path, skipping.")
+				log.Println("Stream", stream.ID, "has no stream key or file path, skipping.")
 				continue // Do not start if no stream key or file path
 			}
 			// check start time
 			if stream.ScheduledStartAt.After(now) {
-				fmt.Println("Stream", stream.ID, "has not started yet, skipping. start time:", stream.ScheduledStartAt)
+				log.Println("Stream", stream.ID, "has not started yet, skipping. start time:", stream.ScheduledStartAt)
 				continue
 			}
 			job.RestartLock.Lock()
 			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
 			job.RestartLock.Unlock()
 			if err == nil {
-				fmt.Println("Stream", stream.ID, "started successfully.")
+				log.Println("Stream", stream.ID, "started successfully.")
 				w.DB.Model(&stream).Updates(map[string]interface{}{
 					"Status":    "live",
 					"StartedAt": now,
@@ -62,7 +62,7 @@ func (w *StreamWorker) StartMonitorStream() {
 		// Stop live streams whose end time has passed
 		var streamsToStop []models.Stream
 		w.DB.Where("status = ? AND scheduled_end_at IS NOT NULL", "live").Find(&streamsToStop)
-		fmt.Println("Found", len(streamsToStop), "live streams to stop.")
+		log.Println("Found", len(streamsToStop), "live streams to stop.")
 		for _, stream := range streamsToStop {
 			// check end time
 			if stream.ScheduledEndAt.Before(now) {
@@ -78,27 +78,27 @@ func (w *StreamWorker) StartMonitorStream() {
 				})
 				// send websocket message
 				handlers.BroadcastStreamListUpdate()
-				fmt.Println("Stream", stream.ID, "stopped successfully.")
+				log.Println("Stream", stream.ID, "stopped successfully.")
 			}
 		}
 	}
 }
 
 func (w *StreamWorker) StartScheduledStream() {
-	fmt.Println("Starting stream restart checker...")
+	log.Println("Starting stream restart checker...")
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for {
 		<-ticker.C
 		var streamsToRestart []models.Stream
 		w.DB.Where("status = ? AND (started_at IS NOT NULL OR scheduled_start_at <= ?) AND (scheduled_end_at IS NULL OR scheduled_end_at > ?)", "live", time.Now().UTC(), time.Now().UTC()).Find(&streamsToRestart)
-		fmt.Println("Found", len(streamsToRestart), "streams to restart.")
+		log.Println("Found", len(streamsToRestart), "streams to restart.")
 		for _, stream := range streamsToRestart {
 			// check if ffmpeg is running by the pid
 			if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
 				// check if process is still running
 				if job.IsProcessRunning(*stream.FfmpegPID) {
-					fmt.Println("Stream", stream.ID, "is already running with PID", *stream.FfmpegPID)
+					log.Println("Stream", stream.ID, "is already running with PID", *stream.FfmpegPID)
 					continue
 				}
 			}
@@ -107,46 +107,46 @@ func (w *StreamWorker) StartScheduledStream() {
 			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
 			job.RestartLock.Unlock()
 			if err != nil {
-				fmt.Println("Failed to restart stream", stream.ID, ":", err)
+				log.Println("Failed to restart stream", stream.ID, ":", err)
 				continue
 			}
 			// send websocket message
 			handlers.BroadcastStreamListUpdate()
-			fmt.Println("Stream", stream.ID, "restarted successfully.")
+			log.Println("Stream", stream.ID, "restarted successfully.")
 		}
 	}
 }
 
 func (w *StreamWorker) StartOneTimeRestarter() {
-	fmt.Println("Starting one time restarter...")
+	log.Println("Starting one time restarter...")
 	var streamsToRestart []models.Stream
 	w.DB.Where("status = ? AND (started_at IS NOT NULL OR scheduled_start_at <= ?)", "live", time.Now().UTC()).Find(&streamsToRestart)
-	fmt.Println("Found", len(streamsToRestart), "streams to restart.")
+	log.Println("Found", len(streamsToRestart), "streams to restart.")
 	for _, stream := range streamsToRestart {
 		// check if ffmpeg is running by the pid
 		if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
 			// check if process is still running
 			if job.IsProcessRunning(*stream.FfmpegPID) {
-				fmt.Println("Stream", stream.ID, "is already running with PID", *stream.FfmpegPID)
+				log.Println("Stream", stream.ID, "is already running with PID", *stream.FfmpegPID)
 				continue
 			}
 		}
 		// lock
 		job.RestartLock.Lock()
 		if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
-			fmt.Println("Stopping stream", stream.ID, "with PID", *stream.FfmpegPID)
+			log.Println("Stopping stream", stream.ID, "with PID", *stream.FfmpegPID)
 			job.StopStreamWorker(stream.ID)
 		}
 		_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
 		job.RestartLock.Unlock()
 
 		if err != nil {
-			fmt.Println("Failed to restart stream", stream.ID, ":", err)
+			log.Println("Failed to restart stream", stream.ID, ":", err)
 			continue
 		}
 
 		// send websocket message
 		handlers.BroadcastStreamListUpdate()
-		fmt.Println("Stream", stream.ID, "restarted successfully.")
+		log.Println("Stream", stream.ID, "restarted successfully.")
 	}
 }

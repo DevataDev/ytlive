@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"time"
 
@@ -55,7 +56,7 @@ func (c *Client) Sign(destinationUrl string) (string, error) {
 	defer reader.Close()
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		fmt.Println("Failed to read signed url for", destinationUrl, "with error", err)
+		log.Println("Failed to read signed url for", destinationUrl, "with error", err)
 		return destinationUrl, err
 	}
 
@@ -66,7 +67,7 @@ func (c *Client) Sign(destinationUrl string) (string, error) {
 
 	parsedUrl, err = url.Parse(signResponse.SignedUrl)
 	if err != nil {
-		fmt.Println("Failed to parse signed url for", destinationUrl, "with error", err)
+		log.Println("Failed to parse signed url for", destinationUrl, "with error", err)
 		return destinationUrl, err
 	}
 
