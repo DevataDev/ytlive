@@ -429,7 +429,7 @@ func main() {
 	// Start background goroutine for broadcasting stream stats
 	go handlers.BroadcastStreamStats()
 
-	streamWorker := workers.NewStreamWorker(db, cfg)
+	streamWorker := workers.NewStreamWorker(database, cfg)
 
 	// -- Stream Worker: Monitor stream status --
 	go streamWorker.StartMonitorStream()
@@ -439,7 +439,7 @@ func main() {
 	// one time restarter
 	go streamWorker.StartOneTimeRestarter()
 
-	mirrorWorker := workers.NewMirrorWorker(db, tiktokClient)
+	mirrorWorker := workers.NewMirrorWorker(database, tiktokClient)
 	go mirrorWorker.StartMirrorRoomIsAliveChecker()
 	go mirrorWorker.StartQueueChecker()
 

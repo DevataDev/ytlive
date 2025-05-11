@@ -44,8 +44,17 @@ func (h *YoutubeClient) UpdateTokenInDB(oldRefreshToken string, accessToken stri
 		fmt.Println("Invalid token for update in DB", accessToken, refreshToken, oldRefreshToken)
 		return nil
 	}
+	if oldRefreshToken == "" {
+		fmt.Println("Invalid refresh token for update in DB", oldRefreshToken)
+		return nil
+	}
+	if h.DB == nil {
+		fmt.Println("Invalid DB for update in DB")
+		return nil
+	}
 	var channel models.Channels
 	if err := h.DB.Where("refresh_token = ?", oldRefreshToken).Find(&channel).Error; err != nil {
+		fmt.Println("Failed to get channel for refresh token", oldRefreshToken, "with error", err.Error())
 		return err
 	}
 	channel.AccessToken = &accessToken
@@ -53,6 +62,7 @@ func (h *YoutubeClient) UpdateTokenInDB(oldRefreshToken string, accessToken stri
 		channel.RefreshToken = &refreshToken
 	}
 	if err := h.DB.Save(&channel).Error; err != nil {
+		fmt.Println("Failed to update channel in DB", channel.ID, "with error", err.Error())
 		return err
 	}
 	return nil
