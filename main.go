@@ -17,6 +17,7 @@ import (
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/redisutil"
 	"windsorf-youtube-live/internal/tiktok"
 	"windsorf-youtube-live/internal/version"
 	"windsorf-youtube-live/internal/workers"
@@ -155,6 +156,16 @@ func main() {
 	})
 
 	r := gin.Default()
+	redisPubSub := redisutil.RedisPubSub{Config: cfg}
+	redisPubSub.InitRedis()
+
+	// assign config and db to gin context
+	r.Use(func(c *gin.Context) {
+		c.Set("config", cfg)
+		c.Set("db", db)
+		c.Set("redis", &redisPubSub)
+		c.Next()
+	})
 
 	// Replace static file serving with embedded static files
 	staticFS, _ := fs.Sub(StaticFiles, "web/static")
@@ -267,20 +278,20 @@ func main() {
 	r.POST("/api/refresh-token", authHandler.RefreshToken)
 
 	// Stream handler
-	streamHandler := &handlers.StreamHandler{DB: db}
+	streamHandler := &handlers.StreamHandler{DB: db, Config: cfg}
 	fileUploadHandler := &handlers.FileUploadHandler{DB: db, Config: cfg}
-	// Set max bitrate endpoint
 	r.PUT("/api/streams/:id/maxbitrate", handlers.JWTMiddleware(), streamHandler.SetMaxBitrate)
 	r.GET("/api/streams", handlers.JWTMiddleware(), streamHandler.ListStreams)
 	r.POST("/api/streams", handlers.JWTMiddleware(), streamHandler.CreateStream)
 	r.PUT("/api/streams/:id/schedule", handlers.JWTMiddleware(), streamHandler.SetSchedule)
-	r.PUT("/api/streams/:id/rename", handlers.JWTMiddleware(), streamHandler.RenameFile)
 	r.PUT("/api/streams/:id/duration", handlers.JWTMiddleware(), streamHandler.SetDuration)
-	r.GET("/api/streams/preview/:id", streamHandler.ServeVideoPreviewByID)
+	r.PUT("/api/streams/:id/rename", handlers.JWTMiddleware(), streamHandler.RenameFile)
 	r.PUT("/api/streams/:id/loop", handlers.JWTMiddleware(), streamHandler.SetLoopVideo)
 	r.PUT("/api/streams/:id/loopcount", handlers.JWTMiddleware(), streamHandler.SetLoopCount)
 	r.PUT("/api/streams/:id/rtmpurl", handlers.JWTMiddleware(), streamHandler.SetRTMPUrl)
 	r.POST("/api/streams/:id/clone", handlers.JWTMiddleware(), streamHandler.CloneStream)
+	r.GET("/api/streams/preview/:id", streamHandler.ServeVideoPreviewByID)
+	r.GET("/api/streams/:id/logs", handlers.JWTMiddleware(), streamHandler.GetStreamLogs)
 
 	dashboardHandler := &handlers.DashboardHandler{DB: db}
 	r.GET("/api/dashboard/streams", handlers.JWTMiddleware(), dashboardHandler.GetDashboardStreamMetrics)
@@ -346,6 +357,8 @@ func main() {
 	r.PUT("/api/mirrors/:id/rtmp-url", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorRTMPUrl)
 	r.PUT("/api/mirrors/:id/stream-key", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorStreamKey)
 	r.PUT("/api/mirrors/:id/channel-id", handlers.JWTMiddleware(), mirrorHandler.UpdateMirrorChannelId)
+	// FFmpeg log HTTP endpoint for mirrors
+	r.GET("/api/mirrors/:id/logs", handlers.JWTMiddleware(), mirrorHandler.GetMirrorLogs)
 
 	broadcast.Bus.AddListener("default", broadcast.AddToMirror, func(e broadcast.Event) {
 		log.Println("Adding to mirror", e.Data)
@@ -354,7 +367,7 @@ func main() {
 			log.Println("Failed to add to mirror, invalid data type")
 			return
 		}
-		mirrorHandler.AddMirrorFromBroadcast(data["username"].(string), data["user_id"].(string), data["rtmp_url"].(string), data["stream_key"].(string), data["channel_id"].(string))
+		mirrorHandler.AddMirrorFromBroadcast(data["username"].(string), data["user_id"].(string), data["rtmp_url"].(string), data["stream_key"].(string), data["channel_id"].(string), &redisPubSub)
 	})
 
 	broadcast.Bus.AddListener("default", broadcast.RefreshMonitor, func(e broadcast.Event) {
@@ -429,7 +442,7 @@ func main() {
 	// Start background goroutine for broadcasting stream stats
 	go handlers.BroadcastStreamStats()
 
-	streamWorker := workers.NewStreamWorker(database, cfg)
+	streamWorker := workers.NewStreamWorker(database, cfg, &redisPubSub)
 
 	// -- Stream Worker: Monitor stream status --
 	go streamWorker.StartMonitorStream()
@@ -439,7 +452,7 @@ func main() {
 	// one time restarter
 	go streamWorker.StartOneTimeRestarter()
 
-	mirrorWorker := workers.NewMirrorWorker(database, tiktokClient)
+	mirrorWorker := workers.NewMirrorWorker(database, tiktokClient, &redisPubSub)
 	go mirrorWorker.StartMirrorRoomIsAliveChecker()
 	go mirrorWorker.StartQueueChecker()
 
@@ -457,6 +470,10 @@ func main() {
 		}
 		handlers.WebSocketHandlerWithContext(ctx, c)
 	})
+
+	// FFmpeg log WebSocket endpoints for mirrors and streams
+	r.GET("/ws/ffmpeg-logs/mirror/:mirror_id", handlers.JWTMiddleware(), handlers.FFmpegLogMirrorWebSocket)
+	r.GET("/ws/ffmpeg-logs/stream/:stream_id", handlers.JWTMiddleware(), handlers.FFmpegLogStreamWebSocket)
 
 	log.Println("Starting YukLive...")
 	log.Println("Version: " + version.Version)
@@ -483,7 +500,10 @@ func main() {
 	log.Println("Killing all running stream workers...")
 	for id := range job.Workers {
 		log.Println("Killing stream worker for stream", id)
-		_ = job.StopStreamWorker(id)
+		//kill the ffmpeg process
+		if job.Workers[id].FfmpegPID != nil {
+			job.KillFFmpegProcess(*job.Workers[id].FfmpegPID)
+		}
 	}
 
 	server.Shutdown(context.Background())

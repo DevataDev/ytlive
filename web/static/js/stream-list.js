@@ -39,6 +39,72 @@ function ajaxWithRefresh(options) {
 }
 
 $(function() {
+    // --- FFmpeg Logs Modal Logic ---
+    let ffmpegLogsSocket = null;
+    $(document).on('click', '.view-logs-btn', function() {
+        const streamId = $(this).data('id');
+        const $modal = $('#ffmpegLogsModal');
+        const $content = $('#ffmpegLogsContent');
+        $content.text('Loading logs...');
+        $modal.modal('show');
+
+        // Close previous socket if any
+        if (ffmpegLogsSocket) {
+            ffmpegLogsSocket.close();
+            ffmpegLogsSocket = null;
+        }
+        let token = localStorage.getItem("jwt_token");
+        // Try WebSocket first
+        let protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        let wsUrl = protocol + '://' + window.location.host + `/ws/ffmpeg-logs/stream/${streamId}?token=${encodeURIComponent(token)}`;
+        try {
+            ffmpegLogsSocket = new WebSocket(wsUrl);
+            ffmpegLogsSocket.onopen = function() {
+                $content.text('');
+            };
+            ffmpegLogsSocket.onmessage = function(event) {
+                $content.append(event.data + '\n');
+                $content.scrollTop($content[0].scrollHeight);
+            };
+            ffmpegLogsSocket.onerror = function() {
+                // fallback to HTTP fetch
+                fetch(`/api/streams/${streamId}/logs`, {
+                    headers: {
+                        Authorization: "Bearer " + token
+                    }
+                })
+                    .then(resp => resp.text())
+                    .then(text => {
+                        $content.text(text);
+                        $content.scrollTop($content[0].scrollHeight);
+                    })
+                    .catch(() => {
+                        $content.text('Failed to load logs.');
+                    });
+            };
+            ffmpegLogsSocket.onclose = function() {
+                ffmpegLogsSocket = null;
+            };
+        } catch (e) {
+            // fallback to HTTP fetch
+            fetch(`/api/streams/${streamId}/logs`)
+                .then(resp => resp.text())
+                .then(text => {
+                    $content.text(text);
+                    $content.scrollTop($content[0].scrollHeight);
+                })
+                .catch(() => {
+                    $content.text('Failed to load logs.');
+                });
+        }
+        // Close socket when modal hidden
+        $modal.off('hidden.bs.modal').on('hidden.bs.modal', function() {
+            if (ffmpegLogsSocket) {
+                ffmpegLogsSocket.close();
+                ffmpegLogsSocket = null;
+            }
+        });
+    });
     // Auth check and logout
     if (!localStorage.getItem("jwt_token")) {
         window.location.href = "/";
@@ -163,7 +229,8 @@ $(function() {
             }
             let bindBtn = `<button class='btn btn-outline-primary btn-sm ms-2 bind-channel-btn' data-id='${stream.ID}'>Bind</button>`;
             let deleteBtn = `<button class="btn btn-secondary btn-sm stream-delete ms-2" data-id="${stream.ID}">Hapus</button>`;
-            let cloneBtn = `<button class="btn btn-info btn-sm stream-clone ms-2" data-id="${stream.ID}"><i class="fa fa-clone"></i> Clone</button>`;
+            let cloneBtn = `<button class="btn btn-info btn-sm stream-clone ms-2" data-id="${stream.ID}"><i class="fa fa-clone"></i></button>`;
+            let logsBtn = `<button class="btn btn-info btn-sm view-logs-btn stream-logs ms-2" data-id="${stream.ID}"><i class="fa fa-info-circle"></i></button>`;
 
             // --- File size formatting ---
             let fileSizeStr = '';
@@ -231,6 +298,7 @@ $(function() {
                         ${deleteBtn}
                         ${bindBtn}
                         ${cloneBtn}
+                        ${logsBtn}
                         ${liveBadge}
                     </div>
                     ${settingsBtn}

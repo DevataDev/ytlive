@@ -6,6 +6,7 @@ import (
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/redisutil"
 	"windsorf-youtube-live/internal/tiktok"
 
 	"gorm.io/gorm"
@@ -14,12 +15,14 @@ import (
 type MirrorWorker struct {
 	DB           *gorm.DB
 	TiktokClient *tiktok.Client
+	RedisPubSub  *redisutil.RedisPubSub
 }
 
-func NewMirrorWorker(db *gorm.DB, tiktokClient *tiktok.Client) *MirrorWorker {
+func NewMirrorWorker(db *gorm.DB, tiktokClient *tiktok.Client, redisPubSub *redisutil.RedisPubSub) *MirrorWorker {
 	return &MirrorWorker{
 		DB:           db,
 		TiktokClient: tiktokClient,
+		RedisPubSub:  redisPubSub,
 	}
 }
 
@@ -132,7 +135,7 @@ func (w *MirrorWorker) StartQueueChecker() {
 							}
 
 							//start stream worker
-							job.StartMirrorWorkerWithDatabase(mirror.ID, w.TiktokClient, w.DB)
+							job.StartMirrorWorkerWithDatabase(mirror.ID, w.TiktokClient, w.DB, w.RedisPubSub)
 						}
 					}
 				}

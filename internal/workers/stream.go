@@ -7,19 +7,22 @@ import (
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/redisutil"
 
 	"gorm.io/gorm"
 )
 
 type StreamWorker struct {
-	DB     *gorm.DB
-	Config *config.Config
+	DB          *gorm.DB
+	Config      *config.Config
+	RedisPubSub *redisutil.RedisPubSub
 }
 
-func NewStreamWorker(db *gorm.DB, config *config.Config) *StreamWorker {
+func NewStreamWorker(db *gorm.DB, config *config.Config, redisPubSub *redisutil.RedisPubSub) *StreamWorker {
 	return &StreamWorker{
-		DB:     db,
-		Config: config,
+		DB:          db,
+		Config:      config,
+		RedisPubSub: redisPubSub,
 	}
 }
 
@@ -46,7 +49,7 @@ func (w *StreamWorker) StartMonitorStream() {
 				continue
 			}
 			job.RestartLock.Lock()
-			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
+			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
 			job.RestartLock.Unlock()
 			if err == nil {
 				log.Println("Stream", stream.ID, "started successfully.")
@@ -104,7 +107,7 @@ func (w *StreamWorker) StartScheduledStream() {
 			}
 			job.RestartLock.Lock()
 			_ = job.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
-			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
+			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
 			job.RestartLock.Unlock()
 			if err != nil {
 				log.Println("Failed to restart stream", stream.ID, ":", err)
@@ -137,7 +140,7 @@ func (w *StreamWorker) StartOneTimeRestarter() {
 			log.Println("Stopping stream", stream.ID, "with PID", *stream.FfmpegPID)
 			job.StopStreamWorker(stream.ID)
 		}
-		_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB)
+		_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
 		job.RestartLock.Unlock()
 
 		if err != nil {

@@ -323,5 +323,22 @@ $('#settingsMode').on('change', function() {
 $('#settingsLoopCount').val('-1');
 </script>
 
+<!-- FFmpeg Logs Modal -->
+<div class="modal fade" id="ffmpegLogsModal" tabindex="-1" aria-labelledby="ffmpegLogsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="ffmpegLogsModalLabel">FFmpeg Logs</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="max-height:60vh;overflow:auto;">
+        <pre id="ffmpegLogsContent" style="background:#222;color:#eee;padding:1em;border-radius:8px;min-height:200px;"></pre>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>

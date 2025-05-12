@@ -1,6 +1,7 @@
 package job
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"time"
 	"windsorf-youtube-live/internal/broadcast"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/redisutil"
 	"windsorf-youtube-live/internal/tiktok"
 	"windsorf-youtube-live/internal/youtube"
 
@@ -30,6 +32,7 @@ type MirrorWorker struct {
 	StopChan      chan struct{}
 	TiktokClient  tiktok.TikTokClientIface
 	YoutubeClient *youtube.YoutubeClient
+	RedisPubSub   *redisutil.RedisPubSub
 }
 
 var (
@@ -106,7 +109,7 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				// check
 				MirrorRestartLock.Lock()
 				StopMirrorWorkerWithDatabase(w.MirrorID, w.DB, false)
-				StartMirrorWorkerWithDatabase(w.MirrorID, w.TiktokClient, w.DB)
+				StartMirrorWorkerWithDatabase(w.MirrorID, w.TiktokClient, w.DB, w.RedisPubSub)
 				MirrorRestartLock.Unlock()
 				broadcast.Bus.Broadcast(broadcast.RefreshMirror, nil)
 				return
@@ -117,7 +120,7 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	}
 }
 
-func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokClientIface, database *gorm.DB) (*MirrorWorker, int, error) {
+func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokClientIface, database *gorm.DB, redisPubSub *redisutil.RedisPubSub) (*MirrorWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	// get mirror from database
 	var mirror models.Mirror
@@ -162,6 +165,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		UserAgent:    mirror.UserAgent,
 		RoomID:       mirror.RoomId,
 		TiktokClient: tiktokClient,
+		RedisPubSub:  redisPubSub,
 	}
 
 	if status == "queued" {
@@ -245,12 +249,61 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 
 	worker.Cmd = cmd
 
+	stdout, _ := cmd.StdoutPipe()
+	stderr, _ := cmd.StderrPipe()
+
 	// start cmd
 	err = cmd.Start()
 	if err != nil {
 		log.Println("Failed to start FFmpeg:", err)
 		return nil, 0, err
 	}
+
+	// Start goroutines to capture and publish logs
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+			for i := 0; i < len(data); i++ {
+				if data[i] == '\n' || data[i] == '\r' {
+					// Return the line without the delimiter
+					return i + 1, data[:i], nil
+				}
+			}
+			if atEOF && len(data) > 0 {
+				return len(data), data, nil
+			}
+			return 0, nil, nil
+		})
+		for scanner.Scan() {
+			line := scanner.Text()
+			if worker.RedisPubSub != nil {
+				channel := "ffmpeg-logs:mirror:" + mirrorID
+				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
+			}
+		}
+	}()
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+			for i := 0; i < len(data); i++ {
+				if data[i] == '\n' || data[i] == '\r' {
+					// Return the line without the delimiter
+					return i + 1, data[:i], nil
+				}
+			}
+			if atEOF && len(data) > 0 {
+				return len(data), data, nil
+			}
+			return 0, nil, nil
+		})
+		for scanner.Scan() {
+			line := scanner.Text()
+			if worker.RedisPubSub != nil {
+				channel := "ffmpeg-logs:mirror:" + mirrorID
+				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
+			}
+		}
+	}()
 
 	// update database
 	timeNow := time.Now().UTC()
@@ -269,8 +322,6 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	}()
 
 	AddMirrorWorker(worker)
-
-	log.Println("FFmpeg process started for mirror", mirrorID, "with PID", cmd.Process.Pid)
 
 	return worker, cmd.Process.Pid, nil
 }
@@ -351,6 +402,11 @@ func buildMirrorFfmpegArgs(rtmpUrl string, streamKey string, liveUrl string, use
 	args = append(args, "-nostdin")
 	args = append(args, "-analyzeduration", "1000000")
 	args = append(args, "-probesize", "1000000")
+	args = append(args, "-fflags", "+genpts")
+	args = append(args, "-hide_banner")
+	args = append(args, "-loglevel", "info")
+	args = append(args, "-stats_period", "1")
+	// args = append(args, "-progress", "pipe:1")
 	args = append(args, "-threads", "1")
 	args = append(args, "-i", liveUrl)
 	args = append(args, "-user_agent", ffmpegUserAgent)

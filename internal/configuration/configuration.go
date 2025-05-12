@@ -35,6 +35,7 @@ type Config struct {
 		Ttwid     Ttwid   `yaml:"ttwid"`
 	} `yaml:"tiktok"`
 	Youtube Youtube `yaml:youtube`
+	Redis   Redis   `yaml:redis`
 }
 
 type Proxy struct {
@@ -65,4 +66,11 @@ type Youtube struct {
 	RedirectURL  string `yaml:"redirectUrl"`
 	ClientId     string `yaml:"clientId"`
 	ClientSecret string `yaml:"clientSecret"`
+}
+
+type Redis struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	DB       int    `yaml:"db"`
+	Password string `yaml:"password"`
 }
