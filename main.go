@@ -500,7 +500,10 @@ func main() {
 	log.Println("Killing all running stream workers...")
 	for id := range job.Workers {
 		log.Println("Killing stream worker for stream", id)
-		_ = job.StopStreamWorker(id)
+		//kill the ffmpeg process
+		if job.Workers[id].FfmpegPID != nil {
+			job.KillFFmpegProcess(*job.Workers[id].FfmpegPID)
+		}
 	}
 
 	server.Shutdown(context.Background())

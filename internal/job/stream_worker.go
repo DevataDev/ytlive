@@ -471,3 +471,12 @@ func ClearDriveProgress(driveLink string) {
 	defer driveProgressMu.Unlock()
 	delete(driveProgressMap, driveLink)
 }
+
+// KillFFmpegProcess kills the FFmpeg process for a stream
+func KillFFmpegProcess(pid int) {
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		_ = exec.Command("kill", "-9", fmt.Sprintf("%d", pid)).Run()
+	} else if runtime.GOOS == "windows" {
+		_ = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid)).Run()
+	}
+}
