@@ -278,20 +278,44 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	// Start goroutines to capture and publish logs
 	go func() {
 		scanner := bufio.NewScanner(stdout)
+		scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+			for i := 0; i < len(data); i++ {
+				if data[i] == '\n' || data[i] == '\r' {
+					// Return the line without the delimiter
+					return i + 1, data[:i], nil
+				}
+			}
+			if atEOF && len(data) > 0 {
+				return len(data), data, nil
+			}
+			return 0, nil, nil
+		})
 		for scanner.Scan() {
 			line := scanner.Text()
 			if worker.RedisPubSub != nil {
-				channel := worker.RedisPubSub.GetFFmpegLogChannel(worker.StreamKey)
+				channel := "ffmpeg-logs:stream:" + streamID
 				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
 			}
 		}
 	}()
 	go func() {
 		scanner := bufio.NewScanner(stderr)
+		scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+			for i := 0; i < len(data); i++ {
+				if data[i] == '\n' || data[i] == '\r' {
+					// Return the line without the delimiter
+					return i + 1, data[:i], nil
+				}
+			}
+			if atEOF && len(data) > 0 {
+				return len(data), data, nil
+			}
+			return 0, nil, nil
+		})
 		for scanner.Scan() {
 			line := scanner.Text()
 			if worker.RedisPubSub != nil {
-				channel := worker.RedisPubSub.GetFFmpegLogChannel(worker.StreamKey)
+				channel := "ffmpeg-logs:stream:" + streamID
 				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
 			}
 		}
@@ -413,6 +437,11 @@ func buildFfmpegArgs(maxBitrate *int, loopVideo bool, filePath string, streamKey
 	args = append(args, "ffmpeg")
 	args = append(args, "-re")
 	args = append(args, "-nostdin")
+	args = append(args, "-fflags", "+genpts")
+	args = append(args, "-hide_banner")
+	args = append(args, "-loglevel", "info")
+	args = append(args, "-stats_period", "1")
+	// args = append(args, "-progress", "pipe:1")
 	var loopingCount int
 	if loopVideo {
 		if loopCount == nil {

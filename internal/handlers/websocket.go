@@ -471,3 +471,114 @@ func BroadcastMonitorUpdate(id string, uniqueId string, isLive bool) {
 	}
 	streamListClientsMu.Unlock()
 }
+
+// FFmpegLogMirrorWebSocket handles /ws/ffmpeg-logs/mirror/:mirror_id
+// Register in main.go: r.GET("/ws/ffmpeg-logs/mirror/:mirror_id", handlers.JWTMiddleware(), handlers.FFmpegLogMirrorWebSocket)
+func FFmpegLogMirrorWebSocket(c *gin.Context) {
+	userId := c.GetString("user_id")
+	if userId == "" {
+		c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
+		return
+	}
+	mirrorId := c.Param("mirror_id")
+	if mirrorId == "" {
+		c.AbortWithStatusJSON(400, gin.H{"error": "missing mirror_id"})
+		return
+	}
+	// Get RedisPubSub from context or config
+	var redisPubSub *redisutil.RedisPubSub
+	if config, exists := c.Get("config"); exists {
+		redisPubSub = &redisutil.RedisPubSub{Config: config.(*configuration.Config)}
+		if redisPubSub.InitRedis() != nil {
+			c.AbortWithStatusJSON(500, gin.H{"error": "Redis connection failed"})
+			return
+		}
+	} else if rp, exists := c.Get("redis"); exists {
+		redisPubSub = rp.(*redisutil.RedisPubSub)
+	} else {
+		c.AbortWithStatusJSON(500, gin.H{"error": "Redis not initialized"})
+		return
+	}
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	ctx, cancel := context.WithCancel(c.Request.Context())
+	defer cancel()
+	channel := "ffmpeg-logs:mirror:" + mirrorId
+	pubsub := redisPubSub.SubscribeFFmpegLog(ctx, channel)
+	ch := pubsub.Channel()
+	go func() {
+		<-ctx.Done()
+		pubsub.Close()
+	}()
+	for {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(msg.Payload)); err != nil {
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// FFmpegLogStreamWebSocket handles /ws/ffmpeg-logs/stream/:stream_id
+// Register in main.go: r.GET("/ws/ffmpeg-logs/stream/:stream_id", handlers.JWTMiddleware(), handlers.FFmpegLogStreamWebSocket)
+func FFmpegLogStreamWebSocket(c *gin.Context) {
+	userId := c.GetString("user_id")
+	if userId == "" {
+		c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
+		return
+	}
+	streamId := c.Param("stream_id")
+	if streamId == "" {
+		c.AbortWithStatusJSON(400, gin.H{"error": "missing stream_id"})
+		return
+	}
+	var redisPubSub *redisutil.RedisPubSub
+	if config, exists := c.Get("config"); exists {
+		redisPubSub = &redisutil.RedisPubSub{Config: config.(*configuration.Config)}
+		if redisPubSub.InitRedis() != nil {
+			c.AbortWithStatusJSON(500, gin.H{"error": "Redis connection failed"})
+			return
+		}
+	} else if rp, exists := c.Get("redis"); exists {
+		redisPubSub = rp.(*redisutil.RedisPubSub)
+	} else {
+		c.AbortWithStatusJSON(500, gin.H{"error": "Redis not initialized"})
+		return
+	}
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	ctx, cancel := context.WithCancel(c.Request.Context())
+	defer cancel()
+	channel := "ffmpeg-logs:stream:" + streamId
+	pubsub := redisPubSub.SubscribeFFmpegLog(ctx, channel)
+	ch := pubsub.Channel()
+	go func() {
+		<-ctx.Done()
+		pubsub.Close()
+	}()
+	for {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(msg.Payload)); err != nil {
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}

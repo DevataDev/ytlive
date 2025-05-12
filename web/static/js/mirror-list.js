@@ -15,7 +15,8 @@ $(function() {
         }
         // Try WebSocket first
         let protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        let wsUrl = protocol + '://' + window.location.host + `/ws/ffmpeg-logs/mirror/${mirrorId}`;
+        let token = localStorage.getItem("jwt_token");
+        let wsUrl = protocol + '://' + window.location.host + `/ws/ffmpeg-logs/mirror/${mirrorId}?token=${encodeURIComponent(token)}`;
         try {
             ffmpegLogsSocket = new WebSocket(wsUrl);
             ffmpegLogsSocket.onopen = function() {
@@ -27,7 +28,11 @@ $(function() {
             };
             ffmpegLogsSocket.onerror = function() {
                 // fallback to HTTP fetch
-                fetch(`/api/mirrors/${mirrorId}/logs`)
+                fetch(`/api/mirrors/${mirrorId}/logs`, {
+                    headers: {
+                        Authorization: "Bearer " + token
+                    }
+                })
                     .then(resp => resp.text())
                     .then(text => {
                         $content.text(text);

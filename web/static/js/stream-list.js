@@ -53,9 +53,10 @@ $(function() {
             ffmpegLogsSocket.close();
             ffmpegLogsSocket = null;
         }
+        let token = localStorage.getItem("jwt_token");
         // Try WebSocket first
         let protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        let wsUrl = protocol + '://' + window.location.host + `/ws/ffmpeg-logs/stream/${streamId}`;
+        let wsUrl = protocol + '://' + window.location.host + `/ws/ffmpeg-logs/stream/${streamId}?token=${encodeURIComponent(token)}`;
         try {
             ffmpegLogsSocket = new WebSocket(wsUrl);
             ffmpegLogsSocket.onopen = function() {
@@ -67,7 +68,11 @@ $(function() {
             };
             ffmpegLogsSocket.onerror = function() {
                 // fallback to HTTP fetch
-                fetch(`/api/streams/${streamId}/logs`)
+                fetch(`/api/streams/${streamId}/logs`, {
+                    headers: {
+                        Authorization: "Bearer " + token
+                    }
+                })
                     .then(resp => resp.text())
                     .then(text => {
                         $content.text(text);

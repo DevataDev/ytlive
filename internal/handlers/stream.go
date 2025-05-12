@@ -51,6 +51,47 @@ func (h *StreamHandler) SetMaxBitrate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Max bitrate updated"})
 }
 
+// GET /api/streams/:id/logs
+func (h *StreamHandler) GetStreamLogs(c *gin.Context) {
+	userId := c.GetString("user_id")
+	if userId == "" {
+		c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
+		return
+	}
+	streamId := c.Param("id")
+	if streamId == "" {
+		c.AbortWithStatusJSON(400, gin.H{"error": "missing stream_id"})
+		return
+	}
+	// Get RedisPubSub from context or config
+	var redisPubSub *redisutil.RedisPubSub
+	if config, exists := c.Get("config"); exists {
+		redisPubSub = &redisutil.RedisPubSub{Config: config.(*configuration.Config)}
+		if redisPubSub.InitRedis() != nil {
+			c.AbortWithStatusJSON(500, gin.H{"error": "Redis connection failed"})
+			return
+		}
+	} else if rp, exists := c.Get("redis"); exists {
+		redisPubSub = rp.(*redisutil.RedisPubSub)
+	} else {
+		c.AbortWithStatusJSON(500, gin.H{"error": "Redis not initialized"})
+		return
+	}
+	count := int64(100) // default number of logs
+	if c.Query("count") != "" {
+		if n, err := strconv.ParseInt(c.Query("count"), 10, 64); err == nil && n > 0 {
+			count = n
+		}
+	}
+	channel := "ffmpeg-logs:stream:" + streamId
+	logs, err := redisPubSub.GetFFmpegLogs(c.Request.Context(), channel, count)
+	if err != nil {
+		c.AbortWithStatusJSON(500, gin.H{"error": "Failed to fetch logs: " + err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"logs": logs})
+}
+
 // GET /api/streams - list streams for current user
 func (h *StreamHandler) ListStreams(c *gin.Context) {
 	userID, ok := c.Get("user_id")

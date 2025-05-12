@@ -11,6 +11,8 @@ import (
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/redisutil"
 	"windsorf-youtube-live/internal/tiktok"
+	"windsorf-youtube-live/internal/configuration"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/oklog/ulid/v2"
@@ -30,6 +32,47 @@ func checkAllNumber(str string) bool {
 		}
 	}
 	return true
+}
+
+// GET /api/mirrors/:id/logs
+func (h *MirrorHandler) GetMirrorLogs(c *gin.Context) {
+	userId := c.GetString("user_id")
+	if userId == "" {
+		c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
+		return
+	}
+	mirrorId := c.Param("id")
+	if mirrorId == "" {
+		c.AbortWithStatusJSON(400, gin.H{"error": "missing mirror_id"})
+		return
+	}
+	// Get RedisPubSub from context or config
+	var redisPubSub *redisutil.RedisPubSub
+	if config, exists := c.Get("config"); exists {
+		redisPubSub = &redisutil.RedisPubSub{Config: config.(*configuration.Config)}
+		if redisPubSub.InitRedis() != nil {
+			c.AbortWithStatusJSON(500, gin.H{"error": "Redis connection failed"})
+			return
+		}
+	} else if rp, exists := c.Get("redis"); exists {
+		redisPubSub = rp.(*redisutil.RedisPubSub)
+	} else {
+		c.AbortWithStatusJSON(500, gin.H{"error": "Redis not initialized"})
+		return
+	}
+	count := int64(100) // default number of logs
+	if c.Query("count") != "" {
+		if n, err := strconv.ParseInt(c.Query("count"), 10, 64); err == nil && n > 0 {
+			count = n
+		}
+	}
+	channel := "ffmpeg-logs:mirror:" + mirrorId
+	logs, err := redisPubSub.GetFFmpegLogs(c.Request.Context(), channel, count)
+	if err != nil {
+		c.AbortWithStatusJSON(500, gin.H{"error": "Failed to fetch logs: " + err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"logs": logs})
 }
 
 // GET /api/mirrors
