@@ -17,6 +17,7 @@ import (
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/redisutil"
 	"windsorf-youtube-live/internal/tiktok"
 	"windsorf-youtube-live/internal/version"
 	"windsorf-youtube-live/internal/workers"
@@ -155,6 +156,16 @@ func main() {
 	})
 
 	r := gin.Default()
+	redisPubSub := redisutil.RedisPubSub{Config: cfg}
+	redisPubSub.InitRedis()
+
+	// assign config and db to gin context
+	r.Use(func(c *gin.Context) {
+		c.Set("config", cfg)
+		c.Set("db", db)
+		c.Set("redis", redisPubSub)
+		c.Next()
+	})
 
 	// Replace static file serving with embedded static files
 	staticFS, _ := fs.Sub(StaticFiles, "web/static")
@@ -267,7 +278,7 @@ func main() {
 	r.POST("/api/refresh-token", authHandler.RefreshToken)
 
 	// Stream handler
-	streamHandler := &handlers.StreamHandler{DB: db}
+	streamHandler := &handlers.StreamHandler{DB: db, Config: cfg}
 	fileUploadHandler := &handlers.FileUploadHandler{DB: db, Config: cfg}
 	// Set max bitrate endpoint
 	r.PUT("/api/streams/:id/maxbitrate", handlers.JWTMiddleware(), streamHandler.SetMaxBitrate)
@@ -354,7 +365,7 @@ func main() {
 			log.Println("Failed to add to mirror, invalid data type")
 			return
 		}
-		mirrorHandler.AddMirrorFromBroadcast(data["username"].(string), data["user_id"].(string), data["rtmp_url"].(string), data["stream_key"].(string), data["channel_id"].(string))
+		mirrorHandler.AddMirrorFromBroadcast(data["username"].(string), data["user_id"].(string), data["rtmp_url"].(string), data["stream_key"].(string), data["channel_id"].(string), &redisPubSub)
 	})
 
 	broadcast.Bus.AddListener("default", broadcast.RefreshMonitor, func(e broadcast.Event) {
@@ -429,7 +440,7 @@ func main() {
 	// Start background goroutine for broadcasting stream stats
 	go handlers.BroadcastStreamStats()
 
-	streamWorker := workers.NewStreamWorker(database, cfg)
+	streamWorker := workers.NewStreamWorker(database, cfg, &redisPubSub)
 
 	// -- Stream Worker: Monitor stream status --
 	go streamWorker.StartMonitorStream()
@@ -439,7 +450,7 @@ func main() {
 	// one time restarter
 	go streamWorker.StartOneTimeRestarter()
 
-	mirrorWorker := workers.NewMirrorWorker(database, tiktokClient)
+	mirrorWorker := workers.NewMirrorWorker(database, tiktokClient, &redisPubSub)
 	go mirrorWorker.StartMirrorRoomIsAliveChecker()
 	go mirrorWorker.StartQueueChecker()
 

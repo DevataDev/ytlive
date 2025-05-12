@@ -9,6 +9,7 @@ import (
 	"windsorf-youtube-live/internal/broadcast"
 	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/redisutil"
 	"windsorf-youtube-live/internal/tiktok"
 
 	"github.com/gin-gonic/gin"
@@ -167,7 +168,15 @@ func (h *MirrorHandler) StartMirror(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Cannot start: StreamKey missing or mirror is not alive"})
 		return
 	}
-	_, _, err := job.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB)
+
+	redisClient, exists := c.Get("redis")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Redis not initialized."})
+		return
+	}
+	redisPubSub := redisClient.(*redisutil.RedisPubSub)
+
+	_, _, err := job.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB, redisPubSub)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -304,7 +313,7 @@ func (h *MirrorHandler) UpdateMirrorChannelId(c *gin.Context) {
 	c.JSON(200, gin.H{"success": true})
 }
 
-func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, rtmpUrl string, streamKey string, channelId string) {
+func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, rtmpUrl string, streamKey string, channelId string, redisPubSub *redisutil.RedisPubSub) {
 	var roomID string
 	if checkAllNumber(username) {
 		roomID = username
@@ -400,7 +409,7 @@ func (h *MirrorHandler) AddMirrorFromBroadcast(username string, userID string, r
 		return
 	}
 
-	_, _, err = job.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB)
+	_, _, err = job.StartMirrorWorkerWithDatabase(mirror.ID, h.TikTok, h.DB, redisPubSub)
 	if err != nil {
 		log.Println("Failed to start mirror worker: " + err.Error())
 		return

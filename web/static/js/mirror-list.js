@@ -1,4 +1,65 @@
 $(function() {
+    // --- FFmpeg Logs Modal Logic ---
+    let ffmpegLogsSocket = null;
+    $(document).on('click', '.view-logs-btn', function() {
+        const mirrorId = $(this).data('id');
+        const $modal = $('#ffmpegLogsModal');
+        const $content = $('#ffmpegLogsContent');
+        $content.text('Loading logs...');
+        $modal.modal('show');
+
+        // Close previous socket if any
+        if (ffmpegLogsSocket) {
+            ffmpegLogsSocket.close();
+            ffmpegLogsSocket = null;
+        }
+        // Try WebSocket first
+        let protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        let wsUrl = protocol + '://' + window.location.host + `/ws/ffmpeg-logs/mirror/${mirrorId}`;
+        try {
+            ffmpegLogsSocket = new WebSocket(wsUrl);
+            ffmpegLogsSocket.onopen = function() {
+                $content.text('');
+            };
+            ffmpegLogsSocket.onmessage = function(event) {
+                $content.append(event.data + '\n');
+                $content.scrollTop($content[0].scrollHeight);
+            };
+            ffmpegLogsSocket.onerror = function() {
+                // fallback to HTTP fetch
+                fetch(`/api/mirrors/${mirrorId}/logs`)
+                    .then(resp => resp.text())
+                    .then(text => {
+                        $content.text(text);
+                        $content.scrollTop($content[0].scrollHeight);
+                    })
+                    .catch(() => {
+                        $content.text('Failed to load logs.');
+                    });
+            };
+            ffmpegLogsSocket.onclose = function() {
+                ffmpegLogsSocket = null;
+            };
+        } catch (e) {
+            // fallback to HTTP fetch
+            fetch(`/api/mirrors/${mirrorId}/logs`)
+                .then(resp => resp.text())
+                .then(text => {
+                    $content.text(text);
+                    $content.scrollTop($content[0].scrollHeight);
+                })
+                .catch(() => {
+                    $content.text('Failed to load logs.');
+                });
+        }
+        // Close socket when modal hidden
+        $modal.off('hidden.bs.modal').on('hidden.bs.modal', function() {
+            if (ffmpegLogsSocket) {
+                ffmpegLogsSocket.close();
+                ffmpegLogsSocket = null;
+            }
+        });
+    });
     // Auth check and logout
     if (!localStorage.getItem("jwt_token")) {
         window.location.href = "/";
@@ -54,6 +115,7 @@ $(function() {
                 </div>`;
             let bindBtn = `<button class='btn btn-outline-primary btn-sm w-100 mt-2 bind-channel-btn' data-id='${mirror.ID}'>Bind</button>`;
             let deleteBtn = `<button class="btn btn-outline-danger btn-sm mirror-delete w-100 mt-2" data-id="${mirror.ID}"><i class="fa fa-trash"></i> Delete</button>`;
+            let logsBtn = `<button class="btn btn-outline-info btn-sm view-logs-btn w-100 mt-2 mirror-logs" data-id="${mirror.ID}"><i class="fa fa-info-circle"></i> Logs</button>`;
             // Use video.js + hls.js + flv.js for preview
             // let videoPlayer = `
             //     <video id="mirror-video-${mirror.ID}" class="video-js vjs-default-skin vjs-fluid" controls preload="auto" style="max-height:180px;background:#000;width:100%;"></video>
@@ -149,6 +211,7 @@ $(function() {
                             <div class="mb-2 mt-3">
                                 ${toggleBtn}
                                 ${deleteBtn}
+                                ${logsBtn}
                                 ${bindBtn}
                             </div>
                         </div>

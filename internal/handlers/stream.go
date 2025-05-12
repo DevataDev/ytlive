@@ -13,8 +13,10 @@ import (
 	"syscall"
 	"time"
 
+	"windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/redisutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/oklog/ulid/v2"
@@ -22,7 +24,8 @@ import (
 )
 
 type StreamHandler struct {
-	DB *gorm.DB
+	DB     *gorm.DB
+	Config *configuration.Config
 }
 
 // PUT /api/streams/:id/maxbitrate
@@ -608,6 +611,13 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "This stream has been scheduled and cannot be started manually."})
 		return
 	}
+
+	redisClient, exists := c.Get("redis")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Redis not initialized."})
+		return
+	}
+	redisPubSub := redisClient.(*redisutil.RedisPubSub)
 	// Before starting, check if ffmpeg pid exists and is running, kill if so (prevent double stream)
 	if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
 		proc, err := os.FindProcess(*stream.FfmpegPID)
@@ -632,8 +642,8 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 		}
 	}
 	// Start FFmpeg goroutine (using models.AddWorker)
-	go func(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, db *gorm.DB) {
-		worker, pid, err := job.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, db)
+	go func(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, db *gorm.DB, redisPubSub *redisutil.RedisPubSub) {
+		worker, pid, err := job.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, db, redisPubSub)
 		if err == nil {
 			log.Println("FFmpeg started for stream", streamID, "with PID", pid)
 			log.Println("FFmpeg PID stored in worker", worker.FfmpegPID)
@@ -651,7 +661,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 				}
 			}()
 		}
-	}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, h.DB)
+	}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, h.DB, redisPubSub)
 	c.JSON(200, gin.H{"success": true})
 }
 

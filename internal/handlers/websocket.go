@@ -1,15 +1,19 @@
 package handlers
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"os/exec"
 	"sync"
 	"time"
 
+	"windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/redisutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -24,6 +28,8 @@ var upgrader = websocket.Upgrader{
 		return true // Allow all origins for demo
 	},
 }
+
+var redisPubSub *redisutil.RedisPubSub
 
 // --- Global for broadcasting ---
 var streamListClients = make(map[*websocket.Conn]bool)
@@ -127,6 +133,19 @@ func BroadcastStreamStats() {
 }
 
 func WebSocketHandler(c *gin.Context) {
+	// Initialize Redis if needed
+	if config, exists := c.Get("config"); exists {
+		redisPubSub = &redisutil.RedisPubSub{
+			Config: config.(*configuration.Config),
+		}
+		if redisPubSub.InitRedis() != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Redis connection failed"})
+			return
+		}
+	}
+
+	var logStreamCancel context.CancelFunc
+
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
@@ -236,10 +255,36 @@ func WebSocketHandler(c *gin.Context) {
 			cmdChan <- ffmpegCommand{action: "stop"}
 		}
 
-		// Echo message back (optional, can remove)
-		conn.WriteMessage(websocket.TextMessage, msg)
+		// --- FFmpeg log streaming ---
+		if action == "ffmpeg_log" {
+			streamKey, _ := data["streamKey"].(string)
+			if logStreamCancel != nil {
+				logStreamCancel()
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			logStreamCancel = cancel
+			go func() {
+				pubsub := redisPubSub.SubscribeFFmpegLog(ctx, redisPubSub.GetFFmpegLogChannel(streamKey))
+				ch := pubsub.Channel()
+				for {
+					select {
+					case msg, ok := <-ch:
+						if !ok {
+							return
+						}
+						conn.WriteMessage(websocket.TextMessage, []byte(msg.Payload))
+					case <-ctx.Done():
+						pubsub.Close()
+						return
+					}
+				}
+			}()
+		}
 	}
 
+	if logStreamCancel != nil {
+		logStreamCancel()
+	}
 	close(cmdChan)
 }
 
@@ -309,8 +354,32 @@ func WebSocketHandlerWithContext(ctx context.Context, c *gin.Context) {
 						"-c:v", "libx264", "-preset", "veryfast", "-maxrate", "3000k", "-bufsize", "6000k",
 						"-pix_fmt", "yuv420p", "-g", "60", "-f", "flv", ytURL,
 					)
-					go func(localCmd *exec.Cmd) {
-						err := localCmd.Run()
+					go func(localCmd *exec.Cmd, streamKey string) {
+						stdout, _ := localCmd.StdoutPipe()
+						stderr, _ := localCmd.StderrPipe()
+						_ = localCmd.Start()
+						ctx := context.Background()
+						go func() {
+							scan := func(rdr io.Reader) {
+								scanner := bufio.NewScanner(rdr)
+								for scanner.Scan() {
+									line := scanner.Text()
+									redisPubSub.PublishFFmpegLog(ctx, redisPubSub.GetFFmpegLogChannel(streamKey), line)
+								}
+							}
+							scan(stdout)
+						}()
+						go func() {
+							scan := func(rdr io.Reader) {
+								scanner := bufio.NewScanner(rdr)
+								for scanner.Scan() {
+									line := scanner.Text()
+									redisPubSub.PublishFFmpegLog(ctx, redisPubSub.GetFFmpegLogChannel(streamKey), line)
+								}
+							}
+							scan(stderr)
+						}()
+						err := localCmd.Wait()
 						if err != nil {
 							conn.WriteMessage(websocket.TextMessage, []byte("FFmpeg error: "+err.Error()))
 						} else {
@@ -319,7 +388,7 @@ func WebSocketHandlerWithContext(ctx context.Context, c *gin.Context) {
 						procLock.Lock()
 						ffmpegCmd = nil
 						procLock.Unlock()
-					}(ffmpegCmd)
+					}(ffmpegCmd, streamKey)
 					conn.WriteMessage(websocket.TextMessage, []byte("Started streaming to YouTube"))
 					procLock.Unlock()
 				}

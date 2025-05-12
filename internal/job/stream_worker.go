@@ -1,6 +1,7 @@
 package job
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
@@ -18,24 +19,26 @@ import (
 
 	"windsorf-youtube-live/internal/broadcast"
 	"windsorf-youtube-live/internal/models"
+	"windsorf-youtube-live/internal/redisutil"
 )
 
 type StreamWorker struct {
-	StreamID   string
-	Cmd        *exec.Cmd
-	CancelFunc context.CancelFunc
-	Status     string // "live", "scheduled", "stopped", etc.
-	Stats      StreamStats
-	StopChan   chan struct{} // Added StopChan field
-	stopOnce   sync.Once
-	FfmpegPID  *int
-	FilePath   string
-	StreamKey  string
-	MaxBitrate *int
-	RTMPUrl    string
-	LoopVideo  bool
-	LoopCount  *int
-	DB         *gorm.DB
+	StreamID    string
+	Cmd         *exec.Cmd
+	CancelFunc  context.CancelFunc
+	Status      string // "live", "scheduled", "stopped", etc.
+	Stats       StreamStats
+	StopChan    chan struct{} // Added StopChan field
+	stopOnce    sync.Once
+	FfmpegPID   *int
+	FilePath    string
+	StreamKey   string
+	MaxBitrate  *int
+	RTMPUrl     string
+	LoopVideo   bool
+	LoopCount   *int
+	DB          *gorm.DB
+	RedisPubSub *redisutil.RedisPubSub
 }
 
 type StreamStats struct {
@@ -191,7 +194,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				}
 				RestartLock.Lock()
 				StopStreamWorker(w.StreamID)
-				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.LoopCount, w.DB)
+				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.LoopCount, w.DB, w.RedisPubSub)
 				RestartLock.Unlock()
 				broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
 				log.Println("Stream", w.StreamID, "restarted successfully")
@@ -208,16 +211,17 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	}
 }
 
-func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, database *gorm.DB) (*StreamWorker, int, error) {
+func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, database *gorm.DB, redisPubSub *redisutil.RedisPubSub) (*StreamWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	worker := &StreamWorker{
-		StreamID:   streamID,
-		CancelFunc: cancel,
-		Status:     "live",
-		FilePath:   filePath,
-		StreamKey:  streamKey,
-		MaxBitrate: maxBitrate,
-		DB:         database,
+		StreamID:    streamID,
+		CancelFunc:  cancel,
+		Status:      "live",
+		FilePath:    filePath,
+		StreamKey:   streamKey,
+		MaxBitrate:  maxBitrate,
+		DB:          database,
+		RedisPubSub: redisPubSub,
 	}
 
 	var stream models.Stream
@@ -261,12 +265,37 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	cmd = exec.CommandContext(ctx, args[0], args[1:]...)
 
 	worker.Cmd = cmd
+
+	stdout, _ := cmd.StdoutPipe()
+	stderr, _ := cmd.StderrPipe()
 	// start cmd
 	err := cmd.Start()
 	if err != nil {
 		log.Println("Failed to start FFmpeg:", err)
 		return nil, 0, err
 	}
+
+	// Start goroutines to capture and publish logs
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if worker.RedisPubSub != nil {
+				channel := worker.RedisPubSub.GetFFmpegLogChannel(worker.StreamKey)
+				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
+			}
+		}
+	}()
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if worker.RedisPubSub != nil {
+				channel := worker.RedisPubSub.GetFFmpegLogChannel(worker.StreamKey)
+				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
+			}
+		}
+	}()
 
 	// update database
 	database.Model(&models.Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
