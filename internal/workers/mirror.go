@@ -29,7 +29,7 @@ func (w *MirrorWorker) StartMirrorRoomIsAliveChecker() {
 		time.Sleep(1 * time.Minute)
 		log.Println("Checking room is alive...")
 		var streamsToCheck []models.Mirror
-		w.DB.Where("(status = ? or status = ?) AND room_id IS NOT NULL", "live", "stopped", "queued").Find(&streamsToCheck)
+		w.DB.Where("(status = ? or status = ? or status = ?) AND room_id IS NOT NULL", "live", "stopped", "queued").Find(&streamsToCheck)
 		log.Println("Found", len(streamsToCheck), "mirror to check.")
 		roomIds := make([]string, len(streamsToCheck))
 		for i, stream := range streamsToCheck {

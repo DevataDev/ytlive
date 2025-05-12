@@ -180,11 +180,13 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 					StopStreamWorker(w.StreamID)
 					RemoveWorker(w.StreamID)
 					RestartLock.Unlock()
+					log.Println("Stream", w.StreamID, "stopped successfully, because loop video is false")
 					broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
 					return
 				}
 				log.Println("Restarting stream From Monitoring", w.StreamID, "with status", w.Status)
 				if w.Status != "live" {
+					log.Println("Stream", w.StreamID, "is not live, skipping restart")
 					return
 				}
 				RestartLock.Lock()
@@ -192,6 +194,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.LoopCount, w.DB)
 				RestartLock.Unlock()
 				broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
+				log.Println("Stream", w.StreamID, "restarted successfully")
 				return
 			}
 			cpu, _ := proc.CPUPercent()
