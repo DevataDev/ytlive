@@ -514,13 +514,12 @@ func (c *Client) CheckUserIsLive(user string) (bool, error) {
 		return false, ErrDataNotFound
 	}
 
-	dataBody := response["data"].(map[string]interface{})
-	if dataBody == nil {
+	if _, ok := response["data"].(map[string]interface{}); !ok {
 		return false, ErrDataNotFound
 	}
-	if _, ok := dataBody["liveRoom"]; !ok {
+	if _, ok := response["data"].(map[string]interface{})["liveRoom"]; !ok {
 		return false, ErrUserOffline
 	}
 
-	return dataBody["liveRoom"].(map[string]interface{})["status"].(float64) != 4, nil
+	return response["data"].(map[string]interface{})["liveRoom"].(map[string]interface{})["status"].(float64) != 4, nil
 }
