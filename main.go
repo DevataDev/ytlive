@@ -27,6 +27,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/yaml.v3"
 
 	"embed"
@@ -38,8 +39,14 @@ import (
 var StaticFiles embed.FS
 
 var (
-	ctx               = context.Background()
-	database *gorm.DB = nil
+	ctx                         = context.Background()
+	database *gorm.DB           = nil
+	logger   *lumberjack.Logger = &lumberjack.Logger{
+		Filename:   "logs/app.log",
+		MaxSize:    15,
+		MaxBackups: 2,
+		MaxAge:     2,
+	}
 )
 
 func loadConfig(path string) (*config.Config, error) {
@@ -91,6 +98,8 @@ func main() {
 	if _, err := os.Stat("logs"); os.IsNotExist(err) {
 		os.Mkdir("logs", 0755)
 	}
+
+	log.SetOutput(logger)
 
 	// fix column typo for stream table
 	// check if column `loop_count,default:-1` exists
