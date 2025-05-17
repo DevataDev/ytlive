@@ -191,7 +191,13 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 					return
 				}
 				log.Println("Restarting stream From Monitoring", w.StreamID, "with status", w.Status)
-				if w.Status != "live" {
+				// check on  db
+				var stream models.Stream
+				if err := w.DB.Where("id = ?", w.StreamID).Find(&stream).Error; err != nil {
+					log.Println("Failed to find stream from db", err)
+					return
+				}
+				if stream.Status != "live" {
 					log.Println("Stream", w.StreamID, "is not live, skipping restart")
 					return
 				}
