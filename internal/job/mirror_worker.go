@@ -15,6 +15,7 @@ import (
 	"windsorf-youtube-live/internal/youtube"
 
 	"github.com/shirou/gopsutil/v3/process"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"gorm.io/gorm"
 )
 
@@ -33,6 +34,7 @@ type MirrorWorker struct {
 	TiktokClient  tiktok.TikTokClientIface
 	YoutubeClient *youtube.YoutubeClient
 	RedisPubSub   *redisutil.RedisPubSub
+	Logger        *lumberjack.Logger
 }
 
 var (
@@ -166,6 +168,12 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		RoomID:       mirror.RoomId,
 		TiktokClient: tiktokClient,
 		RedisPubSub:  redisPubSub,
+		Logger: &lumberjack.Logger{
+			Filename:   "./logs/ffmpeg-mirror-" + mirrorID + ".log",
+			MaxSize:    15,
+			MaxBackups: 2,
+			MaxAge:     2,
+		},
 	}
 
 	if status == "queued" {
@@ -279,6 +287,9 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 			if worker.RedisPubSub != nil {
 				channel := "ffmpeg-logs:mirror:" + mirrorID
 				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
+				if _, err := worker.Logger.Write([]byte(line)); err != nil {
+					log.Println("Failed to write log:", err)
+				}
 			}
 		}
 	}()
@@ -301,6 +312,9 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 			if worker.RedisPubSub != nil {
 				channel := "ffmpeg-logs:mirror:" + mirrorID
 				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
+				if _, err := worker.Logger.Write([]byte(line)); err != nil {
+					log.Println("Failed to write log:", err)
+				}
 			}
 		}
 	}()

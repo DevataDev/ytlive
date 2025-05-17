@@ -87,6 +87,11 @@ func main() {
 
 	database = db
 
+	// check if logs directory exists
+	if _, err := os.Stat("logs"); os.IsNotExist(err) {
+		os.Mkdir("logs", 0755)
+	}
+
 	// fix column typo for stream table
 	// check if column `loop_count,default:-1` exists
 	if db.Migrator().HasColumn(&models.Stream{}, "loop_count,default:-1") {

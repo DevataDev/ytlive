@@ -20,6 +20,8 @@ import (
 	"windsorf-youtube-live/internal/broadcast"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/redisutil"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 type StreamWorker struct {
@@ -39,6 +41,7 @@ type StreamWorker struct {
 	LoopCount   *int
 	DB          *gorm.DB
 	RedisPubSub *redisutil.RedisPubSub
+	Logger      *lumberjack.Logger
 }
 
 type StreamStats struct {
@@ -222,6 +225,12 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 		MaxBitrate:  maxBitrate,
 		DB:          database,
 		RedisPubSub: redisPubSub,
+		Logger: &lumberjack.Logger{
+			Filename:   "./logs/ffmpeg-" + streamID + ".log",
+			MaxSize:    15,
+			MaxBackups: 2,
+			MaxAge:     2,
+		},
 	}
 
 	var stream models.Stream
@@ -295,6 +304,9 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 			if worker.RedisPubSub != nil {
 				channel := "ffmpeg-logs:stream:" + streamID
 				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
+				if _, err := worker.Logger.Write([]byte(line)); err != nil {
+					log.Println("Failed to write log:", err)
+				}
 			}
 		}
 	}()
@@ -317,6 +329,9 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 			if worker.RedisPubSub != nil {
 				channel := "ffmpeg-logs:stream:" + streamID
 				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
+				if _, err := worker.Logger.Write([]byte(line)); err != nil {
+					log.Println("Failed to write log:", err)
+				}
 			}
 		}
 	}()
