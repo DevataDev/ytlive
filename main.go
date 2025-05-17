@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -99,7 +100,8 @@ func main() {
 		os.Mkdir("logs", 0755)
 	}
 
-	log.SetOutput(logger)
+	multiWriter := io.MultiWriter(os.Stdout, logger)
+	log.SetOutput(multiWriter)
 
 	// fix column typo for stream table
 	// check if column `loop_count,default:-1` exists
