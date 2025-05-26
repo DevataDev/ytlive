@@ -190,6 +190,12 @@ func main() {
 		log.Fatalf("failed to migrate channels table: %v", err)
 	}
 
+	// Auto-migrate media files table
+	err = db.AutoMigrate(&models.MediaFile{})
+	if err != nil {
+		log.Fatalf("failed to migrate media files table: %v", err)
+	}
+
 	// Init device presets
 	tiktok.InitDevicePresets()
 

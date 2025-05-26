@@ -3,6 +3,7 @@ package job
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -33,7 +34,8 @@ type StreamWorker struct {
 	StopChan    chan struct{} // Added StopChan field
 	stopOnce    sync.Once
 	FfmpegPID   *int
-	FilePath    string
+	Videos      []models.MediaFile
+	Audio       []models.MediaFile
 	StreamKey   string
 	MaxBitrate  *int
 	RTMPUrl     string
@@ -203,7 +205,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				}
 				RestartLock.Lock()
 				StopStreamWorker(w.StreamID)
-				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.LoopCount, w.DB, w.RedisPubSub)
+				StartStreamWorkerWithDatabase(w.StreamID, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.LoopCount, w.DB, w.RedisPubSub)
 				RestartLock.Unlock()
 				broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
 				log.Println("Stream", w.StreamID, "restarted successfully")
@@ -220,13 +222,12 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	}
 }
 
-func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, database *gorm.DB, redisPubSub *redisutil.RedisPubSub) (*StreamWorker, int, error) {
+func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, database *gorm.DB, redisPubSub *redisutil.RedisPubSub) (*StreamWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	worker := &StreamWorker{
 		StreamID:    streamID,
 		CancelFunc:  cancel,
 		Status:      "live",
-		FilePath:    filePath,
 		StreamKey:   streamKey,
 		MaxBitrate:  maxBitrate,
 		DB:          database,
@@ -239,6 +240,19 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 		},
 	}
 
+	// find media files
+	if err := database.Where("stream_id = ? AND media_type = 'video'", streamID).Find(&worker.Videos).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := database.Where("stream_id = ? AND media_type = 'audio'", streamID).Find(&worker.Audio).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// if no video or audio, return error
+	if len(worker.Videos) == 0 && len(worker.Audio) == 0 {
+		return nil, 0, errors.New("no video or audio found")
+	}
+
 	var stream models.Stream
 	if err := database.Where("id = ?", worker.StreamID).Find(&stream).Error; err != nil {
 		return nil, 0, err
@@ -246,7 +260,7 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 
 	// get channel info
 	var channel models.Channels
-	if err := database.Where("user_id = ? AND (channel_id = ? OR id = ?)", stream.UserId, stream.ChannelId, stream.ChannelId).Find(&channel).Error; err != nil {
+	if err := database.Where("user_id = ? AND (channel_id = ? OR id = ?)", stream.UserID, stream.ChannelID, stream.ChannelID).Find(&channel).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -275,7 +289,7 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	}
 
 	var cmd *exec.Cmd
-	args := buildFfmpegArgs(maxBitrate, loopVideo, filePath, streamKey, rtmpUrl, loopCount)
+	args := buildFfmpegArgsWithMediaFiles(maxBitrate, loopVideo, worker.Videos, worker.Audio, streamKey, rtmpUrl, loopCount)
 
 	cmd = exec.CommandContext(ctx, args[0], args[1:]...)
 
@@ -441,6 +455,62 @@ func GetDriveProgress(driveLink string) (map[string]interface{}, bool) {
 		}
 	}
 	return progress, ok
+}
+
+func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []models.MediaFile, audio []models.MediaFile, streamKey string, rtmpUrl string, loopCount *int) []string {
+	var args []string
+	var fullRtmpUrl string
+	if rtmpUrl != "" {
+		if rtmpUrl[len(rtmpUrl)-1] != '/' {
+			fullRtmpUrl = rtmpUrl + "/" + streamKey
+		} else {
+			fullRtmpUrl = rtmpUrl + streamKey
+		}
+	} else {
+		fullRtmpUrl = "rtmp://a.rtmp.youtube.com/live2/" + streamKey
+	}
+	args = append(args, "ffmpeg")
+	args = append(args, "-re")
+	args = append(args, "-nostdin")
+	args = append(args, "-fflags", "+genpts")
+	args = append(args, "-hide_banner")
+	args = append(args, "-loglevel", "info")
+	args = append(args, "-stats_period", "1")
+	// args = append(args, "-progress", "pipe:1")
+	var loopingCount int
+	if loopVideo {
+		if loopCount == nil {
+			loopingCount = (-1)
+		} else {
+			loopingCount = *loopCount
+		}
+		args = append(args, "-stream_loop", fmt.Sprintf("%d", loopingCount))
+	}
+	args = append(args, "-threads", "1")
+	for _, video := range videos {
+		args = append(args, "-i", video.FilePath)
+	}
+	for _, audio := range audio {
+		args = append(args, "-i", audio.FilePath)
+	}
+	// how to handle if video is shorter than audio
+	if len(audio) > 0 {
+		args = append(args, "-filter_complex", "[0:v] [0:a] [1:v] [1:a] concat=n=2:v=1:a=1 [v] [a]")
+	}
+	if len(videos) > 0 {
+		args = append(args, "-c:v", "copy")
+	}
+	if len(audio) > 0 {
+		args = append(args, "-c:a", "copy")
+	}
+	args = append(args, "-threads", "1")
+	args = append(args, "-preset", "ultrafast")
+	args = append(args, "-f", "flv")
+	args = append(args, "-drop_pkts_on_overflow", "1")
+	args = append(args, "-attempt_recovery", "1")
+	args = append(args, "-recover_any_error", "1")
+	args = append(args, fullRtmpUrl)
+	return args
 }
 
 func buildFfmpegArgs(maxBitrate *int, loopVideo bool, filePath string, streamKey string, rtmpUrl string, loopCount *int) []string {

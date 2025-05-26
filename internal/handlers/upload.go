@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
+	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/job"
@@ -252,22 +254,50 @@ type FileUploadHandler struct {
 	Config *config.Config
 }
 
-func (h *FileUploadHandler) UploadStream(c *gin.Context) {
+type uploadResult struct {
+	FileName string `json:"fileName"`
+	Success  bool   `json:"success"`
+	Message  string `json:"message,omitempty"`
+	FilePath string `json:"filePath,omitempty"`
+	StreamID string `json:"streamId,omitempty"`
+}
 
-	file, fileHeaderErr := c.FormFile("videoFile")
-	driveLink := c.PostForm("driveLink")
+func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 	userID, ok := c.Get("user_id")
 	if !ok {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
-	if fileHeaderErr != nil && driveLink == "" {
-		c.JSON(400, gin.H{"error": "No file or Google Drive link provided."})
+
+	// Create a new stream for all files
+	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+	ms := ulid.Timestamp(time.Now())
+	id, err := ulid.New(ms, entropy)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to generate stream ID"})
 		return
 	}
-	var fileName string
-	var googleDriveLink *string
-	var filePath *string
+	streamID := id.String()
+	streamName := fmt.Sprintf("Stream %s", time.Now().Format("2006-01-02 15:04:05"))
+	defaultLoopCount := -1
+	rtmpUrl := "rtmp://a.rtmp.youtube.com/live2/"
+
+	// Create stream record
+	stream := models.Stream{
+		ID:         streamID,
+		Name:       streamName,
+		Status:     "stopped",
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+		LoopVideo:  true,
+		RTMPUrl:    rtmpUrl,
+		LoopCount:  &defaultLoopCount,
+		UserID:     userID.(string),
+		MediaFiles: []models.MediaFile{},
+	}
+
+	// Handle Google Drive links
+	driveLink := c.PostForm("driveLink")
 	if driveLink != "" {
 		job.SetDriveProgress(driveLink, map[string]interface{}{"status": "Starting...", "progress": 0})
 		// Offload Google Drive download to background goroutine
@@ -277,98 +307,317 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Invalid Google Drive link", "progress": 0})
 				return
 			}
+
 			srv, err := drive.NewService(ctx, option.WithAPIKey(h.Config.Google.ApiKey))
 			if err != nil {
 				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Google Drive API error", "progress": 0})
 				return
 			}
+
 			file, err := srv.Files.Get(fileID).Do()
 			if err != nil {
 				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Google Drive file not accessible", "progress": 0})
 				return
 			}
+
 			client := http.DefaultClient
 			downloadUrl, err := generateDownloadUrl(client, file)
 			if err != nil {
 				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate download URL", "progress": 0})
 				return
 			}
+
 			fileNameWithoutExtension := strings.ReplaceAll(file.OriginalFilename, "."+file.FileExtension, "")
 			downloadName := fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(fileNameWithoutExtension))
 			destPath := "./uploads/" + downloadName
+
 			if err := downloadDriveFile(client, downloadUrl, destPath, driveLink); err != nil {
 				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Download failed: " + err.Error(), "progress": 0})
 				return
 			}
-			// Register the stream in the DB after download completes
+
+			// Get file info
+			fileInfo, err := os.Stat(destPath)
+			if err != nil {
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to get file info: " + err.Error(), "progress": 100})
+				return
+			}
+
+			// Generate IDs
 			entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
 			ms := ulid.Timestamp(time.Now())
-			id, err := ulid.New(ms, entropy)
+			streamID, err := ulid.New(ms, entropy)
 			if err != nil {
-				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate ID", "progress": 100})
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate stream ID", "progress": 100})
 				return
 			}
+
+			mediaFileID, err := ulid.New(ulid.Timestamp(time.Now()), entropy)
+			if err != nil {
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to generate media file ID", "progress": 100})
+				return
+			}
+
+			// Determine media type from MIME type
+			mediaType := models.MediaTypeVideo
+			if strings.HasPrefix(file.MimeType, "audio/") {
+				mediaType = models.MediaTypeAudio
+			}
+
+			// Start a transaction
+			tx := h.DB.Begin()
+
+			// Create stream record
+			streamName := fmt.Sprintf("Stream %s", time.Now().Format("2006-01-02 15:04:05"))
 			stream := models.Stream{
-				ID:              id.String(),
-				FileName:        downloadName,
-				FilePath:        &destPath,
-				GoogleDriveLink: &driveLink,
-				Status:          "stopped",
-				UserId:          userID,
+				ID:         streamID.String(),
+				Name:       streamName,
+				Status:     "stopped",
+				UserID:     userID,
+				CreatedAt:  time.Now(),
+				UpdatedAt:  time.Now(),
+				MediaFiles: []models.MediaFile{},
 			}
-			if err := h.DB.Create(&stream).Error; err != nil {
-				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to register stream", "progress": 100})
+
+			if err := tx.Create(&stream).Error; err != nil {
+				tx.Rollback()
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to create stream: " + err.Error(), "progress": 100})
 				return
 			}
-			job.SetDriveProgress(driveLink, map[string]interface{}{"message": "Done", "progress": 100})
+
+			// Create media file record
+			mediaFile := models.MediaFile{
+				ID:          mediaFileID.String(),
+				StreamID:    stream.ID,
+				FileName:    downloadName,
+				FilePath:    destPath,
+				FileSize:    fileInfo.Size(),
+				MediaType:   mediaType,
+				MimeType:    file.MimeType,
+				IsPrimary:   true,
+				Order:       0,
+				CreatedAt:   time.Now(),
+				UpdatedAt:   time.Now(),
+			}
+
+			if err := tx.Create(&mediaFile).Error; err != nil {
+				tx.Rollback()
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to create media file: " + err.Error(), "progress": 100})
+				return
+			}
+
+			// Commit transaction
+			if err := tx.Commit().Error; err != nil {
+				job.SetDriveProgress(driveLink, map[string]interface{}{"error": "Failed to commit transaction: " + err.Error(), "progress": 100})
+				return
+			}
+
+			job.SetDriveProgress(driveLink, map[string]interface{}{"message": "Done", "progress": 100, "streamId": stream.ID})
 		}(userID.(string), driveLink)
+
 		// Respond immediately so UI is not blocked
 		c.JSON(http.StatusOK, gin.H{"message": "Google Drive download started"})
 		return
 	}
-	if fileHeaderErr == nil {
-		// Save file to disk (uploads folder)
-		// remove extension from filename
-		fileNameWithoutExtension := strings.ReplaceAll(file.Filename, "."+file.Filename[strings.LastIndex(file.Filename, "."):], "")
-		//remove space from filename
-		fileNameWithoutExtension = strings.ReplaceAll(fileNameWithoutExtension, " ", "-")
-		fileName = fmt.Sprintf("file-%d-%s.mp4", time.Now().UnixMilli(), normalizeFileName(fileNameWithoutExtension))
-		uploadPath := "./uploads/" + fileName
-		if err := c.SaveUploadedFile(file, uploadPath); err != nil {
-			log.Println(err)
-			c.JSON(500, gin.H{"error": "Failed to save file."})
-			return
-		}
-		filePath = &uploadPath
-	}
 
-	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
-	ms := ulid.Timestamp(time.Now())
-	id, err := ulid.New(ms, entropy)
+	// Handle file uploads
+	form, err := c.MultipartForm()
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Failed to generate ID."})
+		c.JSON(400, gin.H{"error": "No files provided"})
 		return
 	}
 
-	defaultLoopCount := -1
-	// Create new Stream DB entry
-	stream := models.Stream{
-		ID:              id.String(),
-		FileName:        fileName,
-		FilePath:        filePath,
-		GoogleDriveLink: googleDriveLink,
-		Status:          "stopped",
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
-		LoopVideo:       true,
-		RTMPUrl:         "rtmp://a.rtmp.youtube.com/live2/",
-		LoopCount:       &defaultLoopCount,
-		UserId:          userID.(string),
-	}
-	if err := h.DB.Create(&stream).Error; err != nil {
-		log.Println(err)
-		c.JSON(500, gin.H{"error": "Failed to save stream info."})
+	files := form.File["videoFiles"]
+	if len(files) == 0 {
+		c.JSON(400, gin.H{"error": "No files provided"})
 		return
 	}
-	c.JSON(200, gin.H{"message": "Upload successful!"})
+
+	// Start a transaction for all file operations
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Create the stream first
+	if err := tx.Create(&stream).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to create stream: " + err.Error()})
+		return
+	}
+
+	results := make([]uploadResult, 0, len(files))
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for _, fileHeader := range files {
+		wg.Add(1)
+		go func(fileHeader *multipart.FileHeader) {
+			defer wg.Done()
+			result := uploadResult{
+				FileName: fileHeader.Filename,
+			}
+
+			// Process file
+			file, err := fileHeader.Open()
+			if err != nil {
+				result.Message = "Failed to open file: " + err.Error()
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+				return
+			}
+			defer file.Close()
+
+			// Generate unique filename
+			ext := filepath.Ext(fileHeader.Filename)
+			fileNameWithoutExtension := strings.TrimSuffix(fileHeader.Filename, ext)
+			fileNameWithoutExtension = strings.ReplaceAll(fileNameWithoutExtension, " ", "-")
+			fileName := fmt.Sprintf("file-%d-%s%s", 
+				time.Now().UnixNano(), 
+				normalizeFileName(fileNameWithoutExtension),
+				ext)
+			
+			uploadPath := "./uploads/" + fileName
+
+			// Save file
+			out, err := os.Create(uploadPath)
+			if err != nil {
+				result.Message = "Failed to create file: " + err.Error()
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+				return
+			}
+			defer out.Close()
+
+			if _, err = io.Copy(out, file); err != nil {
+				result.Message = "Failed to save file: " + err.Error()
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+				return
+			}
+
+			// Get file size by seeking to end
+			size, err := file.Seek(0, io.SeekEnd)
+			if err != nil {
+				result.Message = "Failed to get file size: " + err.Error()
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+				return
+			}
+			// Seek back to start for the actual file copy
+			if _, err := file.Seek(0, io.SeekStart); err != nil {
+				result.Message = "Failed to reset file pointer: " + err.Error()
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+				return
+			}
+
+			// Determine media type from MIME type
+			mediaType := models.MediaTypeVideo
+			mimeType := fileHeader.Header.Get("Content-Type")
+			if strings.HasPrefix(mimeType, "audio/") {
+				mediaType = models.MediaTypeAudio
+			}
+
+			// Generate a new ULID for the media file
+			mediaFileID, err := ulid.New(ulid.Timestamp(time.Now()), entropy)
+			if err != nil {
+				result.Message = "Failed to generate media file ID: " + err.Error()
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+				return
+			}
+
+			// Create media file record
+			mediaFile := models.MediaFile{
+				ID:        mediaFileID.String(),
+				StreamID:  stream.ID,
+				FileName:  fileName,
+				FilePath:  uploadPath,
+				FileSize:  size,
+				MediaType: mediaType,
+				MimeType:  mimeType,
+				IsPrimary: len(results) == 0, // First file is primary
+				Order:     len(results),      // Maintain upload order
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+
+
+			// Add media file
+			if err := tx.Create(&mediaFile).Error; err != nil {
+				result.Message = "Failed to register media file: " + err.Error()
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+				return
+			}
+
+			result.Success = true
+			result.FilePath = uploadPath
+			result.StreamID = stream.ID
+			result.Message = "File uploaded successfully"
+
+			mu.Lock()
+			results = append(results, result)
+			mu.Unlock()
+
+		}(fileHeader)
+	}
+
+	// Wait for all uploads to complete
+	wg.Wait()
+
+	// Check if all uploads were successful
+	successCount := 0
+	for _, result := range results {
+		if result.Success {
+			successCount++
+		}
+	}
+
+	if successCount == 0 {
+		tx.Rollback()
+		c.JSON(500, gin.H{
+			"error":   "All file uploads failed",
+			"results": results,
+		})
+		return
+	}
+
+	// Update the stream with the latest changes
+	stream.UpdatedAt = time.Now()
+	if err := tx.Save(&stream).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{
+			"error":   "Failed to update stream: " + err.Error(),
+			"results": results,
+		})
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{
+			"error":   "Failed to save changes: " + err.Error(),
+			"results": results,
+		})
+		return
+	}
+
+	message := fmt.Sprintf("Successfully uploaded %d of %d files", successCount, len(files))
+	c.JSON(http.StatusOK, gin.H{
+		"message":  message,
+		"streamId": stream.ID,
+		"results":  results,
+	})
 }

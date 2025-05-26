@@ -39,8 +39,8 @@ func (w *StreamWorker) StartMonitorStream() {
 		w.DB.Where("status = ? AND scheduled_start_at <= ?", "scheduled", now).Find(&streamsToStart)
 		log.Println("Found", len(streamsToStart), "scheduled streams to start.")
 		for _, stream := range streamsToStart {
-			if stream.StreamKey == "" || stream.FilePath == nil {
-				log.Println("Stream", stream.ID, "has no stream key or file path, skipping.")
+			if stream.StreamKey == "" {
+				log.Println("Stream", stream.ID, "has no stream key, skipping.")
 				continue // Do not start if no stream key or file path
 			}
 			// check start time
@@ -49,7 +49,7 @@ func (w *StreamWorker) StartMonitorStream() {
 				continue
 			}
 			job.RestartLock.Lock()
-			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
+			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
 			job.RestartLock.Unlock()
 			if err == nil {
 				log.Println("Stream", stream.ID, "started successfully.")
@@ -107,7 +107,7 @@ func (w *StreamWorker) StartScheduledStream() {
 			}
 			job.RestartLock.Lock()
 			_ = job.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
-			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
+			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
 			job.RestartLock.Unlock()
 			if err != nil {
 				log.Println("Failed to restart stream", stream.ID, ":", err)
@@ -140,7 +140,7 @@ func (w *StreamWorker) StartOneTimeRestarter() {
 			log.Println("Stopping stream", stream.ID, "with PID", *stream.FfmpegPID)
 			job.StopStreamWorker(stream.ID)
 		}
-		_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
+		_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
 		job.RestartLock.Unlock()
 
 		if err != nil {

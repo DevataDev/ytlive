@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,7 +11,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"windsorf-youtube-live/internal/configuration"
@@ -24,8 +24,9 @@ import (
 )
 
 type StreamHandler struct {
-	DB     *gorm.DB
-	Config *configuration.Config
+	DB          *gorm.DB
+	Config      *configuration.Config
+	RedisPubSub *redisutil.RedisPubSub
 }
 
 // PUT /api/streams/:id/maxbitrate
@@ -99,6 +100,7 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
+
 	// Parse pagination params
 	page := 1
 	perPage := 5
@@ -115,8 +117,10 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 
 	var total int64
 	h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Count(&total)
+
 	var streams []models.Stream
-	if err := h.DB.Where("user_id = ?", userID).
+	if err := h.DB.Preload("MediaFiles").
+		Where("user_id = ?", userID).
 		Order("created_at DESC").
 		Limit(perPage).
 		Offset((page - 1) * perPage).
@@ -124,33 +128,43 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch streams"})
 		return
 	}
-	// Add file size info for each stream
-	for i, s := range streams {
-		if s.FilePath != nil && *s.FilePath != "" {
-			videoPath := "." + filepath.Clean("/"+*s.FilePath)
-			if fi, err := os.Stat(videoPath); err == nil {
-				streams[i].FileName = s.FileName // ensure not empty
-				if streams[i].FilePath == nil {
-					streams[i].FilePath = s.FilePath
-				}
-				if fs, ok := fi.Size(), true; ok {
-					c.Set("file_size_"+s.ID, fs)
-					streams[i].FileSizeBytes = fs
-				}
+
+	// Get file sizes for all media files
+	for i := range streams {
+		for j := range streams[i].MediaFiles {
+			if fi, err := os.Stat(streams[i].MediaFiles[j].FilePath); err == nil {
+				streams[i].MediaFiles[j].FileSize = fi.Size()
 			}
 		}
 	}
+
 	var countLive, countScheduled int64
 	h.DB.Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&countLive)
 	h.DB.Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&countScheduled)
+
+	// Prepare response
 	resp := make([]map[string]interface{}, 0, len(streams))
 	for _, s := range streams {
+		mediaFiles := make([]map[string]interface{}, len(s.MediaFiles))
+		for i, mf := range s.MediaFiles {
+			mediaFiles[i] = map[string]interface{}{
+				"ID":        mf.ID,
+				"FileName":  mf.FileName,
+				"FilePath":  mf.FilePath,
+				"FileSize":  mf.FileSize,
+				"MediaType": mf.MediaType,
+				"MimeType":  mf.MimeType,
+				"IsPrimary": mf.IsPrimary,
+				"Order":     mf.Order,
+				"CreatedAt": mf.CreatedAt,
+				"UpdatedAt": mf.UpdatedAt,
+			}
+		}
+
 		item := map[string]interface{}{
 			"ID":               s.ID,
-			"FileName":         s.FileName,
-			"FilePath":         s.FilePath,
+			"Name":             s.Name,
 			"Status":           s.Status,
-			"GoogleDriveLink":  s.GoogleDriveLink,
 			"ScheduledAt":      s.ScheduledAt,
 			"ScheduledStartAt": s.ScheduledStartAt,
 			"ScheduledEndAt":   s.ScheduledEndAt,
@@ -158,23 +172,26 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 			"StoppedAt":        s.StoppedAt,
 			"StreamKey":        s.StreamKey,
 			"MaxBitrate":       s.MaxBitrate,
-			"UserId":           s.UserId,
+			"UserID":           s.UserID,
 			"RTMPUrl":          s.RTMPUrl,
 			"LoopVideo":        s.LoopVideo,
 			"LoopCount":        s.LoopCount,
 			"FfmpegPID":        s.FfmpegPID,
 			"CreatedAt":        s.CreatedAt,
-			"FileSizeBytes":    s.FileSizeBytes,
-		}
-		if s.FilePath != nil && *s.FilePath != "" {
-			if fs, ok := c.Get("file_size_" + s.ID); ok {
-				item["FileSizeBytes"] = fs
-			}
+			"UpdatedAt":        s.UpdatedAt,
+			"MediaFiles":       mediaFiles,
 		}
 		resp = append(resp, item)
 	}
-	c.JSON(http.StatusOK, gin.H{"streams": resp, "page": page, "per_page": perPage, "total": total, "countLive": countLive, "countScheduled": countScheduled})
-	return
+
+	c.JSON(http.StatusOK, gin.H{
+		"streams":        resp,
+		"page":           page,
+		"per_page":       perPage,
+		"total":          total,
+		"countLive":      countLive,
+		"countScheduled": countScheduled,
+	})
 }
 
 // POST /api/streams - create a new stream for current user
@@ -184,31 +201,60 @@ func (h *StreamHandler) CreateStream(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
+
 	var req struct {
-		FileName        string  `json:"FileName"`
-		FilePath        *string `json:"FilePath"`
-		GoogleDriveLink *string `json:"GoogleDriveLink"`
-		MaxBitrate      *int    `json:"MaxBitrate"`
+		Name       string `json:"name"`
+		MaxBitrate *int   `json:"maxBitrate"`
 	}
+
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
 		return
 	}
+
+	// Generate a new stream ID
+	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+	streamID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+
 	stream := models.Stream{
-		FileName:        req.FileName,
-		FilePath:        req.FilePath,
-		GoogleDriveLink: req.GoogleDriveLink,
-		Status:          "stopped",
-		MaxBitrate:      req.MaxBitrate,
-		UserId:          userID.(string),
-		LoopVideo:       true,
-		RTMPUrl:         "rtmp://a.rtmp.youtube.com/live2/",
+		ID:         streamID,
+		Name:       req.Name,
+		Status:     "stopped",
+		UserID:     userID.(string),
+		MaxBitrate: req.MaxBitrate,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
-	if err := h.DB.Create(&stream).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create stream"})
+
+	// Start a transaction
+	tx := h.DB.Begin()
+
+	// Create the stream
+	if err := tx.Create(&stream).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create stream: " + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"stream": stream})
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction: " + err.Error()})
+		return
+	}
+
+	// Return the created stream with empty media files array
+	response := map[string]interface{}{
+		"ID":         stream.ID,
+		"Name":       stream.Name,
+		"Status":     stream.Status,
+		"UserID":     stream.UserID,
+		"MaxBitrate": stream.MaxBitrate,
+		"CreatedAt":  stream.CreatedAt,
+		"UpdatedAt":  stream.UpdatedAt,
+		"MediaFiles": []interface{}{}, // Empty array for media files
+	}
+
+	c.JSON(http.StatusCreated, response)
 }
 
 // POST /api/streams/:id/start
@@ -343,25 +389,36 @@ func (h *StreamHandler) SetDuration(c *gin.Context) {
 
 // PUT /api/streams/:id/rename
 func (h *StreamHandler) RenameFile(c *gin.Context) {
-	id := c.Param("id")
+	streamID := c.Param("id")
+
 	var req struct {
-		FileName string `json:"FileName"`
+		Name string `json:"name"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || req.FileName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+
+	if err := c.ShouldBindJSON(&req); err != nil || req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: name is required"})
 		return
 	}
-	var stream models.Stream
-	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
+
+	// Start a transaction
+	tx := h.DB.Begin()
+
+	// Update the stream name
+	if err := tx.Model(&models.Stream{}).
+		Where("id = ?", streamID).
+		Update("name", req.Name).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stream name"})
 		return
 	}
-	stream.FileName = req.FileName
-	if err := h.DB.Save(&stream).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to rename file"})
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "File renamed"})
+
+	c.JSON(http.StatusOK, gin.H{"message": "Stream renamed successfully"})
 }
 
 // PUT /api/streams/:id/loop
@@ -423,9 +480,9 @@ func (h *StreamHandler) SetLoopCount(c *gin.Context) {
 func (h *StreamHandler) SetRTMPUrl(c *gin.Context) {
 	id := c.Param("id")
 	var req struct {
-		RTMPUrl string `json:"rtmp_url"`
+		RTMPUrl string `json:"RTMPUrl"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil || req.RTMPUrl == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
@@ -444,51 +501,102 @@ func (h *StreamHandler) SetRTMPUrl(c *gin.Context) {
 
 // POST /api/streams/:id/clone
 func (h *StreamHandler) CloneStream(c *gin.Context) {
-	id := c.Param("id")
+	// Get the original stream ID from URL
+	originalID := c.Param("id")
+
+	// Start a transaction
+	tx := h.DB.Begin()
+
+	// 1. Get the original stream with its media files
 	var orig models.Stream
-	if err := h.DB.First(&orig, "id = ?", id).Error; err != nil {
+	if err := tx.Preload("MediaFiles").First(&orig, "id = ?", originalID).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
 		return
 	}
 
+	// 2. Generate a new stream ID
 	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
-	ms := ulid.Timestamp(time.Now())
-	newId, err := ulid.New(ms, entropy)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate ID"})
+	newStreamID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+
+	// 3. Create a copy of the stream with a new ID
+	clone := models.Stream{
+		ID:         newStreamID,
+		Name:       fmt.Sprintf("%s (Copy)", orig.Name),
+		Status:     "stopped",
+		UserID:     orig.UserID,
+		MaxBitrate: orig.MaxBitrate,
+		RTMPUrl:    orig.RTMPUrl,
+		LoopVideo:  orig.LoopVideo,
+		LoopCount:  orig.LoopCount,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	// 4. Save the cloned stream
+	if err := tx.Create(&clone).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cloned stream"})
 		return
 	}
-	clone := orig
-	clone.ID = newId.String()
-	clone.CreatedAt = time.Now()
-	clone.UpdatedAt = time.Now()
-	clone.DeletedAt = gorm.DeletedAt{}
-	clone.Status = "stopped"
-	// Optionally, clear fields like StreamKey, ScheduledAt, ScheduledStartAt, ScheduledEndAt, etc.
-	clone.StreamKey = ""
-	clone.ScheduledAt = nil
-	clone.ScheduledStartAt = nil
-	clone.ScheduledEndAt = nil
-	clone.FfmpegPID = nil
-	clone.StartedAt = nil
-	clone.StoppedAt = nil
 
-	// copy the file
-	if orig.FilePath != nil {
-		newFileName := fmt.Sprintf("clone-%d-%s.mp4", time.Now().UnixMilli(), sanitizeFileName(orig.FileName))
-		newFilePath := "./uploads/" + newFileName
-		if err := copyFile(*orig.FilePath, newFilePath); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to copy file"})
-			return
+	// 5. Clone media files if they exist
+	if len(orig.MediaFiles) > 0 {
+		for _, origMedia := range orig.MediaFiles {
+			// Generate new media file ID
+			newMediaID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+
+			// Create a new file name with timestamp
+			ext := filepath.Ext(origMedia.FileName)
+			newFileName := fmt.Sprintf("%s_clone_%d%s",
+				strings.TrimSuffix(origMedia.FileName, ext),
+				time.Now().UnixNano(),
+				ext,
+			)
+
+			// Create the new file path in the same directory
+			newFilePath := filepath.Join(filepath.Dir(origMedia.FilePath), newFileName)
+
+			// Copy the file
+			if err := copyFile(origMedia.FilePath, newFilePath); err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to copy media file"})
+				return
+			}
+
+			// Create new media file record
+			newMedia := models.MediaFile{
+				ID:        newMediaID,
+				StreamID:  newStreamID,
+				FileName:  newFileName,
+				FilePath:  newFilePath,
+				FileSize:  origMedia.FileSize,
+				MediaType: origMedia.MediaType,
+				MimeType:  origMedia.MimeType,
+				IsPrimary: origMedia.IsPrimary,
+				Order:     origMedia.Order,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+
+			if err := tx.Create(&newMedia).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create media file record"})
+				return
+			}
 		}
-		clone.FilePath = &newFilePath
 	}
 
-	if err := h.DB.Create(&clone).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clone stream"})
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Stream cloned", "id": clone.ID})
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Stream cloned successfully",
+		"id":      newStreamID,
+	})
 }
 
 // ServeVideoPreview serves a video file for preview, requires JWT auth
@@ -513,7 +621,6 @@ func (h *StreamHandler) ServeVideoPreview(c *gin.Context) {
 	c.File(videoPath)
 }
 
-// ServeVideoPreviewByID serves a video file for preview by stream ID, requires JWT auth
 func (h *StreamHandler) ServeVideoPreviewByID(c *gin.Context) {
 	streamID := c.Param("id")
 	if streamID == "" {
@@ -528,20 +635,67 @@ func (h *StreamHandler) ServeVideoPreviewByID(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "stream not found"})
 		return
 	}
-	if stream.FilePath == nil || *stream.FilePath == "" {
-		c.JSON(404, gin.H{"error": "no file for this stream"})
+
+	// find video media file in db and use the first one
+	var mediaFile models.MediaFile
+	err = db.Where("stream_id = ? AND media_type = ?", streamID, "video").First(&mediaFile).Error
+	if err != nil {
+		c.JSON(404, gin.H{"error": "video file not found"})
 		return
 	}
-	file := *stream.FilePath
-	if strings.Contains(file, "..") {
-		c.JSON(400, gin.H{"error": "invalid file path"})
-		return
-	}
+	file := mediaFile.FilePath
+
 	// Instead of serving the file directly, redirect to the static uploads URL
 	// Assuming uploads are served at /uploads/ and file is relative to uploads dir
 	// Remove leading slashes from file path if present
 	cleanFile := strings.TrimLeft(file, "/")
 	c.Redirect(302, "/"+cleanFile)
+}
+
+func (h *StreamHandler) ServeAudioPreviewByID(c *gin.Context) {
+	streamID := c.Param("id")
+	if streamID == "" {
+		c.JSON(400, gin.H{"error": "stream_id required"})
+		return
+	}
+	// Find stream in DB
+	var stream models.Stream
+	db := h.DB
+	err := db.Where("id = ?", streamID).First(&stream).Error
+	if err != nil {
+		c.JSON(404, gin.H{"error": "stream not found"})
+		return
+	}
+
+	// find audio media file in db and use the first one
+	var mediaFile models.MediaFile
+	err = db.Where("stream_id = ? AND media_type = ?", streamID, "audio").First(&mediaFile).Error
+	if err != nil {
+		c.JSON(404, gin.H{"error": "audio file not found"})
+		return
+	}
+	file := mediaFile.FilePath
+
+	// Instead of serving the file directly, redirect to the static uploads URL
+	// Assuming uploads are served at /uploads/ and file is relative to uploads dir
+	// Remove leading slashes from file path if present
+	cleanFile := strings.TrimLeft(file, "/")
+	c.Redirect(302, "/"+cleanFile)
+}
+
+func (h *StreamHandler) startStreaming(stream *models.Stream) {
+	job.RestartLock.Lock()
+	_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, h.DB, h.RedisPubSub)
+	job.RestartLock.Unlock()
+	if err == nil {
+		log.Println("Stream", stream.ID, "started successfully.")
+		h.DB.Model(&stream).Updates(map[string]interface{}{
+			"Status":    "live",
+			"StartedAt": time.Now(),
+		})
+		// send websocket message
+		BroadcastStreamListUpdate()
+	}
 }
 
 // GET /api/streams/upload/progress
@@ -623,7 +777,8 @@ func (h *StreamHandler) UpdateStreamChannelId(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "Stream not found."})
 		return
 	}
-	stream.ChannelId = req.ChannelId
+
+	stream.ChannelID = &req.ChannelId
 	stream.StreamKey = req.StreamKey
 	if err := h.DB.Save(&stream).Error; err != nil {
 		c.JSON(500, gin.H{"error": "Failed to update channel id."})
@@ -633,93 +788,168 @@ func (h *StreamHandler) UpdateStreamChannelId(c *gin.Context) {
 }
 
 func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
+	// Get stream ID from URL
 	id := c.Param("id")
+
+	// Start a transaction
+	tx := h.DB.Begin()
+
+	// 1. Get the stream with its media files
 	var stream models.Stream
-	if err := h.DB.First(&stream, "id = ?", id).Error; err != nil {
-		c.JSON(404, gin.H{"error": "Stream not found."})
-		return
-	}
-	// Prevent duplicate StreamKey in live or scheduled streams
-	var existingStream models.Stream
-	err := h.DB.Where("stream_key = ? AND status IN ? AND id != ?", stream.StreamKey, []string{"live", "scheduled"}, stream.ID).First(&existingStream).Error
-	if err == nil {
-		c.JSON(400, gin.H{"error": "Another stream with this StreamKey is already live or scheduled."})
-		return
-	}
-	// Prevent duplicate FileName (title) in live or scheduled streams (case-insensitive)
-	var titleStream models.Stream
-
-	titleErr := h.DB.Where("LOWER(file_name) = LOWER(?) AND status IN ? AND id != ?", stream.FileName, []string{"live", "scheduled"}, stream.ID).First(&titleStream).Error
-	if titleErr == nil {
-		c.JSON(400, gin.H{"error": "Another stream with this title is already live or scheduled."})
+	if err := tx.Preload("MediaFiles").First(&stream, "id = ?", id).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
 		return
 	}
 
+	// 2. Check if stream is already live
 	if stream.Status == "live" {
-		c.JSON(400, gin.H{"error": "Stream is already live."})
-		return
-	}
-	// Check for required fields
-	if stream.StreamKey == "" || stream.FilePath == nil {
-		c.JSON(400, gin.H{"error": "StreamKey or FilePath missing."})
-		return
-	}
-	if stream.Status == "scheduled" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "This stream has been scheduled and cannot be started manually."})
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Stream is already live"})
 		return
 	}
 
-	redisClient, exists := c.Get("redis")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Redis not initialized."})
+	// 3. Check for required fields
+	if stream.StreamKey == "" {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Stream key is required"})
 		return
 	}
-	redisPubSub := redisClient.(*redisutil.RedisPubSub)
-	// Before starting, check if ffmpeg pid exists and is running, kill if so (prevent double stream)
-	if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
-		proc, err := os.FindProcess(*stream.FfmpegPID)
-		if err == nil && proc != nil {
-			// Try to send signal 0 to check if running
-			err = proc.Signal(syscall.Signal(0))
-			if err == nil {
-				// Process is running, try to kill
-				_ = proc.Signal(syscall.SIGTERM)
-				done := make(chan struct{}, 1)
-				go func() { proc.Wait(); done <- struct{}{} }()
-				select {
-				case <-done:
-					// exited gracefully
-				case <-time.After(5 * time.Second):
-					if proc.Pid > 0 {
-						_ = proc.Kill()
-					}
-					<-done
-				}
-			}
+
+	// 4. Check if there are any media files associated with the stream
+	if len(stream.MediaFiles) == 0 {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No media files found for this stream"})
+		return
+	}
+
+	// 5. Check if primary media file exists
+	var primaryMedia *models.MediaFile
+	for i, mf := range stream.MediaFiles {
+		if mf.IsPrimary {
+			primaryMedia = &stream.MediaFiles[i]
+			break
 		}
 	}
-	// Start FFmpeg goroutine (using models.AddWorker)
-	go func(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, db *gorm.DB, redisPubSub *redisutil.RedisPubSub) {
-		worker, pid, err := job.StartStreamWorkerWithDatabase(streamID, filePath, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, db, redisPubSub)
-		if err == nil {
-			log.Println("FFmpeg started for stream", streamID, "with PID", pid)
-			log.Println("FFmpeg PID stored in worker", worker.FfmpegPID)
-			db.Model(&models.Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
-				"ffmpeg_p_id": worker.FfmpegPID,
-				"status":      "live",
-				"started_at":  time.Now(),
-			})
-			// Broadcast to all ws clients
-			userID, _ := c.Get("user_id")
-			go func() {
-				BroadcastStreamListUpdate()
-				if userID != nil {
-					BroadcastDashboardStreams(db, userID.(string))
-				}
-			}()
+
+	// If no primary media is set, use the first one
+	if primaryMedia == nil {
+		primaryMedia = &stream.MediaFiles[0]
+	}
+
+	// 6. Check if media file exists
+	if _, err := os.Stat(primaryMedia.FilePath); os.IsNotExist(err) {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Media file not found: " + primaryMedia.FilePath})
+		return
+	}
+
+	// 7. Check for duplicate stream key in live or scheduled streams
+	var existingStream models.Stream
+	err := tx.Where("stream_key = ? AND status IN (?) AND id != ?",
+		stream.StreamKey, []string{"live", "scheduled"}, stream.ID).
+		First(&existingStream).Error
+
+	if err == nil {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Another stream with this stream key is already live or scheduled",
+		})
+		return
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking for duplicate streams"})
+		return
+	}
+
+	// 8. Handle scheduled streams
+	if stream.ScheduledStartAt != nil && stream.ScheduledStartAt.After(time.Now()) {
+		stream.Status = "scheduled"
+		if err := tx.Save(&stream).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to schedule stream"})
+			return
 		}
-	}(stream.ID, *stream.FilePath, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, h.DB, redisPubSub)
-	c.JSON(200, gin.H{"success": true})
+
+		// Commit the transaction
+		if err := tx.Commit().Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+
+		// Start a goroutine to handle the scheduled start
+		go func(streamID string) {
+			time.Sleep(time.Until(*stream.ScheduledStartAt))
+
+			// Start a new transaction for the scheduled start
+			tx := h.DB.Begin()
+			var s models.Stream
+			if err := tx.Preload("MediaFiles").First(&s, "id = ?", streamID).Error; err != nil {
+				tx.Rollback()
+				log.Printf("Error fetching stream for scheduled start: %v", err)
+				return
+			}
+
+			if s.Status == "scheduled" {
+				startedAt := time.Now()
+				s.Status = "live"
+				s.StartedAt = &startedAt
+
+				if err := tx.Save(&s).Error; err != nil {
+					tx.Rollback()
+					log.Printf("Failed to update stream status to live: %v", err)
+					return
+				}
+
+				// Start the actual streaming process
+				if err := tx.Commit().Error; err != nil {
+					log.Printf("Failed to commit scheduled start transaction: %v", err)
+					return
+				}
+
+				// Start the streaming process (this would be your actual streaming logic)
+				redisPubSub, _ := c.Get("redis")
+				h.RedisPubSub = redisPubSub.(*redisutil.RedisPubSub)
+				h.startStreaming(&s)
+			} else {
+				tx.Rollback()
+			}
+		}(stream.ID)
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Stream scheduled to start at " + stream.ScheduledStartAt.Format(time.RFC3339),
+			"status":  "scheduled",
+		})
+		return
+	}
+
+	// 9. Start the stream immediately
+	startedAt := time.Now()
+	stream.Status = "live"
+	stream.StartedAt = &startedAt
+
+	if err := tx.Save(&stream).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start stream"})
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	redisPubSub, _ := c.Get("redis")
+	h.RedisPubSub = redisPubSub.(*redisutil.RedisPubSub)
+
+	// Start the streaming process (this would be your actual streaming logic)
+	go h.startStreaming(&stream)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Stream started successfully",
+		"status":  "live",
+	})
 }
 
 func (h *StreamHandler) StopStreamBackground(c *gin.Context) {
@@ -764,9 +994,18 @@ func (h *StreamHandler) DeleteStream(c *gin.Context) {
 		_ = job.StopStreamWorker(stream.ID)
 	}
 	// Remove video file if exists
-	if stream.FilePath != nil && *stream.FilePath != "" {
-		_ = os.Remove(*stream.FilePath)
+	// list all media files
+	var mediaFiles []models.MediaFile
+	if err := h.DB.Where("stream_id = ?", id).Find(&mediaFiles).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to list media files."})
+		return
 	}
+	for _, mediaFile := range mediaFiles {
+		if mediaFile.FilePath != "" {
+			_ = os.Remove(mediaFile.FilePath)
+		}
+	}
+
 	if err := h.DB.Delete(&stream).Error; err != nil {
 		c.JSON(500, gin.H{"error": "Failed to delete stream."})
 		return
