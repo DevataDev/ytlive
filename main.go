@@ -190,6 +190,12 @@ func main() {
 		log.Fatalf("failed to migrate channels table: %v", err)
 	}
 
+	// Auto-migrate media files table
+	err = db.AutoMigrate(&models.MediaFile{})
+	if err != nil {
+		log.Fatalf("failed to migrate media files table: %v", err)
+	}
+
 	// Init device presets
 	tiktok.InitDevicePresets()
 
@@ -350,12 +356,19 @@ func main() {
 	r.PUT("/api/streams/:id/loopcount", handlers.JWTMiddleware(), streamHandler.SetLoopCount)
 	r.PUT("/api/streams/:id/rtmpurl", handlers.JWTMiddleware(), streamHandler.SetRTMPUrl)
 	r.POST("/api/streams/:id/clone", handlers.JWTMiddleware(), streamHandler.CloneStream)
-	r.GET("/api/streams/preview/:id", streamHandler.ServeVideoPreviewByID)
+	r.GET("/api/streams/:id/preview", streamHandler.ServeVideoPreviewByID)
 	r.GET("/api/streams/:id/logs", handlers.JWTMiddleware(), streamHandler.GetStreamLogs)
 
 	dashboardHandler := &handlers.DashboardHandler{DB: db}
 	r.GET("/api/dashboard/streams", handlers.JWTMiddleware(), dashboardHandler.GetDashboardStreamMetrics)
 	r.GET("/api/dashboard/metrics", handlers.JWTMiddleware(), dashboardHandler.GetDashboardSystemMetrics)
+
+	// Media file handler
+	mediaFileHandler := &handlers.MediaFileHandler{DB: db}
+	r.GET("/api/streams/:id/media", handlers.JWTMiddleware(), mediaFileHandler.ListMediaFiles)
+	r.POST("/api/streams/:id/media", handlers.JWTMiddleware(), mediaFileHandler.UploadMediaFile)
+	r.DELETE("/api/streams/media/:id", handlers.JWTMiddleware(), mediaFileHandler.DeleteMediaFile)
+	r.GET("/api/streams/:id/media/:mediaId/preview", mediaFileHandler.GetMediaPreview)
 
 	// Handle video upload (file or Google Drive link)
 	r.POST("/api/streams/upload", handlers.JWTMiddleware(), fileUploadHandler.UploadStream)

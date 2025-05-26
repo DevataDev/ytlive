@@ -58,8 +58,15 @@
     <div class="card p-4">
         <form id="uploadForm">
             <div class="mb-3">
-                <label for="videoFile" class="form-label">Upload Video File</label>
-                <input class="form-control" type="file" id="videoFile" name="videoFile" accept="video/*">
+                <div id="dropZone" class="drop-zone border rounded p-4 text-center mb-3">
+                    <div class="drop-zone__prompt">
+                        <i class="bi bi-upload" style="font-size: 2rem;"></i>
+                        <p>Drag & drop your video/audio files here or click to browse</p>
+                        <p class="small text-muted">Supports multiple files (video/mp4, video/quicktime, audio/mpeg, etc.)</p>
+                    </div>
+                    <input type="file" class="drop-zone__input" id="videoFiles" name="videoFiles" multiple accept="video/*,audio/*" style="display: none;">
+                </div>
+                <div id="filePreviews" class="mb-3"></div>
             </div>
             <div class="mb-3 text-center">OR</div>
             <div class="mb-3">

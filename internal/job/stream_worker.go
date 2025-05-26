@@ -3,6 +3,7 @@ package job
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -33,7 +34,8 @@ type StreamWorker struct {
 	StopChan    chan struct{} // Added StopChan field
 	stopOnce    sync.Once
 	FfmpegPID   *int
-	FilePath    string
+	Videos      []models.MediaFile
+	Audio       []models.MediaFile
 	StreamKey   string
 	MaxBitrate  *int
 	RTMPUrl     string
@@ -203,7 +205,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 				}
 				RestartLock.Lock()
 				StopStreamWorker(w.StreamID)
-				StartStreamWorkerWithDatabase(w.StreamID, w.FilePath, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.LoopCount, w.DB, w.RedisPubSub)
+				StartStreamWorkerWithDatabase(w.StreamID, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.LoopCount, w.DB, w.RedisPubSub)
 				RestartLock.Unlock()
 				broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
 				log.Println("Stream", w.StreamID, "restarted successfully")
@@ -220,13 +222,12 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	}
 }
 
-func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, database *gorm.DB, redisPubSub *redisutil.RedisPubSub) (*StreamWorker, int, error) {
+func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, database *gorm.DB, redisPubSub *redisutil.RedisPubSub) (*StreamWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	worker := &StreamWorker{
 		StreamID:    streamID,
 		CancelFunc:  cancel,
 		Status:      "live",
-		FilePath:    filePath,
 		StreamKey:   streamKey,
 		MaxBitrate:  maxBitrate,
 		DB:          database,
@@ -239,6 +240,19 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 		},
 	}
 
+	// find media files
+	if err := database.Where("stream_id = ? AND media_type = 'video'", streamID).Find(&worker.Videos).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := database.Where("stream_id = ? AND media_type = 'audio'", streamID).Find(&worker.Audio).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// if no video or audio, return error
+	if len(worker.Videos) == 0 && len(worker.Audio) == 0 {
+		return nil, 0, errors.New("no video or audio found")
+	}
+
 	var stream models.Stream
 	if err := database.Where("id = ?", worker.StreamID).Find(&stream).Error; err != nil {
 		return nil, 0, err
@@ -246,7 +260,7 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 
 	// get channel info
 	var channel models.Channels
-	if err := database.Where("user_id = ? AND (channel_id = ? OR id = ?)", stream.UserId, stream.ChannelId, stream.ChannelId).Find(&channel).Error; err != nil {
+	if err := database.Where("user_id = ? AND (channel_id = ? OR id = ?)", stream.UserID, stream.ChannelID, stream.ChannelID).Find(&channel).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -275,7 +289,7 @@ func StartStreamWorkerWithDatabase(streamID, filePath, streamKey string, maxBitr
 	}
 
 	var cmd *exec.Cmd
-	args := buildFfmpegArgs(maxBitrate, loopVideo, filePath, streamKey, rtmpUrl, loopCount)
+	args := buildFfmpegArgsWithMediaFiles(maxBitrate, loopVideo, worker.Videos, worker.Audio, streamKey, rtmpUrl, loopCount)
 
 	cmd = exec.CommandContext(ctx, args[0], args[1:]...)
 
@@ -441,6 +455,93 @@ func GetDriveProgress(driveLink string) (map[string]interface{}, bool) {
 		}
 	}
 	return progress, ok
+}
+
+func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []models.MediaFile, audio []models.MediaFile, streamKey string, rtmpUrl string, loopCount *int) []string {
+	var args []string
+	var fullRtmpUrl string
+	if rtmpUrl != "" {
+		if rtmpUrl[len(rtmpUrl)-1] != '/' {
+			fullRtmpUrl = rtmpUrl + "/" + streamKey
+		} else {
+			fullRtmpUrl = rtmpUrl + streamKey
+		}
+	} else {
+		fullRtmpUrl = "rtmp://a.rtmp.youtube.com/live2/" + streamKey
+	}
+
+	args = append(args, "ffmpeg", "-re", "-nostdin", "-fflags", "+genpts", "-hide_banner",
+		"-loglevel", "info", "-stats_period", "1")
+
+	// Handle stream loop if needed
+	if loopVideo && len(videos) > 0 {
+		loopCountVal := -1
+		if loopCount != nil {
+			loopCountVal = *loopCount
+		}
+		args = append(args, "-stream_loop", fmt.Sprintf("%d", loopCountVal))
+	}
+
+	// Add video input (only first video if multiple provided)
+	if len(videos) > 0 {
+		args = append(args, "-i", videos[0].FilePath)
+	}
+
+	// Add audio inputs
+	audioInputs := make([]string, 0)
+	for i, audioFile := range audio {
+		args = append(args, "-i", audioFile.FilePath)
+		audioInputs = append(audioInputs, fmt.Sprintf("%d", i+1)) // +1 because video is input 0
+	}
+
+	// Map video stream (always use copy)
+	if len(videos) > 0 {
+		args = append(args, "-map", "0:v:0", "-c:v", "copy")
+	}
+
+	// Handle audio
+	if len(audio) > 0 {
+		if len(audio) == 1 {
+			// Single audio - map directly
+			args = append(args, "-map", "1:a:0", "-c:a", "copy")
+		} else {
+			// Multiple audio files - need to concat with filter (only audio will be processed)
+			var filterComplex strings.Builder
+
+			// Add all audio inputs to filter
+			for i := range audio {
+				filterComplex.WriteString(fmt.Sprintf("[%d:a:0]", i+1)) // +1 because video is input 0
+			}
+
+			// Concatenate audios
+			filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=0:a=1[a]", len(audio)))
+
+			// Add filter complex to args
+			filterStr := filterComplex.String()
+			log.Println("Using audio filter complex (audio will be re-encoded):", filterStr)
+			args = append(args, "-filter_complex", filterStr)
+
+			// Map the filtered audio
+			args = append(args, "-map", "[a]")
+
+			// Encode audio (only audio is being re-encoded)
+			args = append(args, "-c:a", "aac", "-ar", "44100", "-b:a", "128k", "-ac", "2")
+		}
+	} else {
+		// No audio
+		args = append(args, "-an")
+	}
+
+	// Add output options
+	args = append(args,
+		"-f", "flv",
+		"-drop_pkts_on_overflow", "1",
+		"-attempt_recovery", "1",
+		"-recover_any_error", "1",
+		fullRtmpUrl)
+
+	log.Println("FFmpeg command (video is NEVER re-encoded):", strings.Join(args, " "))
+	return args
 }
 
 func buildFfmpegArgs(maxBitrate *int, loopVideo bool, filePath string, streamKey string, rtmpUrl string, loopCount *int) []string {
