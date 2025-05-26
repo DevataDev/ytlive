@@ -646,8 +646,6 @@ func (h *StreamHandler) ServeVideoPreviewByID(c *gin.Context) {
 	file := mediaFile.FilePath
 
 	// Instead of serving the file directly, redirect to the static uploads URL
-	// Assuming uploads are served at /uploads/ and file is relative to uploads dir
-	// Remove leading slashes from file path if present
 	cleanFile := strings.TrimLeft(file, "/")
 	c.Redirect(302, "/"+cleanFile)
 }

@@ -469,47 +469,78 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 	} else {
 		fullRtmpUrl = "rtmp://a.rtmp.youtube.com/live2/" + streamKey
 	}
-	args = append(args, "ffmpeg")
-	args = append(args, "-re")
-	args = append(args, "-nostdin")
-	args = append(args, "-fflags", "+genpts")
-	args = append(args, "-hide_banner")
-	args = append(args, "-loglevel", "info")
-	args = append(args, "-stats_period", "1")
-	// args = append(args, "-progress", "pipe:1")
-	var loopingCount int
-	if loopVideo {
-		if loopCount == nil {
-			loopingCount = (-1)
-		} else {
-			loopingCount = *loopCount
+
+	args = append(args, "ffmpeg", "-re", "-nostdin", "-fflags", "+genpts", "-hide_banner",
+		"-loglevel", "info", "-stats_period", "1")
+
+	// Handle stream loop if needed
+	if loopVideo && len(videos) > 0 {
+		loopCountVal := -1
+		if loopCount != nil {
+			loopCountVal = *loopCount
 		}
-		args = append(args, "-stream_loop", fmt.Sprintf("%d", loopingCount))
+		args = append(args, "-stream_loop", fmt.Sprintf("%d", loopCountVal))
 	}
-	args = append(args, "-threads", "1")
-	for _, video := range videos {
-		args = append(args, "-i", video.FilePath)
-	}
-	for _, audio := range audio {
-		args = append(args, "-i", audio.FilePath)
-	}
-	// how to handle if video is shorter than audio
-	if len(audio) > 0 {
-		args = append(args, "-filter_complex", "[0:v] [0:a] [1:v] [1:a] concat=n=2:v=1:a=1 [v] [a]")
-	}
+
+	// Add video input (only first video if multiple provided)
 	if len(videos) > 0 {
-		args = append(args, "-c:v", "copy")
+		args = append(args, "-i", videos[0].FilePath)
 	}
+
+	// Add audio inputs
+	audioInputs := make([]string, 0)
+	for i, audioFile := range audio {
+		args = append(args, "-i", audioFile.FilePath)
+		audioInputs = append(audioInputs, fmt.Sprintf("%d", i+1)) // +1 because video is input 0
+	}
+
+	// Map video stream (always use copy)
+	if len(videos) > 0 {
+		args = append(args, "-map", "0:v:0", "-c:v", "copy")
+	}
+
+	// Handle audio
 	if len(audio) > 0 {
-		args = append(args, "-c:a", "copy")
+		if len(audio) == 1 {
+			// Single audio - map directly
+			args = append(args, "-map", "1:a:0", "-c:a", "copy")
+		} else {
+			// Multiple audio files - need to concat with filter (only audio will be processed)
+			var filterComplex strings.Builder
+
+			// Add all audio inputs to filter
+			for i := range audio {
+				filterComplex.WriteString(fmt.Sprintf("[%d:a:0]", i+1)) // +1 because video is input 0
+			}
+
+			// Concatenate audios
+			filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=0:a=1[a]", len(audio)))
+
+			// Add filter complex to args
+			filterStr := filterComplex.String()
+			log.Println("Using audio filter complex (audio will be re-encoded):", filterStr)
+			args = append(args, "-filter_complex", filterStr)
+
+			// Map the filtered audio
+			args = append(args, "-map", "[a]")
+
+			// Encode audio (only audio is being re-encoded)
+			args = append(args, "-c:a", "aac", "-ar", "44100", "-b:a", "128k", "-ac", "2")
+		}
+	} else {
+		// No audio
+		args = append(args, "-an")
 	}
-	args = append(args, "-threads", "1")
-	args = append(args, "-preset", "ultrafast")
-	args = append(args, "-f", "flv")
-	args = append(args, "-drop_pkts_on_overflow", "1")
-	args = append(args, "-attempt_recovery", "1")
-	args = append(args, "-recover_any_error", "1")
-	args = append(args, fullRtmpUrl)
+
+	// Add output options
+	args = append(args,
+		"-f", "flv",
+		"-drop_pkts_on_overflow", "1",
+		"-attempt_recovery", "1",
+		"-recover_any_error", "1",
+		fullRtmpUrl)
+
+	log.Println("FFmpeg command (video is NEVER re-encoded):", strings.Join(args, " "))
 	return args
 }
 

@@ -213,7 +213,7 @@ $(function() {
             let liveIndicator = stream.Status === 'live' ? '<span class="live-indicator"></span>' : '';
             let stopDisabled = (stream.Status !== 'live') ? 'disabled' : '';
             let loopChecked = stream.LoopVideo ? 'checked' : '';
-            let previewUrl = stream.FilePath ? `/api/streams/preview/${stream.ID}` : '';
+            let previewUrl = `/api/streams/${stream.ID}/preview`;
             let streamKeyField = `<input type="password" class="form-control form-control-sm stream-password" id="streamkey-input-${stream.ID}" value="${stream.StreamKey || ''}" style="max-width:180px;display:inline-block;">`;
             let streamKeySaveBtn = `<button class="btn btn-outline-success btn-sm ms-1 streamkey-save" data-id="${stream.ID}" title="Save Stream Key"><i class="fa fa-save"></i></button>`;
             let showPasswordBtn = `<button class="btn btn-outline-secondary btn-sm ms-1 stream-password-toggle" title="Show/Hide"><i class="fa fa-eye"></i></button>`;
@@ -228,9 +228,10 @@ $(function() {
                 mainBtn = `<button class="btn btn-success btn-sm stream-start" data-id="${stream.ID}" ${startDisabled}>Start</button>`;
             }
             let bindBtn = `<button class='btn btn-outline-primary btn-sm ms-2 bind-channel-btn' data-id='${stream.ID}'>Bind</button>`;
+            let mediaBtn = `<button class="btn btn-outline-warning btn-sm media-manage-btn ms-2" data-id="${stream.ID}" title="Kelola Media"><i class="fa fa-file-video"></i></button>`;
             let deleteBtn = `<button class="btn btn-secondary btn-sm stream-delete ms-2" data-id="${stream.ID}">Hapus</button>`;
-            let cloneBtn = `<button class="btn btn-info btn-sm stream-clone ms-2" data-id="${stream.ID}"><i class="fa fa-clone"></i></button>`;
-            let logsBtn = `<button class="btn btn-info btn-sm view-logs-btn stream-logs ms-2" data-id="${stream.ID}"><i class="fa fa-info-circle"></i></button>`;
+            let cloneBtn = `<button class="btn btn-info btn-sm stream-clone ms-2" data-id="${stream.ID}" title="Clone"><i class="fa fa-clone"></i></button>`;
+            let logsBtn = `<button class="btn btn-info btn-sm view-logs-btn stream-logs ms-2" data-id="${stream.ID}" title="Logs"><i class="fa fa-info-circle"></i></button>`;
 
             // --- File size formatting ---
             let fileSizeStr = '';
@@ -297,6 +298,7 @@ $(function() {
                         ${mainBtn}
                         ${deleteBtn}
                         ${bindBtn}
+                        ${mediaBtn}
                         ${cloneBtn}
                         ${logsBtn}
                         ${liveBadge}
@@ -1181,6 +1183,164 @@ $(function() {
 
     // Initial load
     fetchStreams();
+
+    // Media Management Handlers
+    let currentStreamId = null;
+
+    // Open media management modal
+    $(document).on('click', '.media-manage-btn', function() {
+        currentStreamId = $(this).data('id');
+        $('#mediaStreamId').val(currentStreamId);
+        loadMediaFiles(currentStreamId);
+        $('#mediaFileModal').modal('show');
+    });
+
+    // Load media files for a stream
+    function loadMediaFiles(streamId) {
+        const $container = $('#currentMediaFiles');
+        $container.html('<div class="text-center py-3"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Memuat data...</div>');
+
+        $.ajax({
+            url: `/api/streams/${streamId}/media`,
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('jwt_token') },
+            success: function(response) {
+                $container.empty();
+                if (response.files && response.files.length > 0) {
+                    const filesList = $('<div class="list-group"></div>');
+                    
+                    response.files.forEach(file => {
+                        const fileType = file.media_type || 'file';
+                        const fileSize = formatFileSize(file.file_size || 0);
+                        const fileDate = new Date(file.created_at).toLocaleString();
+                        const isVideo = file.mime_type && file.mime_type.startsWith('video/');
+                        const previewUrl = isVideo ? `/api/streams/${streamId}/media/${file.id}/preview` : file.file_path;
+                        
+                        const fileItem = `
+                            <div class="list-group-item py-2 px-3" data-id="${file.id}">
+                                <div class="d-flex align-items-center w-100">
+                                    <div class="d-flex align-items-center flex-grow-1" style="min-width: 0;">
+                                        <div class="me-3 text-center" style="width: 32px; flex-shrink: 0;">
+                                            <i class="fa ${getFileTypeIcon(fileType)} text-muted"></i>
+                                        </div>
+                                        <div class="flex-grow-1" style="min-width: 0;">
+                                            <div class="fw-medium text-truncate" title="${file.file_name || 'Unnamed'}">
+                                                ${file.file_name || 'Unnamed'}
+                                            </div>
+                                            <div class="small text-muted d-flex align-items-center">
+                                                <span class="text-nowrap">${fileSize}</span>
+                                                <span class="mx-2">•</span>
+                                                <span class="text-nowrap">${fileDate}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex ms-2" style="flex-shrink: 0;">
+                                        <a href="${previewUrl}" target="_blank" class="btn btn-sm btn-outline-primary me-2" title="Pratinjau">
+                                            <i class="fa fa-eye"></i> <span class="d-none d-md-inline">Pratinjau</span>
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-danger" data-id="${file.id}" title="Hapus">
+                                            <i class="fa fa-trash"></i> <span class="d-none d-md-inline">Hapus</span>
+                                        </button>
+                                </div>
+                            </div>
+                        `;
+                        filesList.append(fileItem);
+                    });
+                    $container.append(filesList);
+                } else {
+                    $container.html('<div class="text-center py-3 text-muted">Tidak ada file media</div>');
+                }
+            },
+            error: function(xhr) {
+                $container.html('<div class="text-center py-3 text-danger">Gagal memuat file media</div>');
+                console.error('Error loading media files:', xhr);
+            }
+        });
+    }
+
+    // Handle media file upload
+    $('#uploadMediaForm').on('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData();
+        const streamId = $('#mediaStreamId').val();
+        const fileInput = $('#mediaFile')[0];
+        const mediaType = $('#mediaType').val();
+        
+        if (!streamId || !fileInput.files.length) return;
+        
+        formData.append('file', fileInput.files[0]);
+        formData.append('media_type', mediaType);
+        
+        const $submitBtn = $(this).find('button[type="submit"]');
+        $submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Mengunggah...');
+        
+        $.ajax({
+            url: `/api/streams/${streamId}/media`,
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('jwt_token') },
+            success: function() {
+                showStreamToast('File media berhasil diunggah', 'success');
+                loadMediaFiles(streamId);
+                $('#mediaFile').val('');
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON?.error || 'Gagal mengunggah file';
+                showStreamToast(errorMsg, 'danger');
+            },
+            complete: function() {
+                $submitBtn.prop('disabled', false).text('Upload');
+            }
+        });
+    });
+
+    // Handle media file deletion
+    $(document).on('click', '.delete-media-btn', function() {
+        if (!confirm('Apakah Anda yakin ingin menghapus file ini?')) return;
+        
+        const fileId = $(this).data('id');
+        const $btn = $(this);
+        const $item = $btn.closest('.list-group-item');
+        
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>');
+        
+        $.ajax({
+            url: `/api/streams/media/${fileId}`,
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('jwt_token') },
+            success: function() {
+                showStreamToast('File media berhasil dihapus', 'success');
+                $item.fadeOut(300, function() { $(this).remove(); });
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON?.error || 'Gagal menghapus file';
+                showStreamToast(errorMsg, 'danger');
+                $btn.prop('disabled', false).html('<i class="fa fa-trash"></i>');
+            }
+        });
+    });
+
+    // Helper function to get file type icon
+    function getFileTypeIcon(type) {
+        const icons = {
+            'video': 'fa-file-video',
+            'audio': 'fa-file-audio',
+            'image': 'fa-file-image',
+            'default': 'fa-file'
+        };
+        return icons[type] || icons['default'];
+    }
+
+    // Helper function to format file size
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
 });
 
 // --- Toast Notification Helper ---

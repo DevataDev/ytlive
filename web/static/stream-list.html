@@ -340,5 +340,49 @@ $('#settingsLoopCount').val('-1');
     </div>
   </div>
 </div>
+<!-- Media File Management Modal -->
+<div class="modal fade" id="mediaFileModal" tabindex="-1" aria-labelledby="mediaFileModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="mediaFileModalLabel">Kelola Media File</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <h6>File Media Saat Ini</h6>
+          <div id="currentMediaFiles" class="list-group mb-3">
+            <!-- Current media files will be listed here -->
+          </div>
+        </div>
+        <hr>
+        <div>
+          <h6>Tambah File Media Baru</h6>
+          <form id="uploadMediaForm">
+            <input type="hidden" id="mediaStreamId" name="streamId">
+            <div class="mb-3">
+              <label for="mediaType" class="form-label">Tipe Media</label>
+              <select class="form-select mb-3" id="mediaType" name="mediaType" required>
+                <option value="video">Video</option>
+                <option value="audio">Audio</option>
+                <option value="image">Gambar</option>
+              </select>
+            
+              <label for="mediaFile" class="form-label">Pilih File</label>
+              <div class="input-group input-group-sm mb-3">
+                <input class="form-control form-control-sm" type="file" id="mediaFile" name="file" accept=".mp4,.mkv,.wav,.mp3" required>
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-upload"></i>
+                </button>
+              </div>
+              <div class="form-text">Format yang didukung: MP4, MKV, WAV, MP3</div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
