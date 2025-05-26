@@ -69,9 +69,51 @@ $(function() {
         });
     }
 
+    // Format bytes to human readable format
+    function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+
+    // Fetch and update storage information
+    function fetchStorageInfo() {
+        const token = localStorage.getItem("jwt_token");
+        ajaxWithRefresh({
+            url: "/api/dashboard/storage",
+            method: "GET",
+            headers: { Authorization: "Bearer " + token },
+            success: function(data) {
+                const usedPercent = Math.round(data.used_percent);
+                document.getElementById('storageProgress').style.width = usedPercent + '%';
+                document.getElementById('storageUsed').textContent = formatBytes(data.used);
+                document.getElementById('storageTotal').textContent = formatBytes(data.total);
+                
+                // Update progress bar color based on usage
+                const progressBar = document.getElementById('storageProgress');
+                progressBar.classList.remove('bg-success', 'bg-warning', 'bg-danger');
+                if (usedPercent < 70) {
+                    progressBar.classList.add('bg-success');
+                } else if (usedPercent < 90) {
+                    progressBar.classList.add('bg-warning');
+                } else {
+                    progressBar.classList.add('bg-danger');
+                }
+            },
+            error: function() {
+                // Handle error
+            }
+        });
+    }
+
     // Call once on load and every 5 seconds
     fetchDashboardStreams();
+    fetchStorageInfo();
     setInterval(fetchDashboardStreams, 5000);
+    setInterval(fetchStorageInfo, 30000); // Update storage info every 30 seconds
 
     function setupDashboardWebSocket() {
         if (window.dashboardSocket) {
@@ -97,5 +139,7 @@ $(function() {
         };
     }
     setupDashboardWebSocket();
-
+    
+    // Initial fetch of storage info
+    fetchStorageInfo();
 });

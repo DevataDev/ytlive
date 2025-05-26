@@ -362,6 +362,7 @@ func main() {
 	dashboardHandler := &handlers.DashboardHandler{DB: db}
 	r.GET("/api/dashboard/streams", handlers.JWTMiddleware(), dashboardHandler.GetDashboardStreamMetrics)
 	r.GET("/api/dashboard/metrics", handlers.JWTMiddleware(), dashboardHandler.GetDashboardSystemMetrics)
+	r.GET("/api/dashboard/storage", handlers.JWTMiddleware(), dashboardHandler.GetStorageInfo)
 
 	// Media file handler
 	mediaFileHandler := &handlers.MediaFileHandler{DB: db}
