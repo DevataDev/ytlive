@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -51,15 +52,56 @@ var (
 )
 
 func loadConfig(path string) (*config.Config, error) {
+	// If path is not absolute, search in standard locations
+	if !filepath.IsAbs(path) {
+		// Try paths in order of preference:
+		// 1. Current directory (for backward compatibility)
+		// 2. $XDG_CONFIG_HOME/windsorf/config.yaml
+		// 3. /etc/windsorf/config.yaml
+		// 4. $HOME/.config/windsorf/config.yaml
+
+		xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
+		if xdgConfigHome == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get user home directory: %w", err)
+			}
+			xdgConfigHome = filepath.Join(home, ".config")
+		}
+
+		possiblePaths := []string{
+			path, // Original path (current directory)
+			filepath.Join(xdgConfigHome, "windsorf", "config.yaml"),
+			"/etc/windsorf/config.yaml",
+			filepath.Join(xdgConfigHome, "windsorf", "config.yml"),
+			"/etc/windsorf/config.yml",
+		}
+
+		var configFile string
+		for _, p := range possiblePaths {
+			if _, err := os.Stat(p); err == nil {
+				configFile = p
+				log.Printf("Using config file: %s\n", configFile)
+				break
+			}
+		}
+
+		if configFile == "" {
+			return nil, fmt.Errorf("config file not found in any of these locations: %v", possiblePaths)
+		}
+		path = configFile
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open config file %s: %w", path, err)
 	}
 	defer f.Close()
+
 	var cfg config.Config
 	dec := yaml.NewDecoder(f)
 	if err := dec.Decode(&cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode config file %s: %w", path, err)
 	}
 	return &cfg, nil
 }

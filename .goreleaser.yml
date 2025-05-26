@@ -160,6 +160,12 @@ changelog:
     - title: Other work
       order: 9999
 
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - web/**
+
 nfpms:
   - id: ytlive
     package_name: ytlive
@@ -173,6 +179,17 @@ nfpms:
     priority: extra
     ids:
       - ytlive
+    contents:
+      - src: web/**
+        dst: /opt/ytlive/
+        type: tree
+        file_info:
+          # File mode.
+          mode: 0644
+          # Modification time.
+          #
+          # Templates: allowed (since v2.6).
+          mtime: "{{.CommitDate}}"
 
     formats:
       - deb

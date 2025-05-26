@@ -298,6 +298,16 @@ func (h *YoutubeClient) FetchYouTubeChannel(accessToken string, refreshToken str
 }
 
 func (h *YoutubeClient) HandleCreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitle string, streamKey string, refreshToken string) error {
+	// Check for existing broadcasts with the same title in the last 5 minutes
+	hasDuplicate, err := h.HasRecentBroadcastWithTitle(accessToken, refreshToken, streamTitle, 5)
+	if err != nil {
+		return fmt.Errorf("error checking for duplicate broadcasts: %v", err)
+	}
+	if hasDuplicate {
+		return fmt.Errorf("a live or upcoming broadcast with the title '%s' already exists", streamTitle)
+	}
+
+	// Proceed with creating the broadcast if no duplicate found
 	request, err := http.NewRequest("POST", "https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet&part=status&part=contentDetails", nil)
 	if err != nil {
 		return err
