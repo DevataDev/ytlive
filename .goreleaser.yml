@@ -160,6 +160,12 @@ changelog:
     - title: Other work
       order: 9999
 
+# Ensure the web directory is included in the build
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
 archives:
   - format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
@@ -180,16 +186,26 @@ nfpms:
     ids:
       - ytlive
     contents:
+      # Include the built web assets
       - src: web/**
         dst: /opt/ytlive/
-        type: tree
+        type: dir 
         file_info:
-          # File mode.
           mode: 0644
-          # Modification time.
-          #
-          # Templates: allowed (since v2.6).
           mtime: "{{.CommitDate}}"
+      
+      # Include the binary
+      - src: "{{ .ArtifactPath }}"
+        dst: /opt/ytlive/{{ .ProjectName }}
+        type: file
+        file_info:
+          mode: 0755
+          mtime: "{{.CommitDate}}"
+      
+      # Create a symlink for easier access
+      - src: /opt/ytlive/{{ .ProjectName }}
+        dst: /usr/bin/{{ .ProjectName }}
+        type: symlink
 
     formats:
       - deb
