@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"strings"
 
 	"net/http"
 	"net/url"
@@ -423,6 +424,20 @@ func (h *YoutubeClient) HandleCreateYoutubeLiveStream(channelID string, accessTo
 		return err
 	}
 
+	// --- YouTube deduplication check ---
+	// Find YouTube channel for this stream (if any)
+	var channel models.Channels
+	if err := h.DB.Where("id = ? OR channel_id = ?", channelID, channelID).First(&channel).Error; err == nil {
+		if channel.AccessToken != nil && channel.RefreshToken != nil {
+			dup, ytErr := h.HasRecentBroadcastWithTitle(*channel.AccessToken, *channel.RefreshToken, streamTitle, 5)
+			if ytErr != nil {
+				log.Printf("YouTube API deduplication check failed: %v", ytErr)
+			} else if dup {
+				return fmt.Errorf("a youTube broadcast with this title was created in the last 5 minutes and is live or upcoming")
+			}
+		}
+	}
+
 	request, err := http.NewRequest("POST", "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet&part=cdn&part=contentDetails&part=status", bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		return err
@@ -537,6 +552,54 @@ func (h *YoutubeClient) FindYoutubeStreamKey(accessToken string, refreshToken st
 		}
 	}
 	return "", nil
+}
+
+// HasRecentBroadcastWithTitle checks if a live or upcoming broadcast with the same title was created in the last N minutes
+func (h *YoutubeClient) HasRecentBroadcastWithTitle(accessToken, refreshToken, title string, withinMinutes int) (bool, error) {
+	endpoint := "https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet&broadcastStatus=all&mine=true&maxResults=50"
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	resp, err := h.DoWithAutoRefresh(req, accessToken, refreshToken, func(newAccessToken string, newRefreshToken string, oldRefreshToken string) {
+		h.UpdateTokenInDB(oldRefreshToken, newAccessToken, newRefreshToken)
+	})
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	var apiResp struct {
+		Items []struct {
+			ID      string `json:"id"`
+			Snippet struct {
+				Title       string `json:"title"`
+				PublishedAt string `json:"publishedAt"`
+			} `json:"snippet"`
+			Status struct {
+				LifeCycleStatus string `json:"lifeCycleStatus"`
+			} `json:"status"`
+		} `json:"items"`
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return false, err
+	}
+	now := time.Now().UTC()
+	for _, item := range apiResp.Items {
+		if strings.EqualFold(item.Snippet.Title, title) &&
+			(item.Status.LifeCycleStatus == "live" || item.Status.LifeCycleStatus == "upcoming") {
+			// Parse publishedAt
+			publishedAt, err := time.Parse(time.RFC3339, item.Snippet.PublishedAt)
+			if err == nil && now.Sub(publishedAt) <= time.Duration(withinMinutes)*time.Minute {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 func (h *YoutubeClient) Exchange(code string) (*oauth2.Token, error) {

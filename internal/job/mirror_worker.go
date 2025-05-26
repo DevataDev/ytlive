@@ -134,6 +134,16 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		return nil, 0, errors.New("mirror not found")
 	}
 
+	// Prevent duplicate StreamKey in live mirrors
+	if mirror.StreamKey != "" {
+		var existingMirror models.Mirror
+		err := database.Where("stream_key = ? AND status = ? AND id != ?", mirror.StreamKey, "live", mirror.ID).First(&existingMirror).Error
+		if err == nil {
+			cancel()
+			return nil, 0, errors.New("Another mirror with this StreamKey is already live.")
+		}
+	}
+
 	// check if streamKey have been used by another mirror and FFmpeg is running
 	var data models.Mirror
 	var status string = "live"

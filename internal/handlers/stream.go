@@ -639,6 +639,22 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "Stream not found."})
 		return
 	}
+	// Prevent duplicate StreamKey in live or scheduled streams
+	var existingStream models.Stream
+	err := h.DB.Where("stream_key = ? AND status IN ? AND id != ?", stream.StreamKey, []string{"live", "scheduled"}, stream.ID).First(&existingStream).Error
+	if err == nil {
+		c.JSON(400, gin.H{"error": "Another stream with this StreamKey is already live or scheduled."})
+		return
+	}
+	// Prevent duplicate FileName (title) in live or scheduled streams (case-insensitive)
+	var titleStream models.Stream
+
+	titleErr := h.DB.Where("LOWER(file_name) = LOWER(?) AND status IN ? AND id != ?", stream.FileName, []string{"live", "scheduled"}, stream.ID).First(&titleStream).Error
+	if titleErr == nil {
+		c.JSON(400, gin.H{"error": "Another stream with this title is already live or scheduled."})
+		return
+	}
+
 	if stream.Status == "live" {
 		c.JSON(400, gin.H{"error": "Stream is already live."})
 		return
