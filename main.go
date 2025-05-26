@@ -71,10 +71,12 @@ func loadConfig(path string) (*config.Config, error) {
 
 		possiblePaths := []string{
 			path, // Original path (current directory)
-			filepath.Join(xdgConfigHome, "windsorf", "config.yaml"),
-			"/etc/windsorf/config.yaml",
-			filepath.Join(xdgConfigHome, "windsorf", "config.yml"),
-			"/etc/windsorf/config.yml",
+			filepath.Join(xdgConfigHome, "ytlive", "config.yaml"),
+			"/etc/ytlive/config.yaml",
+			filepath.Join(xdgConfigHome, "ytlive", "config.yml"),
+			"/etc/ytlive/config.yml",
+			"/opt/ytlive/config.yaml",
+			"/opt/ytlive/config.yml",
 		}
 
 		var configFile string
