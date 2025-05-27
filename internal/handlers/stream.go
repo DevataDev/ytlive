@@ -973,7 +973,7 @@ func (h *StreamHandler) StopStreamBackground(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Stream is not live."})
 		return
 	}
-	err := job.StopStreamWorker(stream.ID)
+	err := job.StopStreamWorker(stream.ID, true)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Failed to stop stream."})
 		return

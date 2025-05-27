@@ -82,11 +82,17 @@ func GetWorker(streamID string) (*StreamWorker, bool) {
 }
 
 // StopStreamWorker stops the FFmpeg process for the stream and removes the worker.
-func StopStreamWorker(streamID string) error {
+func StopStreamWorker(streamID string, isByUser bool) error {
 	worker, ok := GetWorker(streamID)
 	if !ok {
 		log.Println("Stream", streamID, "not found.")
 		return nil // Already stopped
+	}
+
+	if worker.LoopVideo && isByUser {
+		// prevent the monitoring restarting it
+		log.Println("Receiving stop request from user, preventing restart")
+		worker.LoopVideo = false
 	}
 
 	// update worker status
@@ -97,24 +103,24 @@ func StopStreamWorker(streamID string) error {
 		log.Println("Cancelling context for stream", streamID)
 		worker.CancelFunc()
 		log.Println("Context cancelled for stream", streamID)
-		select {
-		case <-time.After(5 * time.Second):
-			log.Println("Timeout waiting for FFmpeg to exit after cancel, forcing kill...")
-			// Force kill logic here (e.g., kill process)
-			if worker.Cmd != nil && worker.Cmd.Process != nil {
-				_ = worker.Cmd.Process.Kill()
-			}
-
-			// if still alive, kill using os kill
-			if worker.Cmd != nil && worker.Cmd.Process != nil {
-				if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
-					_ = exec.Command("kill", "-9", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
-				} else if runtime.GOOS == "windows" {
-					_ = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
-				}
-			}
-			log.Println("FFmpeg process killed for stream", streamID)
+		// Wait for 5 seconds before forcing kill
+		time.Sleep(5 * time.Second)
+		log.Println("Timeout waiting for FFmpeg to exit after cancel, forcing kill...")
+		// Force kill logic here (e.g., kill process)
+		if worker.Cmd != nil && worker.Cmd.Process != nil {
+			_ = worker.Cmd.Process.Kill()
 		}
+		log.Println("FFmpeg process killed for stream", streamID)
+
+		// if still alive, kill using os kill
+		if worker.Cmd != nil && worker.Cmd.Process != nil {
+			if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+				_ = exec.Command("kill", "-9", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
+			} else if runtime.GOOS == "windows" {
+				_ = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", worker.Cmd.Process.Pid)).Run()
+			}
+		}
+		log.Println("FFmpeg process killed for stream", streamID)
 	}
 	log.Println("Killing FFmpeg process for stream", streamID)
 	if worker.Cmd != nil && worker.Cmd.Process != nil {
@@ -185,7 +191,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 						"Status": "stopped",
 					})
 					RestartLock.Lock()
-					StopStreamWorker(w.StreamID)
+					StopStreamWorker(w.StreamID, false)
 					RemoveWorker(w.StreamID)
 					RestartLock.Unlock()
 					log.Println("Stream", w.StreamID, "stopped successfully, because loop video is false")
@@ -204,7 +210,7 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 					return
 				}
 				RestartLock.Lock()
-				StopStreamWorker(w.StreamID)
+				StopStreamWorker(w.StreamID, false)
 				StartStreamWorkerWithDatabase(w.StreamID, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.LoopCount, w.DB, w.RedisPubSub)
 				RestartLock.Unlock()
 				broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
