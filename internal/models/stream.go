@@ -41,6 +41,8 @@ func MigrateStreams(db *gorm.DB) error {
 	switch dbDialect {
 	case "sqlite":
 		isSQLite = true
+	case "sqlite3":
+		isSQLite = true
 	}
 
 	// For SQLite, we need to use a different approach
