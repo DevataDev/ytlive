@@ -47,31 +47,52 @@ func MigrateStreams(db *gorm.DB) error {
 
 	// For SQLite, we need to use a different approach
 	if isSQLite {
+		log.Println("Detected SQLite database, checking table schema...")
+		
+		// Check if the table exists at all
+		var tableExists bool
+		err := db.Raw("SELECT 1 FROM sqlite_master WHERE type='table' AND name='streams'").Scan(&tableExists).Error
+		if err != nil || !tableExists {
+			// Table doesn't exist, just create it with AutoMigrate
+			log.Println("Streams table doesn't exist, creating with AutoMigrate...")
+			return db.AutoMigrate(&Stream{})
+		}
+
 		// Check if the name column exists and is NOT NULL
 		var tableInfo []struct {
 			SQL string `gorm:"column:sql"`
 		}
 
 		// Query the SQL used to create the table
-		err := db.Raw("SELECT sql FROM sqlite_master WHERE type='table' AND name='streams'").Scan(&tableInfo).Error
+		err = db.Raw("SELECT sql FROM sqlite_master WHERE type='table' AND name='streams'").Scan(&tableInfo).Error
 		if err != nil {
-			return fmt.Errorf("failed to get table info: %v", err)
+			log.Printf("Warning: Failed to get table info: %v. Attempting migration anyway...", err)
+			return migrateSQLiteStreams(db)
 		}
 
-		log.Println("Table info:", tableInfo)
-		log.Println("Table info length:", len(tableInfo))
-		log.Println("Table info SQL:", tableInfo[0].SQL)
+		log.Printf("Table info: %+v", tableInfo)
+		log.Printf("Table info length: %d", len(tableInfo))
+		if len(tableInfo) > 0 && tableInfo[0].SQL != "" {
+			log.Printf("Table creation SQL: %s", tableInfo[0].SQL)
+		}
+
+		// If we can't determine the schema, be safe and attempt the migration
+		if len(tableInfo) == 0 || tableInfo[0].SQL == "" {
+			log.Println("Warning: Could not determine table schema. Attempting migration...")
+			return migrateSQLiteStreams(db)
+		}
 
 		// Check if name column has NOT NULL constraint
-		if len(tableInfo) > 0 && tableInfo[0].SQL != "" {
-			hasNotNull := strings.Contains(strings.ToUpper(tableInfo[0].SQL), "NAME TEXT NOT NULL") ||
-				strings.Contains(strings.ToUpper(tableInfo[0].SQL), "NAME VARCHAR NOT NULL")
+		sqlUpper := strings.ToUpper(tableInfo[0].SQL)
+		hasNotNull := strings.Contains(sqlUpper, "NAME TEXT NOT NULL") ||
+			strings.Contains(sqlUpper, "NAME VARCHAR NOT NULL")
 
-			if hasNotNull {
-				// SQLite doesn't support ALTER COLUMN, so we need to recreate the table
-				log.Println("Migrating SQLite streams table...")
-				return migrateSQLiteStreams(db)
-			}
+		if hasNotNull {
+			// SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+			log.Println("Detected NOT NULL constraint on name column. Migrating SQLite streams table...")
+			return migrateSQLiteStreams(db)
+		} else {
+			log.Println("No NOT NULL constraint detected on name column. Using standard migration.")
 		}
 	} else {
 		// For other databases (MySQL, PostgreSQL, etc.)
