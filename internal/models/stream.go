@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -35,7 +36,9 @@ type Stream struct {
 func MigrateStreams(db *gorm.DB) error {
 	// First, check the database dialect
 	var isSQLite bool
-	switch db.Dialector.Name() {
+	dbDialect := db.Dialector.Name()
+	log.Println("Database dialect:", dbDialect)
+	switch dbDialect {
 	case "sqlite":
 		isSQLite = true
 	}
@@ -46,7 +49,7 @@ func MigrateStreams(db *gorm.DB) error {
 		var tableInfo []struct {
 			SQL string `gorm:"column:sql"`
 		}
-		
+
 		// Query the SQL used to create the table
 		err := db.Raw("SELECT sql FROM sqlite_master WHERE type='table' AND name='streams'").Scan(&tableInfo).Error
 		if err != nil {
@@ -73,7 +76,6 @@ func MigrateStreams(db *gorm.DB) error {
 			AND TABLE_NAME = 'streams'
 			AND COLUMN_NAME = 'name'
 			AND IS_NULLABLE = 'NO'`).Scan(&count)
-
 
 		if count > 0 {
 			// First, add a temporary column
