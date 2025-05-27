@@ -58,6 +58,10 @@ func MigrateStreams(db *gorm.DB) error {
 			return fmt.Errorf("failed to get table info: %v", err)
 		}
 
+		log.Println("Table info:", tableInfo)
+		log.Println("Table info length:", len(tableInfo))
+		log.Println("Table info SQL:", tableInfo[0].SQL)
+
 		// Check if name column has NOT NULL constraint
 		if len(tableInfo) > 0 && tableInfo[0].SQL != "" {
 			hasNotNull := strings.Contains(strings.ToUpper(tableInfo[0].SQL), "NAME TEXT NOT NULL") ||
@@ -65,6 +69,7 @@ func MigrateStreams(db *gorm.DB) error {
 
 			if hasNotNull {
 				// SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+				log.Println("Migrating SQLite streams table...")
 				return migrateSQLiteStreams(db)
 			}
 		}
@@ -120,6 +125,8 @@ func migrateSQLiteStreams(db *gorm.DB) error {
 		}
 	}()
 
+	log.Println("Starting migration of SQLite streams table...")
+
 	// 1. Create a new table with the desired schema
 	err := tx.Exec(`CREATE TABLE IF NOT EXISTS streams_new (
 		id TEXT PRIMARY KEY,
@@ -147,6 +154,8 @@ func migrateSQLiteStreams(db *gorm.DB) error {
 		return fmt.Errorf("failed to create new streams table: %v", err)
 	}
 
+	log.Println("Created new streams table successfully.")
+
 	// 2. Copy data from old table to new table
 	err = tx.Exec(`
 		INSERT INTO streams_new (
@@ -166,6 +175,8 @@ func migrateSQLiteStreams(db *gorm.DB) error {
 		return fmt.Errorf("failed to copy data to new table: %v", err)
 	}
 
+	log.Println("Copied data to new streams table successfully.")
+
 	// 3. Drop old table
 	err = tx.Exec(`DROP TABLE streams`).Error
 	if err != nil {
@@ -180,6 +191,8 @@ func migrateSQLiteStreams(db *gorm.DB) error {
 		return fmt.Errorf("failed to rename new streams table: %v", err)
 	}
 
+	log.Println("Renamed new streams table successfully.")
+
 	// 5. Recreate indexes
 	err = tx.Exec(`CREATE INDEX IF NOT EXISTS idx_streams_deleted_at ON streams(deleted_at)`).Error
 	if err != nil {
@@ -192,6 +205,8 @@ func migrateSQLiteStreams(db *gorm.DB) error {
 		tx.Rollback()
 		return fmt.Errorf("failed to create user_id index: %v", err)
 	}
+
+	log.Println("Migrated SQLite streams table successfully.")
 
 	// Commit the transaction
 	return tx.Commit().Error
