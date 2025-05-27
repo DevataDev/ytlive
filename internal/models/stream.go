@@ -85,7 +85,8 @@ func MigrateStreams(db *gorm.DB) error {
 		// Check if name column has NOT NULL constraint
 		sqlUpper := strings.ToUpper(tableInfo[0].SQL)
 		hasNotNull := strings.Contains(sqlUpper, "NAME TEXT NOT NULL") ||
-			strings.Contains(sqlUpper, "NAME VARCHAR NOT NULL")
+			strings.Contains(sqlUpper, "NAME VARCHAR NOT NULL") ||
+			strings.Contains(sqlUpper, "NAME TEXT DEFAULT")
 
 		if hasNotNull {
 			// SQLite doesn't support ALTER COLUMN, so we need to recreate the table
