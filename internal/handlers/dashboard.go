@@ -1,11 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"os"
 	"windsorf-youtube-live/internal/models"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/sys/unix"
+	"github.com/shirou/gopsutil/v3/disk"
 	"gorm.io/gorm"
 )
 
@@ -32,29 +33,24 @@ func (h *DashboardHandler) GetDashboardSystemMetrics(c *gin.Context) {
 
 // GetStorageInfo returns information about system disk usage
 func (h *DashboardHandler) GetStorageInfo(c *gin.Context) {
-	// Get disk usage of the root filesystem
-	var stat unix.Statfs_t
+	// Get the current working directory
 	wd, err := os.Getwd()
 	if err != nil {
 		c.JSON(500, gin.H{"error": "failed to get current working directory"})
 		return
 	}
 
-	err = unix.Statfs(wd, &stat)
+	// Get disk usage using cross-platform library
+	usage, err := disk.UsageWithContext(context.Background(), wd)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "failed to get disk usage"})
+		c.JSON(500, gin.H{"error": "failed to get disk usage: " + err.Error()})
 		return
 	}
 
-	// Calculate total and used space in bytes
-	totalSpace := int64(stat.Blocks) * int64(stat.Bsize)
-	usedSpace := totalSpace - (int64(stat.Bavail) * int64(stat.Bsize))
-	usedPercent := float64(usedSpace) / float64(totalSpace) * 100
-
 	c.JSON(200, gin.H{
-		"total":        totalSpace,
-		"used":         usedSpace,
-		"free":         int64(stat.Bavail) * int64(stat.Bsize),
-		"used_percent": usedPercent,
+		"total":        usage.Total,
+		"used":         usage.Used,
+		"free":         usage.Free,
+		"used_percent": usage.UsedPercent,
 	})
 }
