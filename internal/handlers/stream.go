@@ -392,10 +392,22 @@ func (h *StreamHandler) RenameFile(c *gin.Context) {
 	streamID := c.Param("id")
 
 	var req struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
+		FileName string `json:"FileName"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil || req.Name == "" {
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Use FileName if provided (for frontend compatibility), otherwise use name
+	newName := req.FileName
+	if newName == "" {
+		newName = req.Name
+	}
+
+	if newName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: name is required"})
 		return
 	}
@@ -406,7 +418,7 @@ func (h *StreamHandler) RenameFile(c *gin.Context) {
 	// Update the stream name
 	if err := tx.Model(&models.Stream{}).
 		Where("id = ?", streamID).
-		Update("name", req.Name).Error; err != nil {
+		Update("name", newName).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stream name"})
 		return
