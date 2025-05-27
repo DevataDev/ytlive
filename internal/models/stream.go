@@ -11,7 +11,7 @@ import (
 
 type Stream struct {
 	ID               string `gorm:"primaryKey"`
-	Name             string `gorm:"not null" json:"name"`
+	Name             string `gorm:"not null;default:'Live Stream'" json:"name"`
 	Status           string `gorm:"not null"`     // "live", "scheduled", "stopped"
 	FfmpegPID        *int   `gorm:"default:null"` // Optional, for managing ffmpeg process
 	ScheduledAt      *time.Time
