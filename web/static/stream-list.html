@@ -95,6 +95,40 @@
     <div id="stream-list-cards" class="row g-3">
         <!-- Stream cards will be dynamically inserted here -->
     </div>
+    <!-- Delete Confirmation Modal -->
+    <style>
+        /* Ensure delete confirmation modal appears on top of other modals */
+        #deleteMediaModal {
+            z-index: 1060; /* Bootstrap's modal z-index is 1050 by default */
+        }
+        #deleteMediaModal ~ .modal-backdrop {
+            z-index: 1059; /* Just below our modal */
+        }
+        /* Make sure the parent modal remains interactive */
+        .modal.show {
+            pointer-events: none;
+        }
+        .modal.show .modal-dialog {
+            pointer-events: auto;
+        }
+    </style>
+    <div class="modal fade" id="deleteMediaModal" tabindex="-1" aria-labelledby="deleteMediaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteMediaModalLabel">Konfirmasi Hapus</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Apakah Anda yakin ingin menghapus file ini?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteMedia">Hapus</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Pagination Bar -->
     <div class="d-flex justify-content-center mt-4 mb-5">
         <nav>

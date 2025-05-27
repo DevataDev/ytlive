@@ -299,7 +299,6 @@ $(function() {
                         ${deleteBtn}
                         ${bindBtn}
                         ${mediaBtn}
-                        ${cloneBtn}
                         ${logsBtn}
                         ${liveBadge}
                     </div>
@@ -1239,7 +1238,7 @@ $(function() {
                                         <a href="${previewUrl}" target="_blank" class="btn btn-sm btn-outline-primary me-2" title="Pratinjau">
                                             <i class="fa fa-eye"></i> <span class="d-none d-md-inline">Pratinjau</span>
                                         </a>
-                                        <button class="btn btn-sm btn-outline-danger" data-id="${file.id}" title="Hapus">
+                                        <button class="btn btn-sm btn-outline-danger delete-media-btn" data-id="${file.id}" title="Hapus">
                                             <i class="fa fa-trash"></i> <span class="d-none d-md-inline">Hapus</span>
                                         </button>
                                 </div>
@@ -1297,31 +1296,70 @@ $(function() {
         });
     });
 
-    // Handle media file deletion
-    $(document).on('click', '.delete-media-btn', function() {
-        if (!confirm('Apakah Anda yakin ingin menghapus file ini?')) return;
+    // Variables to store media deletion state
+    let currentMediaToDelete = null;
+    let currentMediaButton = null;
+    let currentMediaItem = null;
+
+    // Handle media file deletion button click
+    $(document).on('click', '.delete-media-btn', function(e) {
+        e.preventDefault();
+        currentMediaToDelete = $(this).data('id');
+        currentMediaButton = $(this);
+        currentMediaItem = currentMediaButton.closest('.list-group-item');
         
-        const fileId = $(this).data('id');
-        const $btn = $(this);
-        const $item = $btn.closest('.list-group-item');
+        // Show the confirmation modal
+        $('#deleteMediaModal').modal('show');
+    });
+
+    // Handle confirm delete button click in the modal
+    $('#confirmDeleteMedia').on('click', function() {
+        if (!currentMediaToDelete) return;
         
+        const $btn = currentMediaButton;
+        const $item = currentMediaItem;
+        const fileId = currentMediaToDelete;
+        
+        // Close the modal
+        $('#deleteMediaModal').modal('hide');
+        
+        // Show loading state on the button
         $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>');
         
+        // Make the delete request
         $.ajax({
             url: `/api/streams/media/${fileId}`,
             method: 'DELETE',
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('jwt_token') },
             success: function() {
                 showStreamToast('File media berhasil dihapus', 'success');
-                $item.fadeOut(300, function() { $(this).remove(); });
+                $item.fadeOut(300, function() { 
+                    $(this).remove(); 
+                    // Reset the deletion state
+                    resetMediaDeletionState();
+                });
             },
             error: function(xhr) {
                 const errorMsg = xhr.responseJSON?.error || 'Gagal menghapus file';
                 showStreamToast(errorMsg, 'danger');
                 $btn.prop('disabled', false).html('<i class="fa fa-trash"></i>');
+                // Reset the deletion state
+                resetMediaDeletionState();
             }
         });
     });
+    
+    // Reset media deletion state when modal is closed
+    $('#deleteMediaModal').on('hidden.bs.modal', function() {
+        resetMediaDeletionState();
+    });
+    
+    // Helper function to reset media deletion state
+    function resetMediaDeletionState() {
+        currentMediaToDelete = null;
+        currentMediaButton = null;
+        currentMediaItem = null;
+    }
 
     // Helper function to get file type icon
     function getFileTypeIcon(type) {
