@@ -232,6 +232,8 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 		MaxBitrate:  maxBitrate,
 		DB:          database,
 		RedisPubSub: redisPubSub,
+		LoopVideo:   loopVideo,
+		LoopCount:   loopCount,
 		Logger: &lumberjack.Logger{
 			Filename:   "./logs/ffmpeg-" + streamID + ".log",
 			MaxSize:    15,
@@ -473,25 +475,51 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 	args = append(args, "ffmpeg", "-re", "-nostdin", "-fflags", "+genpts", "-hide_banner",
 		"-loglevel", "info", "-stats_period", "1")
 
-	// Handle stream loop if needed
-	if loopVideo && len(videos) > 0 {
-		loopCountVal := -1
-		if loopCount != nil {
-			loopCountVal = *loopCount
-		}
-		args = append(args, "-stream_loop", fmt.Sprintf("%d", loopCountVal))
-	}
-
 	// Add video input (only first video if multiple provided)
 	if len(videos) > 0 {
+		// Handle stream loop if needed - must be before the input it applies to
+		if loopVideo {
+			loopCountVal := -1 // Infinite loop by default
+			if loopCount != nil {
+				loopCountVal = *loopCount
+			}
+			args = append(args, "-stream_loop", fmt.Sprintf("%d", loopCountVal))
+		}
 		args = append(args, "-i", videos[0].FilePath)
 	}
 
-	// Add audio inputs
+	// Handle audio inputs with loop support
 	audioInputs := make([]string, 0)
-	for i, audioFile := range audio {
-		args = append(args, "-i", audioFile.FilePath)
-		audioInputs = append(audioInputs, fmt.Sprintf("%d", i+1)) // +1 because video is input 0
+	if len(audio) > 0 {
+		if loopVideo {
+			// Create a temporary concat file for audio files
+			concatFile, err := os.CreateTemp("", "audio_concat_*.txt")
+			if err != nil {
+				log.Printf("Error creating concat file: %v", err)
+			} else {
+				defer os.Remove(concatFile.Name()) // Clean up the temp file
+
+				// Write file list to concat file
+				for _, audioFile := range audio {
+					fmt.Fprintf(concatFile, "file '%s'\n", strings.ReplaceAll(audioFile.FilePath, "'", "'\\''"))
+				}
+
+				// Add concat demuxer with loop
+				loopCountVal := "-1"
+				if loopCount != nil {
+					loopCountVal = fmt.Sprintf("%d", *loopCount)
+				}
+
+				args = append(args, "-f", "concat", "-safe", "0", "-stream_loop", loopCountVal, "-i", concatFile.Name())
+				audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos))) // Single input for all audio files
+			}
+		} else {
+			// Original behavior without loop
+			for i, audioFile := range audio {
+				args = append(args, "-i", audioFile.FilePath)
+				audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos)+i)) // Account for video input
+			}
+		}
 	}
 
 	// Map video stream (always use copy)
@@ -499,33 +527,51 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 		args = append(args, "-map", "0:v:0", "-c:v", "copy")
 	}
 
-	// Handle audio
+	// Handle audio mapping based on whether we're looping or not
 	if len(audio) > 0 {
-		if len(audio) == 1 {
-			// Single audio - map directly
-			args = append(args, "-map", "1:a:0", "-c:a", "copy")
-		} else {
-			// Multiple audio files - need to concat with filter (only audio will be processed)
-			var filterComplex strings.Builder
-
-			// Add all audio inputs to filter
-			for i := range audio {
-				filterComplex.WriteString(fmt.Sprintf("[%d:a:0]", i+1)) // +1 because video is input 0
+		if loopVideo {
+			// For looped audio, we have a single concat input
+			if len(videos) > 0 {
+				// Video + looped audio
+				args = append(args, "-map", "1:a:0", "-c:a", "aac", "-b:a", "128k")
+			} else {
+				// Audio only with loop
+				args = append(args, "-map", "0:a:0", "-c:a", "aac", "-b:a", "128k")
 			}
+		} else {
+			// Original behavior for non-looped audio
+			if len(audio) == 1 {
+				// Single audio - map directly
+				if len(videos) > 0 {
+					args = append(args, "-map", "1:a:0")
+				} else {
+					args = append(args, "-map", "0:a:0")
+				}
+				args = append(args, "-c:a", "aac", "-b:a", "128k")
+			} else {
+				// Multiple audio files - concatenate them
+				var filterComplex strings.Builder
+				startIdx := len(videos)
 
-			// Concatenate audios
-			filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=0:a=1[a]", len(audio)))
+				// Add all audio inputs to filter
+				for i := 0; i < len(audio); i++ {
+					filterComplex.WriteString(fmt.Sprintf("[%d:a:0]", startIdx+i))
+				}
 
-			// Add filter complex to args
-			filterStr := filterComplex.String()
-			log.Println("Using audio filter complex (audio will be re-encoded):", filterStr)
-			args = append(args, "-filter_complex", filterStr)
+				// Concatenate audios
+				filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=0:a=1[a]", len(audio)))
 
-			// Map the filtered audio
-			args = append(args, "-map", "[a]")
+				// Add filter complex to args
+				filterStr := filterComplex.String()
+				log.Println("Using audio filter complex (audio will be re-encoded):", filterStr)
+				args = append(args, "-filter_complex", filterStr)
 
-			// Encode audio (only audio is being re-encoded)
-			args = append(args, "-c:a", "aac", "-ar", "44100", "-b:a", "128k", "-ac", "2")
+				// Map the filtered audio
+				args = append(args, "-map", "[a]")
+
+				// Encode audio
+				args = append(args, "-c:a", "aac", "-ar", "44100", "-b:a", "128k", "-ac", "2")
+			}
 		}
 	} else {
 		// No audio
