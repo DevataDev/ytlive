@@ -246,12 +246,13 @@ $(function() {
                 
                 if (response.results && response.results.length > 0) {
                     response.results.forEach(result => {
-                        const statusClass = result.Success ? 'text-success' : 'text-danger';
-                        const statusIcon = result.Success ? 'bi-check-circle' : 'bi-x-circle';
+                        console.log(result);
+                        const statusClass = result.success ? 'text-success' : 'text-danger';
+                        const statusIcon = result.success ? 'bi-check-circle' : 'bi-x-circle';
                         html += `
                             <li class="d-flex align-items-center mb-1">
                                 <i class="bi ${statusIcon} ${statusClass} me-2"></i>
-                                <span>${result.FileName || 'File'}: ${result.Message || (result.Success ? 'Uploaded successfully' : 'Failed')}</span>
+                                <span>${result.fileName || 'File'}: ${result.message || (result.success ? 'Uploaded successfully' : 'Failed')}</span>
                             </li>
                         `;
                     });
