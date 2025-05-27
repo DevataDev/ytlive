@@ -195,11 +195,6 @@ nfpms:
         file_info:
           mode: 0755
           mtime: "{{.CommitDate}}"
-      
-      # Create a symlink for easier access
-      - src: /opt/ytlive/{{ .ProjectName }}
-        dst: /usr/bin/{{ .ProjectName }}
-        type: symlink
 
     formats:
       - deb
