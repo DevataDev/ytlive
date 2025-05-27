@@ -200,7 +200,7 @@ function initDropZone() {
 
 // Initialize when document is ready
 $(function() {
-    // Auth check and redirect if not logged in
+    // Auth check and logout
     if (!localStorage.getItem("jwt_token")) {
         window.location.href = "/";
         return;
@@ -216,25 +216,15 @@ $(function() {
         window.location.href = "/";
     });
 
-    // Enable/disable submit button based on file selection
-    const fileInput = document.getElementById('videoFiles');
-    const submitBtn = document.getElementById('submitBtn');
-    
-    fileInput.addEventListener('change', function() {
-        submitBtn.disabled = this.files.length === 0;
-    });
-    
-    // Initial state
-    submitBtn.disabled = fileInput.files.length === 0;
-
     // Handle form submission
     $("#uploadForm").submit(function(e) {
         e.preventDefault();
         
         const files = $("#videoFiles")[0].files;
+        const driveLink = $("#driveLink").val().trim();
         
-        if (files.length === 0) {
-            showAlert('Please select at least one file to upload.', 'danger');
+        if (files.length === 0 && !driveLink) {
+            showAlert('Please select at least one file or provide a Google Drive link.', 'danger');
             return;
         }
         
@@ -250,8 +240,15 @@ $(function() {
         const formData = new FormData();
         
         // Append all files
-        for (let i = 0; i < files.length; i++) {
-            formData.append("videoFiles", files[i]);
+        if (files.length > 0) {
+            for (let i = 0; i < files.length; i++) {
+                formData.append("videoFiles", files[i]);
+            }
+        }
+        
+        // Append drive link if provided
+        if (driveLink) {
+            formData.append("driveLink", driveLink);
         }
         
         // Make the AJAX request
@@ -291,43 +288,28 @@ $(function() {
                     }
                 } else {
                     let errorMessage = 'Terjadi kesalahan saat mengunggah file.';
-                    let details = '';
                     
                     try {
                         const errorResponse = JSON.parse(xhr.responseText);
                         if (errorResponse && errorResponse.error) {
                             errorMessage = errorResponse.error;
                         }
-                        
-                        if (errorResponse && errorResponse.results) {
-                            details = '<div class="mt-3"><strong>Error details:</strong><ul class="mb-0">';
-                            errorResponse.results.forEach(result => {
-                                if (!result.Success) {
-                                    details += `<li>${result.FileName || 'File'}: ${result.Message || 'Failed to upload'}</li>`;
-                                }
-                            });
-                            details += '</ul></div>';
-                        }
                     } catch (e) {
                         console.error('Error parsing error response:', e);
                     }
                     
-                    // Show error message with retry option
-                    $("#uploadStatus").html(`
-                        <div class="alert alert-danger">
-                            <h5>${errorMessage}</h5>
-                            ${details}
-                            <div class="mt-3">
-                                <button id="retryUpload" class="btn btn-warning me-2">Retry Upload</button>
-                                <a href="/stream" class="btn btn-outline-secondary">Cancel</a>
-                            </div>
-                        </div>
-                    `);
+                    if (xhr.status === 413) {
+                        errorMessage = 'Ukuran file terlalu besar. Maksimal 2GB per file.';
+                    } else if (xhr.status === 401) {
+                        errorMessage = 'Sesi telah berakhir. Silakan login kembali.';
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 2000);
+                    } else if (xhr.status === 0) {
+                        errorMessage = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+                    }
                     
-                    // Handle retry button click
-                    $("#retryUpload").on('click', function() {
-                        $("#uploadForm").submit();
-                    });
+                    showAlert(errorMessage, 'danger');
                 }
             }
         };
@@ -336,5 +318,83 @@ $(function() {
         xhr.open('POST', '/api/upload', true);
         xhr.setRequestHeader('Authorization', 'Bearer ' + localStorage.getItem('jwt_token'));
         xhr.send(formData);
+    });
+});
+$(function() {
+    // Auth check and logout
+    if (!localStorage.getItem("jwt_token")) {
+        window.location.href = "/";
+        return;
+    }
+    
+    // Initialize drag and drop
+    initDropZone();
+    
+    // Handle logout
+    $("#logoutBtn").click(function() {
+        localStorage.removeItem("jwt_token");
+        $.post("/api/logout");
+        window.location.href = "/";
+    });
+
+    // Handle Google Drive link input
+    const driveLinkInput = document.getElementById('driveLink');
+    if (driveLinkInput) {
+        driveLinkInput.addEventListener('input', function() {
+            const submitBtn = document.getElementById('submitBtn');
+            const fileInput = document.getElementById('videoFiles');
+            
+            if (this.value.trim() !== '') {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-google me-1"></i> Process Google Drive Link';
+            } else if (fileInput.files.length === 0) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bi bi-upload me-1"></i> Upload Files';
+            }
+        });
+    }
+
+    // Handle form submission
+    $("#uploadForm").submit(function(e) {
+        e.preventDefault();
+        // Make the AJAX request
+        const xhr = new XMLHttpRequest();
+        
+        // Track upload progress
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                const percentComplete = Math.round((e.loaded / e.total) * 100);
+                updateProgress(percentComplete);
+                        if (response.results) {
+                            details += '<div class="mt-3"><strong>Error details:</strong><ul class="mb-0">';
+                            response.results.forEach(result => {
+                                if (!result.Success) {
+                                    details += `<li>${result.FileName || 'File'}: ${result.Message || 'Failed to upload'}</li>`;
+                                }
+                            });
+                            details += '</ul></div>';
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error parsing error response:', e);
+                }
+                
+                $("#uploadStatus").html(`
+                    <div class="alert alert-danger">
+                        <h5>${message}</h5>
+                        ${details}
+                    </div>
+                    <div class="mt-3">
+                        <button id="retryUpload" class="btn btn-warning me-2">Retry Upload</button>
+                        <a href="/stream" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                `);
+                
+                // Handle retry button click
+                $("#retryUpload").on('click', function() {
+                    $("#uploadForm").submit();
+                });
+            }
+        });
     });
 });
