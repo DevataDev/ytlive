@@ -297,7 +297,8 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 			if worker.RedisPubSub != nil {
 				channel := "ffmpeg-logs:mirror:" + mirrorID
 				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
-				if _, err := worker.Logger.Write([]byte(line)); err != nil {
+				logWithNewLine := line + "\n"
+				if _, err := worker.Logger.Write([]byte(logWithNewLine)); err != nil {
 					log.Println("Failed to write log:", err)
 				}
 			}
@@ -322,7 +323,8 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 			if worker.RedisPubSub != nil {
 				channel := "ffmpeg-logs:mirror:" + mirrorID
 				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
-				if _, err := worker.Logger.Write([]byte(line)); err != nil {
+				logWithNewLine := line + "\n"
+				if _, err := worker.Logger.Write([]byte(logWithNewLine)); err != nil {
 					log.Println("Failed to write log:", err)
 				}
 			}

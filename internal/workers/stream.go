@@ -70,7 +70,7 @@ func (w *StreamWorker) StartMonitorStream() {
 			// check end time
 			if stream.ScheduledEndAt.Before(now) {
 				job.RestartLock.Lock()
-				_ = job.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
+				_ = job.StopStreamWorker(stream.ID, true) // Ensures ffmpeg is killed
 				job.RestartLock.Unlock()
 				// remove scheduled_at and scheduled_end_at
 				w.DB.Model(&stream).Updates(map[string]interface{}{
@@ -106,7 +106,7 @@ func (w *StreamWorker) StartScheduledStream() {
 				}
 			}
 			job.RestartLock.Lock()
-			_ = job.StopStreamWorker(stream.ID) // Ensures ffmpeg is killed
+			_ = job.StopStreamWorker(stream.ID, true) // Ensures ffmpeg is killed
 			_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
 			job.RestartLock.Unlock()
 			if err != nil {
@@ -138,7 +138,7 @@ func (w *StreamWorker) StartOneTimeRestarter() {
 		job.RestartLock.Lock()
 		if stream.FfmpegPID != nil && *stream.FfmpegPID > 0 {
 			log.Println("Stopping stream", stream.ID, "with PID", *stream.FfmpegPID)
-			job.StopStreamWorker(stream.ID)
+			job.StopStreamWorker(stream.ID, true)
 		}
 		_, _, err := job.StartStreamWorkerWithDatabase(stream.ID, stream.StreamKey, stream.MaxBitrate, stream.RTMPUrl, stream.LoopVideo, stream.LoopCount, w.DB, w.RedisPubSub)
 		job.RestartLock.Unlock()

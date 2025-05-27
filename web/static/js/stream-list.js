@@ -259,7 +259,7 @@ $(function() {
             }
 
             let liveBadge = stream.Status === 'live' ? '<span class="badge bg-danger ms-2">LIVE</span>' : '';
-            let title = `${stream.Title || stream.FileName || 'Live Stream'}`;
+            let title = `${stream.Name || 'Live Stream'}`;
             let renameBtn = `<button class="btn btn-link p-0 ms-2 stream-rename-btn" data-id="${stream.ID}" title="Rename File Name"><i class="fa fa-pencil-alt"></i></button>`;
             let settingsBtn = `<button class="btn btn-outline-warning btn-sm stream-settings-btn position-absolute" style="bottom:16px;right:16px;z-index:10;" data-id="${stream.ID}" title="Stream Settings"><i class="fa fa-gear"></i></button>`;
             let cardHeader = `
@@ -944,11 +944,12 @@ $(function() {
                 $('#settingsDuration').val(0);
             }
         }
+        console.log(scheduleStartAt, scheduleEndAt, stream.LoopCount);
         if (scheduleStartAt) {
             $('#settingsMode').val('SCHEDULER');
-        } else if (scheduleEndAt && scheduleStartAt == null && stream.LoopCount !== undefined && stream.LoopCount !== null && stream.LoopCount < 0) {
+        } else if (scheduleEndAt && scheduleStartAt == null && stream.LoopCount !== undefined && stream.LoopCount !== null && parseInt(stream.LoopCount) < 0) {
             $('#settingsMode').val('DURATION');
-        }  else if (stream.LoopCount !== undefined && stream.LoopCount !== null && stream.LoopCount > 0) {
+        }  else if (stream.LoopCount !== undefined && stream.LoopCount !== null && parseInt(stream.LoopCount) > 0) {
             $('#settingsMode').val('LOOPCOUNT');
         } else {
             $('#settingsMode').val('LIVE');
@@ -983,7 +984,7 @@ $(function() {
             $('#settingsMode').val('DURATION');
         } else if (stream.ScheduledStartAt) {
             $('#settingsMode').val('SCHEDULER');
-        } else if (stream.LoopCount !== undefined && stream.LoopCount !== null) {
+        } else if (stream.LoopCount !== undefined && stream.LoopCount !== null && parseInt(stream.LoopCount) > 0) {
             $('#settingsMode').val('LOOPCOUNT');
         } else {
             $('#settingsMode').val('LIVE');

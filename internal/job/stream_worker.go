@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -289,7 +290,7 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 				"stream_key":    streamKey,
 				"channel_id":    channel.ChannelID,
 				"user_id":       channel.UserId,
-				"title":         "Watch Me Live",
+				"title":         stream.Name,
 				"access_token":  accessToken,
 				"refresh_token": refreshToken,
 			})
@@ -332,7 +333,8 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 			if worker.RedisPubSub != nil {
 				channel := "ffmpeg-logs:stream:" + streamID
 				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
-				if _, err := worker.Logger.Write([]byte(line)); err != nil {
+				logWithNewLine := line + "\n"
+				if _, err := worker.Logger.Write([]byte(logWithNewLine)); err != nil {
 					log.Println("Failed to write log:", err)
 				}
 			}
@@ -357,7 +359,8 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 			if worker.RedisPubSub != nil {
 				channel := "ffmpeg-logs:stream:" + streamID
 				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
-				if _, err := worker.Logger.Write([]byte(line)); err != nil {
+				logWithNewLine := line + "\n"
+				if _, err := worker.Logger.Write([]byte(logWithNewLine)); err != nil {
 					log.Println("Failed to write log:", err)
 				}
 			}
@@ -497,32 +500,64 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 	// Handle audio inputs with loop support
 	audioInputs := make([]string, 0)
 	if len(audio) > 0 {
-		if loopVideo {
+		// First, filter out any audio files that don't exist
+		var validAudioFiles []models.MediaFile
+		for _, audioFile := range audio {
+			if _, err := os.Stat(audioFile.FilePath); err == nil {
+				validAudioFiles = append(validAudioFiles, audioFile)
+			} else {
+				log.Printf("Warning: Audio file not found, skipping: %s", audioFile.FilePath)
+			}
+		}
+
+		if len(validAudioFiles) == 0 {
+			// No valid audio files, skip audio processing
+			log.Println("No valid audio files found, skipping audio")
+		} else if loopVideo {
 			// Create a temporary concat file for audio files
-			concatFile, err := os.CreateTemp("", "audio_concat_*.txt")
+			tempFile, err := os.CreateTemp("", "audio_concat_*.txt")
 			if err != nil {
 				log.Printf("Error creating concat file: %v", err)
-			} else {
-				defer os.Remove(concatFile.Name()) // Clean up the temp file
-
-				// Write file list to concat file
-				for _, audioFile := range audio {
-					fmt.Fprintf(concatFile, "file '%s'\n", strings.ReplaceAll(audioFile.FilePath, "'", "'\\''"))
-				}
-
-				// Add concat demuxer with loop
-				loopCountVal := "-1"
-				if loopCount != nil {
-					loopCountVal = fmt.Sprintf("%d", *loopCount)
-				}
-
-				args = append(args, "-f", "concat", "-safe", "0", "-stream_loop", loopCountVal, "-i", concatFile.Name())
-				audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos))) // Single input for all audio files
+				return nil
 			}
+
+			// Write file list to concat file with absolute paths
+			for _, audioFile := range validAudioFiles {
+				absPath, err := filepath.Abs(audioFile.FilePath)
+				if err != nil {
+					log.Printf("Error getting absolute path for %s: %v", audioFile.FilePath, err)
+					continue
+				}
+				fmt.Fprintf(tempFile, "file '%s'\n", strings.ReplaceAll(absPath, "'", "'\\''"))
+			}
+
+			// Ensure all data is written to disk
+			if err := tempFile.Sync(); err != nil {
+				log.Printf("Error syncing temp file: %v", err)
+			}
+
+			// Close the file so FFmpeg can read it
+			if err := tempFile.Close(); err != nil {
+				log.Printf("Error closing temp file: %v", err)
+			}
+
+			// Add concat demuxer with loop
+			loopCountVal := "-1"
+			if loopCount != nil {
+				loopCountVal = fmt.Sprintf("%d", *loopCount)
+			}
+
+			args = append(args, "-f", "concat", "-safe", "0", "-stream_loop", loopCountVal, "-i", tempFile.Name())
+			audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos))) // Single input for all audio files
 		} else {
-			// Original behavior without loop
-			for i, audioFile := range audio {
-				args = append(args, "-i", audioFile.FilePath)
+			// Original behavior without loop - only add existing files
+			for i, audioFile := range validAudioFiles {
+				absPath, err := filepath.Abs(audioFile.FilePath)
+				if err != nil {
+					log.Printf("Error getting absolute path for %s: %v", audioFile.FilePath, err)
+					continue
+				}
+				args = append(args, "-i", absPath)
 				audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos)+i)) // Account for video input
 			}
 		}

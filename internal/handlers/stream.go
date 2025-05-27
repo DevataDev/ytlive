@@ -299,7 +299,7 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 		stream.ScheduledAt = nil
 		defaultLoopCount := -1
 		stream.LoopCount = &defaultLoopCount
-		stream.LoopVideo = false
+		stream.LoopVideo = true
 		if err := h.DB.Save(&stream).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stream"})
 			return
@@ -1001,7 +1001,7 @@ func (h *StreamHandler) DeleteStream(c *gin.Context) {
 	}
 	// Optionally: stop the stream if it's live
 	if stream.Status == "live" {
-		_ = job.StopStreamWorker(stream.ID)
+		_ = job.StopStreamWorker(stream.ID, true)
 	}
 	// Remove video file if exists
 	// list all media files
