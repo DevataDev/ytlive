@@ -160,12 +160,6 @@ changelog:
     - title: Other work
       order: 9999
 
-# Ensure the web directory is included in the build
-before:
-  hooks:
-    - go mod tidy
-    - go generate ./...
-
 archives:
   - format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
