@@ -166,8 +166,8 @@ func main() {
 		log.Fatalf("failed to migrate user table: %v", err)
 	}
 
-	// Auto-migrate stream table
-	err = db.AutoMigrate(&models.Stream{})
+	// Migrate stream table with custom migration
+	err = models.MigrateStreams(db)
 	if err != nil {
 		log.Fatalf("failed to migrate stream table: %v", err)
 	}
