@@ -260,7 +260,7 @@ $(function() {
 
             let liveBadge = stream.Status === 'live' ? '<span class="badge bg-danger ms-2">LIVE</span>' : '';
             let title = `${stream.Name || 'Live Stream'}`;
-            let renameBtn = `<button class="btn btn-link p-0 ms-2 stream-rename-btn" data-id="${stream.ID}" title="Rename File Name"><i class="fa fa-pencil-alt"></i></button>`;
+            let renameBtn = `<button class="btn btn-link p-0 ms-2 stream-rename-btn" data-id="${stream.ID}" title="Rename Stream Name"><i class="fa fa-pencil-alt"></i></button>`;
             let settingsBtn = `<button class="btn btn-outline-warning btn-sm stream-settings-btn position-absolute" style="bottom:16px;right:16px;z-index:10;" data-id="${stream.ID}" title="Stream Settings"><i class="fa fa-gear"></i></button>`;
             let cardHeader = `
                 <div class="d-flex justify-content-between align-items-center mb-2">
