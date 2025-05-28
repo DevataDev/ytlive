@@ -502,10 +502,25 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 			// No valid audio files, skip audio processing
 			log.Println("No valid audio files found, skipping audio")
 		} else if loopVideo {
-			// Create a temporary concat file for audio files
-			tempFile, err := os.CreateTemp("", "audio_concat_*.txt")
+			// Create a temporary directory for concat files if it doesn't exist
+			tempDir := filepath.Join(os.TempDir(), "ffmpeg_concat")
+			if err := os.MkdirAll(tempDir, 0755); err != nil {
+				log.Printf("Error creating temp directory: %v", err)
+				return nil
+			}
+
+			// Create a temporary concat file for audio files with 0644 permissions
+			tempFile, err := os.CreateTemp(tempDir, "audio_concat_*.txt")
 			if err != nil {
 				log.Printf("Error creating concat file: %v", err)
+				return nil
+			}
+
+			// Set permissions to ensure FFmpeg can read the file
+			if err := os.Chmod(tempFile.Name(), 0644); err != nil {
+				log.Printf("Error setting file permissions: %v", err)
+				tempFile.Close()
+				os.Remove(tempFile.Name())
 				return nil
 			}
 
@@ -516,17 +531,28 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 					log.Printf("Error getting absolute path for %s: %v", audioFile.FilePath, err)
 					continue
 				}
-				fmt.Fprintf(tempFile, "file '%s'\n", strings.ReplaceAll(absPath, "'", "'\\''"))
+				// Use proper escaping for file paths in the concat file
+				if _, err := fmt.Fprintf(tempFile, "file '%s'\n", strings.ReplaceAll(absPath, "'", "'\\''")); err != nil {
+					log.Printf("Error writing to concat file: %v", err)
+					tempFile.Close()
+					os.Remove(tempFile.Name())
+					return nil
+				}
 			}
 
 			// Ensure all data is written to disk
 			if err := tempFile.Sync(); err != nil {
 				log.Printf("Error syncing temp file: %v", err)
+				tempFile.Close()
+				os.Remove(tempFile.Name())
+				return nil
 			}
 
 			// Close the file so FFmpeg can read it
 			if err := tempFile.Close(); err != nil {
 				log.Printf("Error closing temp file: %v", err)
+				os.Remove(tempFile.Name())
+				return nil
 			}
 
 			// Add concat demuxer with loop count from settings
@@ -536,7 +562,25 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 				loopCountVal = fmt.Sprintf("%d", *loopCount)
 			}
 
-			args = append(args, "-f", "concat", "-safe", "0", "-stream_loop", loopCountVal, "-i", tempFile.Name())
+			// Use file:// protocol to ensure proper file access
+			concatPath := tempFile.Name()
+			if !filepath.IsAbs(concatPath) {
+				absPath, err := filepath.Abs(concatPath)
+				if err != nil {
+					log.Printf("Error getting absolute path for concat file: %v", err)
+					os.Remove(concatPath)
+					return nil
+				}
+				concatPath = absPath
+			}
+
+			args = append(args, "-f", "concat", "-safe", "0", "-stream_loop", loopCountVal, "-i", concatPath)
+
+			// Schedule the temp file for deletion when FFmpeg is done
+			defer func() {
+				time.Sleep(5 * time.Second) // Give FFmpeg some time to open the file
+				os.Remove(concatPath)
+			}()
 			audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos))) // Single input for all audio files
 		} else {
 			// Original behavior without loop - only add existing files
