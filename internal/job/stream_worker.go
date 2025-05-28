@@ -299,9 +299,9 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 				RemoveWorker(streamID)
 				return
 			}
-			RemoveWorker(streamID)
 			// write error to log
 			worker.Logger.Write([]byte("FFmpeg process ended with error: " + err.Error() + "\n"))
+			RemoveWorker(streamID)
 			//restart stream worker
 			if loopVideo {
 				RestartLock.Lock()
