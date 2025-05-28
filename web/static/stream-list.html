@@ -104,7 +104,7 @@
             <span class="badge bg-danger me-2">Live Started: <span id="countLive">-</span></span>
             <span class="badge bg-primary">Live Scheduled: <span id="countScheduled">-</span></span>
         </div>
-        <button class="btn btn-success" id="uploadBtn">Upload Video</button>
+        <button class="btn btn-success" id="uploadBtn">Tambah Stream</button>
     </div>
     <!-- Stream List Cards -->
     <div id="stream-list-cards" class="row g-3">
@@ -272,11 +272,12 @@ fetch('/api/version')
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="renameModalLabel">Rename Stream Name</h5>
+        <h5 class="modal-title" id="renameModalLabel">Setting Stream Information</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <input type="text" class="form-control" id="renameModalInput" />
+        <textarea class="form-control mt-2" id="streamDescriptionInput" rows="3"></textarea>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

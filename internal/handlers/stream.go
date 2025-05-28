@@ -164,6 +164,7 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 		item := map[string]interface{}{
 			"ID":               s.ID,
 			"Name":             s.Name,
+			"Description":      s.Description,
 			"Status":           s.Status,
 			"ScheduledAt":      s.ScheduledAt,
 			"ScheduledStartAt": s.ScheduledStartAt,
@@ -392,8 +393,9 @@ func (h *StreamHandler) RenameFile(c *gin.Context) {
 	streamID := c.Param("id")
 
 	var req struct {
-		Name     string `json:"name"`
-		FileName string `json:"FileName"`
+		Name        string `json:"name"`
+		FileName    string `json:"FileName"`
+		Description string `json:"description"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -415,12 +417,21 @@ func (h *StreamHandler) RenameFile(c *gin.Context) {
 	// Start a transaction
 	tx := h.DB.Begin()
 
-	// Update the stream name
+	// Update the stream name and description
+	updates := map[string]interface{}{
+		"name": newName,
+	}
+
+	// Only update description if it's provided in the request
+	if req.Description != "" {
+		updates["description"] = req.Description
+	}
+
 	if err := tx.Model(&models.Stream{}).
 		Where("id = ?", streamID).
-		Update("name", newName).Error; err != nil {
+		Updates(updates).Error; err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stream name"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update stream"})
 		return
 	}
 
@@ -430,7 +441,11 @@ func (h *StreamHandler) RenameFile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Stream renamed successfully"})
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "Stream updated successfully",
+		"name":        newName,
+		"description": req.Description,
+	})
 }
 
 // PUT /api/streams/:id/loop

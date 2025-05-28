@@ -221,6 +221,7 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 			"title":         title,
 			"access_token":  accessToken,
 			"refresh_token": refreshToken,
+			"description":   title,
 		})
 	}
 

@@ -29,8 +29,9 @@ func NewYoutubeHandler(db *gorm.DB, config *configuration.Config) *YoutubeHandle
 		title := e.Data.(map[string]interface{})["title"].(string)
 		accessToken := e.Data.(map[string]interface{})["access_token"].(string)
 		refreshToken := e.Data.(map[string]interface{})["refresh_token"].(string)
+		description := e.Data.(map[string]interface{})["description"].(string)
 
-		youtubeClient.HandleCreateYoutubeLiveBroadcast(channelID, accessToken, title, streamKey, refreshToken)
+		youtubeClient.HandleCreateYoutubeLiveBroadcast(channelID, accessToken, title, streamKey, refreshToken, description)
 	})
 	return &YoutubeHandler{
 		DB:            db,
@@ -208,7 +209,7 @@ func (h *YoutubeHandler) CreateYoutubeLiveBroadcast(c *gin.Context) {
 		return
 	}
 
-	if err := h.YoutubeClient.HandleCreateYoutubeLiveBroadcast(channel.ChannelID, *channel.AccessToken, req.StreamTitle, req.StreamKey, *channel.RefreshToken); err != nil {
+	if err := h.YoutubeClient.HandleCreateYoutubeLiveBroadcast(channel.ChannelID, *channel.AccessToken, req.StreamTitle, req.StreamKey, *channel.RefreshToken, req.StreamDescription); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

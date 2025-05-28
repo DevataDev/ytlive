@@ -249,6 +249,13 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 			refreshToken = *channel.RefreshToken
 		}
 
+		var description string
+		if stream.Description != nil {
+			description = *stream.Description
+		} else {
+			description = "Watch live stream " + stream.Name
+		}
+
 		if accessToken != "" {
 			broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
 				"stream_id":     streamID,
@@ -256,6 +263,7 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 				"channel_id":    channel.ChannelID,
 				"user_id":       channel.UserId,
 				"title":         stream.Name,
+				"description":   description,
 				"access_token":  accessToken,
 				"refresh_token": refreshToken,
 			})

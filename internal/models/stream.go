@@ -10,10 +10,11 @@ import (
 )
 
 type Stream struct {
-	ID               string `gorm:"primaryKey"`
-	Name             string `gorm:"not null;default:'Live Stream'" json:"name"`
-	Status           string `gorm:"not null"`     // "live", "scheduled", "stopped"
-	FfmpegPID        *int   `gorm:"default:null"` // Optional, for managing ffmpeg process
+	ID               string  `gorm:"primaryKey"`
+	Name             string  `gorm:"not null;default:'Live Stream'" json:"name"`
+	Description      *string `gorm:"type:text;default:null" json:"description,omitempty"`
+	Status           string  `gorm:"not null"`     // "live", "scheduled", "stopped"
+	FfmpegPID        *int    `gorm:"default:null"` // Optional, for managing ffmpeg process
 	ScheduledAt      *time.Time
 	ScheduledStartAt *time.Time `gorm:"column:scheduled_start_at;default:null" json:"ScheduledStartAt"`
 	ScheduledEndAt   *time.Time `gorm:"column:scheduled_end_at;default:null" json:"ScheduledEndAt"`
@@ -192,6 +193,7 @@ func migrateSQLiteStreams(db *gorm.DB) error {
 			CREATE TABLE streams_new (
 				id TEXT PRIMARY KEY,
 				name TEXT NOT NULL,
+				description TEXT,
 				status TEXT NOT NULL,
 				ffmpeg_pid INTEGER,
 				scheduled_at DATETIME,
@@ -212,12 +214,12 @@ func migrateSQLiteStreams(db *gorm.DB) error {
 			);
 
 			INSERT INTO streams_new (
-				id, name, status, ffmpeg_pid, scheduled_at, scheduled_start_at,
+				id, name, description, status, ffmpeg_pid, scheduled_at, scheduled_start_at,
 				scheduled_end_at, started_at, stopped_at, created_at, updated_at,
 				deleted_at, rtmp_url, loop_video, stream_key, max_bitrate,
 				loop_count, user_id, channel_id
 			) SELECT 
-				id, name, status, ffmpeg_pid, scheduled_at, scheduled_start_at,
+				id, name, '', status, ffmpeg_pid, scheduled_at, scheduled_start_at,
 				scheduled_end_at, started_at, stopped_at, created_at, updated_at,
 				deleted_at, rtmp_url, loop_video, stream_key, max_bitrate,
 				loop_count, user_id, channel_id
@@ -242,6 +244,7 @@ func migrateSQLiteStreams(db *gorm.DB) error {
 	err = tx.Exec(`CREATE TABLE IF NOT EXISTS streams_new (
 		id TEXT PRIMARY KEY,
 		name TEXT NOT NULL,
+		description TEXT,
 		status TEXT NOT NULL,
 		ffmpeg_pid INTEGER,
 		scheduled_at DATETIME,
@@ -270,13 +273,14 @@ func migrateSQLiteStreams(db *gorm.DB) error {
 	// 2. Copy data from old table to new table
 	err = tx.Exec(`
 		INSERT INTO streams_new (
-			id, name, status, ffmpeg_pid, scheduled_at, scheduled_start_at,
+			id, name, description, status, ffmpeg_pid, scheduled_at, scheduled_start_at,
 			scheduled_end_at, started_at, stopped_at, created_at, updated_at,
 			deleted_at, rtmp_url, loop_video, stream_key, max_bitrate,
 			loop_count, user_id, channel_id
 		) SELECT 
 			id, 
-			COALESCE(name, 'Untitled Stream'), 
+			COALESCE(name, 'Untitled Stream'),
+			'',
 			COALESCE(status, 'stopped'), 
 			ffmpeg_pid, scheduled_at, scheduled_start_at,
 			scheduled_end_at, started_at, stopped_at, created_at, updated_at,

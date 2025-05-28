@@ -267,9 +267,11 @@ $(function() {
                 <div class="stream-header">
                     ${streamIdBadge}
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold fs-5 stream-title-ellipsis" title="${title}">${title}</span>
+                        <div>
+                            <span class="fw-bold fs-5 stream-title-ellipsis" title="${title}">${title}</span>
+                        </div>
                         <div class="d-flex align-items-center gap-1">
-                            <button class="btn btn-sm btn-outline-primary stream-rename-btn" data-id="${stream.ID}" title="Rename"><i class="fa fa-pencil-alt"></i></button>
+                            <button class="btn btn-sm btn-outline-primary stream-rename-btn" data-id="${stream.ID}" data-description="${stream.Description || ''}" title="Edit"><i class="fa fa-pencil-alt"></i></button>
                             <button class="btn-close stream-delete-x" data-id="${stream.ID}" aria-label="Close"></button>
                         </div>
                     </div>
@@ -745,7 +747,10 @@ $(function() {
     let renameStreamId = null;
     $(document).on("click", ".stream-rename-btn", function() {
         renameStreamId = $(this).data("id");
-        const currentTitle = $(this).closest('.stream-card').find('.fw-bold.fs-5').text();
+        const $card = $(this).closest('.stream-card');
+        const currentTitle = $card.find('.fw-bold.fs-5').text();
+        const currentDescription = $(this).data('description') || '';
+        
         // Add modal markup if not present
         if ($('#renameModal').length === 0) {
             $('body').append(`
@@ -753,38 +758,73 @@ $(function() {
               <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                   <div class="modal-header">
-                    <h5 class="modal-title" id="renameModalLabel">Rename File Name</h5>
+                    <h5 class="modal-title" id="renameModalLabel">Edit Stream Details</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                   </div>
                   <div class="modal-body">
-                    <input type="text" class="form-control" id="renameModalInput" />
+                    <div class="mb-3">
+                      <label for="renameModalInput" class="form-label">Stream Name</label>
+                      <input type="text" class="form-control" id="renameModalInput" required />
+                    </div>
+                    <div class="mb-3">
+                      <label for="streamDescriptionInput" class="form-label">Description <small class="text-muted">(optional)</small></label>
+                      <textarea class="form-control" id="streamDescriptionInput" rows="3" placeholder="Add a description for this stream"></textarea>
+                    </div>
                   </div>
                   <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="renameModalSave">Save</button>
+                    <button type="button" class="btn btn-primary" id="renameModalSave">Save Changes</button>
                   </div>
                 </div>
               </div>
             </div>`);
         }
+        
+        // Set current values
         $('#renameModalInput').val(currentTitle);
+        $('#streamDescriptionInput').val(currentDescription);
+        
         const renameModal = new bootstrap.Modal(document.getElementById('renameModal'));
         renameModal.show();
     });
 
     $(document).on("click", "#renameModalSave", function() {
-        const newTitle = $('#renameModalInput').val();
+        const newTitle = $('#renameModalInput').val().trim();
+        const newDescription = $('#streamDescriptionInput').val().trim();
+        
         if (!renameStreamId) return;
-        const currentTitle = $(`button[data-id='${renameStreamId}'].stream-rename-btn`).closest('.stream-card').find('.fw-bold.fs-5').text();
-        if (newTitle && newTitle.trim() !== "" && newTitle !== currentTitle) {
+        const $card = $(`button[data-id='${renameStreamId}'].stream-rename-btn`).closest('.stream-card');
+        const currentTitle = $card.find('.fw-bold.fs-5').text();
+        const currentDescription = $card.data('description') || '';
+        
+        // Only proceed if there are changes
+        if ((newTitle && newTitle !== currentTitle) || newDescription !== currentDescription) {
             const token = localStorage.getItem("jwt_token");
             ajaxWithRefresh({
                 url: `/api/streams/${renameStreamId}/rename`,
                 method: "PUT",
                 headers: { Authorization: "Bearer " + token },
                 contentType: "application/json",
-                data: JSON.stringify({ filename: newTitle }),
-                success: function() {
+                data: JSON.stringify({ 
+                    name: newTitle,
+                    description: newDescription 
+                }),
+                success: function(response) {
+                    // Update the card with the new description
+                    const $descriptionEl = $card.find('.stream-description');
+                    if (newDescription) {
+                        if ($descriptionEl.length) {
+                            $descriptionEl.text(newDescription);
+                        } else {
+                            $(`<div class="text-muted small mt-1 stream-description">${newDescription}</div>`)
+                                .insertAfter($card.find('.fw-bold.fs-5'));
+                        }
+                        $card.data('description', newDescription);
+                    } else if ($descriptionEl.length) {
+                        $descriptionEl.remove();
+                        $card.removeData('description');
+                    }
+                    
                     fetchStreams();
                     const modal = bootstrap.Modal.getInstance(document.getElementById('renameModal'));
                     modal.hide();

@@ -120,9 +120,10 @@ func (h *YoutubeClient) DoWithAutoRefresh(
 }
 
 type CreateBroacastRequest struct {
-	StreamKey   string `json:"stream_key"`
-	StreamTitle string `json:"stream_title"`
-	ChannelID   string `json:"channel_id"`
+	StreamKey         string `json:"stream_key"`
+	StreamTitle       string `json:"stream_title"`
+	ChannelID         string `json:"channel_id"`
+	StreamDescription string `json:"stream_description"`
 }
 
 type ytChannelResp struct {
@@ -297,7 +298,7 @@ func (h *YoutubeClient) FetchYouTubeChannel(accessToken string, refreshToken str
 	return &apiResp.Items[0], nil
 }
 
-func (h *YoutubeClient) HandleCreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitle string, streamKey string, refreshToken string) error {
+func (h *YoutubeClient) HandleCreateYoutubeLiveBroadcast(channelID string, accessToken string, streamTitle string, streamKey string, refreshToken string, streamDescription string) error {
 	// Check for existing broadcasts with the same title in the last 5 minutes
 	hasDuplicate, err := h.HasRecentBroadcastWithTitle(accessToken, refreshToken, streamTitle, 5)
 	if err != nil {
@@ -317,7 +318,7 @@ func (h *YoutubeClient) HandleCreateYoutubeLiveBroadcast(channelID string, acces
 		"snippet": map[string]interface{}{
 			"title":              streamTitle,
 			"scheduledStartTime": time.Now().Format("2006-01-02 15:04:05"),
-			"description":        streamTitle,
+			"description":        streamDescription,
 		},
 		"status": map[string]interface{}{
 			"privacyStatus":           "public",
