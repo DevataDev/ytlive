@@ -608,8 +608,8 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 			}
 		}
 	} else {
-		// No audio
-		args = append(args, "-an")
+		// No audio then aassume the video has audio
+		args = append(args, "-c:a", "copy")
 	}
 
 	// Add output options
