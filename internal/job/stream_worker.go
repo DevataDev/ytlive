@@ -293,12 +293,13 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 			// if signal killed then do not restart
 			// Handle process completion (e.g., notify channels, cleanup)
 			StopStreamWorker(streamID, false)
-			RemoveWorker(streamID)
 			if err.Error() == "signal: killed" {
 				log.Println("FFmpeg process killed by signal for stream", streamID)
 				worker.Logger.Write([]byte("FFmpeg process killed by signal\n"))
+				RemoveWorker(streamID)
 				return
 			}
+			RemoveWorker(streamID)
 			// write error to log
 			worker.Logger.Write([]byte("FFmpeg process ended with error: " + err.Error() + "\n"))
 			//restart stream worker
