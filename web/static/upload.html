@@ -57,18 +57,16 @@
 <div class="container dashboard-container">
     <div class="card p-4">
         <form id="uploadForm" enctype="multipart/form-data">
-            <div class="mb-4">
-                <div id="dropZone" class="drop-zone border rounded p-4 text-center mb-3" style="border: 2px dashed #dee2e6; transition: all 0.3s; min-height: 200px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                    <div class="drop-zone__prompt">
-                        <i class="bi bi-cloud-arrow-up" style="font-size: 2.5rem; color: #6c757d; transition: all 0.3s;"></i>
-                        <h5 class="mt-2">Drag & drop files here</h5>
-                        <p class="text-muted mb-2">or click to browse files</p>
-                        <p class="small text-muted">Supports: MP4, MKV, MOV, MP3, WAV (Max 2GB per file)</p>
-                    </div>
-                    <input type="file" class="drop-zone__input" id="videoFiles" name="videoFiles" multiple accept="video/*,audio/*" style="display: none;">
+            <div id="dropZone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <h5>Drag & drop files here</h5>
+                    <p>or click to browse files</p>
+                    <p class="small">Supports: MP4, MKV, MOV, MP3, WAV (Max 2GB per file)</p>
                 </div>
-                <div id="filePreviews" class="mb-4"></div>
+                <input type="file" id="videoFiles" name="videoFiles" multiple accept="video/*,audio/*" class="d-none">
             </div>
+            <div id="filePreviews" class="mt-3"></div>
             
             
             <div class="d-grid gap-2 d-md-flex justify-content-md-end">
@@ -95,6 +93,17 @@ const sinceYear = 2025;
 const nowYear = new Date().getFullYear();
 let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
 
+function loadScript(version = '0.4.3') {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = `/static/js/upload-new.js?v=${version}`;
+    script.onload = () => resolve();
+    script.onerror = (err) => reject(err);
+    document.body.appendChild(script);
+  });
+}
+
+// Set up the footer and load the script
 fetch('/api/version')
   .then(res => res.json())
   .then(data => {
@@ -103,16 +112,15 @@ fetch('/api/version')
       versionStr = ` | <span class='text-secondary'>Version: ${data.version} (<code>${data.commit.slice(0,7)}</code>)</span>`;
     }
     document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama${versionStr}`;
-    const script = document.createElement('script');
-    script.src = `/static/js/upload-new.js?v=${data.version ? data.version : '0.4.3'}`;
-    document.body.appendChild(script);
-    initDropZone();
+    return loadScript(data.version || '0.4.3');
   })
-  .catch(() => {
+  .catch((err) => {
+    console.error("Error initializing app:", err);
     document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama`;
-    const script = document.createElement('script');
-    script.src = `/static/js/upload-new.js?v=0.4.3`;
-    document.body.appendChild(script);
+    return loadScript('0.4.3');
+  })
+  .finally(() => {
+    initApp();
   });
 </script>
 </body>
