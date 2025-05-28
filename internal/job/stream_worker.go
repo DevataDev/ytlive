@@ -469,11 +469,17 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 	if len(videos) > 0 {
 		// Handle stream loop if needed - must be before the input it applies to
 		if loopVideo {
-			loopCountVal := -1 // Infinite loop by default
-			if loopCount != nil {
-				loopCountVal = *loopCount
+			if len(audio) > 0 {
+				// When audio is present, loop video infinitely and let audio control duration
+				args = append(args, "-stream_loop", "-1")
+			} else {
+				// When no audio, respect the loop count for video
+				loopCountVal := "-1"
+				if loopCount != nil {
+					loopCountVal = fmt.Sprintf("%d", *loopCount)
+				}
+				args = append(args, "-stream_loop", loopCountVal)
 			}
-			args = append(args, "-stream_loop", fmt.Sprintf("%d", loopCountVal))
 		}
 		args = append(args, "-i", videos[0].FilePath)
 	}
@@ -522,7 +528,8 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 				log.Printf("Error closing temp file: %v", err)
 			}
 
-			// Add concat demuxer with loop
+			// Add concat demuxer with loop count from settings
+			// This will control when the stream ends
 			loopCountVal := "-1"
 			if loopCount != nil {
 				loopCountVal = fmt.Sprintf("%d", *loopCount)
@@ -551,6 +558,10 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 
 	// Handle audio mapping based on whether we're looping or not
 	if len(audio) > 0 {
+		// Add -shortest flag to stop when the shortest input ends
+		// This ensures FFmpeg stops when audio finishes its loops
+		args = append(args, "-shortest")
+
 		if loopVideo {
 			// For looped audio, we have a single concat input
 			if len(videos) > 0 {
