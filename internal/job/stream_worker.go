@@ -273,6 +273,8 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 	var cmd *exec.Cmd
 	args := buildFfmpegArgsWithMediaFiles(maxBitrate, loopVideo, worker.Videos, worker.Audio, streamKey, rtmpUrl, loopCount)
 
+	log.Println("FFmpeg command (stream id: ", streamID, "):", strings.Join(args, " "))
+
 	cmd = exec.CommandContext(ctx, args[0], args[1:]...)
 
 	worker.Cmd = cmd
@@ -664,7 +666,6 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 		"-recover_any_error", "1",
 		fullRtmpUrl)
 
-	log.Println("FFmpeg command (video is NEVER re-encoded):", strings.Join(args, " "))
 	return args
 }
 
