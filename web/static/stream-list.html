@@ -46,8 +46,10 @@
             overflow: hidden;
             text-overflow: ellipsis;
             display: block;
-            max-width: 100%;
+            width: 100%;
             padding-top: 1.5rem; /* Make space for the ID badge */
+            flex: 1;
+            min-width: 0; /* Allows the ellipsis to work in flex container */
         }
         .stream-id-badge {
             position: absolute;

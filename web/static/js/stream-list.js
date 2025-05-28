@@ -266,11 +266,11 @@ $(function() {
             let cardHeader = `
                 <div class="stream-header">
                     ${streamIdBadge}
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
+                    <div class="d-flex justify-content-between align-items-center" style="width: 100%;">
+                        <div style="flex: 1; min-width: 0;">
                             <span class="fw-bold fs-5 stream-title-ellipsis" title="${title}">${title}</span>
                         </div>
-                        <div class="d-flex align-items-center gap-1">
+                        <div class="d-flex align-items-center gap-1" style="flex-shrink: 0;">
                             <button class="btn btn-sm btn-outline-primary stream-rename-btn" data-id="${stream.ID}" data-description="${stream.Description || ''}" title="Edit"><i class="fa fa-pencil-alt"></i></button>
                             <button class="btn-close stream-delete-x" data-id="${stream.ID}" aria-label="Close"></button>
                         </div>
