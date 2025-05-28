@@ -290,11 +290,13 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 
 	//should we waiting here ?
 	go func() {
+		concatPath := filepath.Join("data", "ffmpeg_concat", "audio_concat_"+strings.ToLower(streamKey)+".txt")
 		if err := cmd.Wait(); err != nil {
 			log.Printf("FFmpeg process ended with error: %v", err)
 			// if signal killed then do not restart
 			// Handle process completion (e.g., notify channels, cleanup)
 			StopStreamWorker(streamID, false)
+			os.Remove(concatPath)
 			if err.Error() == "signal: killed" {
 				log.Println("FFmpeg process killed by signal for stream", streamID)
 				worker.Logger.Write([]byte("FFmpeg process killed by signal\n"))
@@ -314,6 +316,8 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 		} else {
 			log.Println("FFmpeg process completed successfully")
 			worker.Logger.Write([]byte("FFmpeg process completed successfully\n"))
+			// delete concat file
+			os.Remove(concatPath)
 			StopStreamWorker(streamID, false)
 			RemoveWorker(streamID)
 			// update database
@@ -504,25 +508,28 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 			// No valid audio files, skip audio processing
 			log.Println("No valid audio files found, skipping audio")
 		} else if loopVideo {
-			// Create a temporary directory for concat files if it doesn't exist
-			tempDir := filepath.Join(os.TempDir(), "ffmpeg_concat")
-			if err := os.MkdirAll(tempDir, 0755); err != nil {
-				log.Printf("Error creating temp directory: %v", err)
+			// Create a dedicated directory for concat files if it doesn't exist
+			concatDir := filepath.Join("data", "ffmpeg_concat")
+			// Ensure the directory exists
+			if err := os.MkdirAll(concatDir, 0755); err != nil {
+				log.Printf("Error creating concat directory: %v", err)
 				return nil
 			}
 
-			// Create a temporary concat file for audio files with 0644 permissions
-			tempFile, err := os.CreateTemp(tempDir, "audio_concat_*.txt")
+			// Create a persistent concat file
+			concatFilename := fmt.Sprintf("audio_concat_%s.txt", strings.ToLower(streamKey))
+			concatPath := filepath.Join(concatDir, concatFilename)
+			file, err := os.Create(concatPath)
 			if err != nil {
 				log.Printf("Error creating concat file: %v", err)
 				return nil
 			}
 
 			// Set permissions to ensure FFmpeg can read the file
-			if err := os.Chmod(tempFile.Name(), 0644); err != nil {
+			if err := os.Chmod(concatPath, 0644); err != nil {
 				log.Printf("Error setting file permissions: %v", err)
-				tempFile.Close()
-				os.Remove(tempFile.Name())
+				file.Close()
+				os.Remove(concatPath)
 				return nil
 			}
 
@@ -534,38 +541,34 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 					continue
 				}
 				// Use proper escaping for file paths in the concat file
-				if _, err := fmt.Fprintf(tempFile, "file '%s'\n", strings.ReplaceAll(absPath, "'", "'\\''")); err != nil {
+				if _, err := fmt.Fprintf(file, "file '%s'\n", strings.ReplaceAll(absPath, "'", "'\\''")); err != nil {
 					log.Printf("Error writing to concat file: %v", err)
-					tempFile.Close()
-					os.Remove(tempFile.Name())
+					file.Close()
+					os.Remove(concatPath)
 					return nil
 				}
 			}
 
 			// Ensure all data is written to disk
-			if err := tempFile.Sync(); err != nil {
-				log.Printf("Error syncing temp file: %v", err)
-				tempFile.Close()
-				os.Remove(tempFile.Name())
+			if err := file.Sync(); err != nil {
+				log.Printf("Error syncing concat file: %v", err)
+				file.Close()
+				os.Remove(concatPath)
 				return nil
 			}
 
 			// Close the file so FFmpeg can read it
-			if err := tempFile.Close(); err != nil {
-				log.Printf("Error closing temp file: %v", err)
-				os.Remove(tempFile.Name())
+			if err := file.Close(); err != nil {
+				log.Printf("Error closing concat file: %v", err)
+				os.Remove(concatPath)
 				return nil
 			}
 
 			// Add concat demuxer with loop count from settings
-			// This will control when the stream ends
 			loopCountVal := "-1"
 			if loopCount != nil {
 				loopCountVal = fmt.Sprintf("%d", *loopCount)
 			}
-
-			// Use file:// protocol to ensure proper file access
-			concatPath := tempFile.Name()
 			if !filepath.IsAbs(concatPath) {
 				absPath, err := filepath.Abs(concatPath)
 				if err != nil {
@@ -576,13 +579,24 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 				concatPath = absPath
 			}
 
-			args = append(args, "-f", "concat", "-safe", "0", "-stream_loop", loopCountVal, "-i", concatPath)
+			// For MP3 files, we need to ensure consistent audio format
+			if len(validAudioFiles) > 0 && strings.HasSuffix(validAudioFiles[0].FilePath, ".mp3") {
+				// First add the concat input
+				args = append(args, "-f", "concat", "-safe", "0", "-stream_loop", loopCountVal, "-i", concatPath)
+				// Then add the audio filter to ensure consistent format
+				args = append(args, "-af", "aformat=sample_fmts=s16:channel_layouts=stereo")
+			} else {
+				// For WAV files, we can use direct concat
+				args = append(args,
+					"-f", "concat",
+					"-safe", "0",
+					"-stream_loop", loopCountVal,
+					"-i", concatPath)
+			}
 
-			// Schedule the temp file for deletion when FFmpeg is done
-			defer func() {
-				time.Sleep(5 * time.Second) // Give FFmpeg some time to open the file
-				os.Remove(concatPath)
-			}()
+			// Schedule the file for cleanup when the stream ends or fails
+			// The file will be removed when the stream is stopped or encounters an error
+			// You can also implement a periodic cleanup of old concat files if needed
 			audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos))) // Single input for all audio files
 		} else {
 			// Original behavior without loop - only add existing files
@@ -605,9 +619,14 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 
 	// Handle audio mapping based on whether we're looping or not
 	if len(audio) > 0 {
-		// Add -shortest flag to stop when the shortest input ends
-		// This ensures FFmpeg stops when audio finishes its loops
+		// Add -shortest flag to ensure FFmpeg stops when audio finishes
 		args = append(args, "-shortest")
+
+		// For MP3 files, we've already added the format conversion
+		// For WAV files, ensure proper format
+		if !strings.HasSuffix(audio[0].FilePath, ".mp3") {
+			args = append(args, "-c:a", "aac", "-ar", "44100", "-b:a", "128k", "-ac", "2")
+		}
 
 		if loopVideo {
 			// For looped audio, we have a single concat input
@@ -646,15 +665,17 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 				log.Println("Using audio filter complex (audio will be re-encoded):", filterStr)
 				args = append(args, "-filter_complex", filterStr)
 
-				// Map the filtered audio
-				args = append(args, "-map", "[a]")
+				// Map the filtered audio (only for non-MP3 files)
+				if len(audio) > 0 && !strings.HasSuffix(audio[0].FilePath, ".mp3") {
+					args = append(args, "-map", "[a]")
+				}
 
 				// Encode audio
 				args = append(args, "-c:a", "aac", "-ar", "44100", "-b:a", "128k", "-ac", "2")
 			}
 		}
 	} else {
-		// No audio then aassume the video has audio
+		// No audio then assume the video has audio
 		args = append(args, "-c:a", "copy")
 	}
 
