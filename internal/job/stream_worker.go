@@ -183,41 +183,6 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 		case <-stopChan:
 			return
 		default:
-			// check if process is still running
-			if !IsProcessAliveAndNotDefunct(pid) {
-				log.Println("FFmpeg process stopped for stream from monitoring", w.StreamID)
-				if !w.LoopVideo {
-					// update stream status to stopped
-					w.DB.Model(&models.Stream{}).Where("id = ?", w.StreamID).Updates(map[string]interface{}{
-						"Status": "stopped",
-					})
-					RestartLock.Lock()
-					StopStreamWorker(w.StreamID, false)
-					RemoveWorker(w.StreamID)
-					RestartLock.Unlock()
-					log.Println("Stream", w.StreamID, "stopped successfully, because loop video is false")
-					broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
-					return
-				}
-				log.Println("Restarting stream From Monitoring", w.StreamID, "with status", w.Status)
-				// check on  db
-				var stream models.Stream
-				if err := w.DB.Where("id = ?", w.StreamID).Find(&stream).Error; err != nil {
-					log.Println("Failed to find stream from db", err)
-					return
-				}
-				if stream.Status != "live" {
-					log.Println("Stream", w.StreamID, "is not live, skipping restart")
-					return
-				}
-				RestartLock.Lock()
-				StopStreamWorker(w.StreamID, false)
-				StartStreamWorkerWithDatabase(w.StreamID, w.StreamKey, w.MaxBitrate, w.RTMPUrl, w.LoopVideo, w.LoopCount, w.DB, w.RedisPubSub)
-				RestartLock.Unlock()
-				broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
-				log.Println("Stream", w.StreamID, "restarted successfully")
-				return
-			}
 			cpu, _ := proc.CPUPercent()
 			mem, _ := proc.MemoryInfo()
 			w.Stats.CPUPercent = cpu
@@ -304,8 +269,8 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 
 	worker.Cmd = cmd
 
-	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
+
 	// start cmd
 	err := cmd.Start()
 	if err != nil {
@@ -313,33 +278,41 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 		return nil, 0, err
 	}
 
-	// Start goroutines to capture and publish logs
+	//should we waiting here ?
 	go func() {
-		scanner := bufio.NewScanner(stdout)
-		scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-			for i := 0; i < len(data); i++ {
-				if data[i] == '\n' || data[i] == '\r' {
-					// Return the line without the delimiter
-					return i + 1, data[:i], nil
-				}
+		if err := cmd.Wait(); err != nil {
+			log.Printf("FFmpeg process ended with error: %v", err)
+			// if signal killed then do not restart
+			// Handle process completion (e.g., notify channels, cleanup)
+			StopStreamWorker(streamID, false)
+			RemoveWorker(streamID)
+			if err.Error() == "signal: killed" {
+				log.Println("FFmpeg process killed by signal for stream", streamID)
+				worker.Logger.Write([]byte("FFmpeg process killed by signal\n"))
+				return
 			}
-			if atEOF && len(data) > 0 {
-				return len(data), data, nil
+			// write error to log
+			worker.Logger.Write([]byte("FFmpeg process ended with error: " + err.Error() + "\n"))
+			//restart stream worker
+			if loopVideo {
+				RestartLock.Lock()
+				StartStreamWorkerWithDatabase(streamID, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, database, redisPubSub)
+				RestartLock.Unlock()
+				broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
 			}
-			return 0, nil, nil
-		})
-		for scanner.Scan() {
-			line := scanner.Text()
-			if worker.RedisPubSub != nil {
-				channel := "ffmpeg-logs:stream:" + streamID
-				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
-				logWithNewLine := line + "\n"
-				if _, err := worker.Logger.Write([]byte(logWithNewLine)); err != nil {
-					log.Println("Failed to write log:", err)
-				}
-			}
+		} else {
+			log.Println("FFmpeg process completed successfully")
+			worker.Logger.Write([]byte("FFmpeg process completed successfully\n"))
+			StopStreamWorker(streamID, false)
+			RemoveWorker(streamID)
+			// update database
+			database.Model(&models.Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
+				"Status": "stopped",
+			})
 		}
 	}()
+
+	//fmpeg stderr logger
 	go func() {
 		scanner := bufio.NewScanner(stderr)
 		scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -376,12 +349,12 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 
 	worker.FfmpegPID = &cmd.Process.Pid
 
-	// Start stats monitor goroutine
-	stopChan := make(chan struct{})
-	worker.StopChan = stopChan
-	go func() {
-		worker.MonitorFFmpegStats(stopChan)
-	}()
+	// // Start stats monitor goroutine
+	// stopChan := make(chan struct{})
+	// worker.StopChan = stopChan
+	// go func() {
+	// 	worker.MonitorFFmpegStats(stopChan)
+	// }()
 
 	AddWorker(worker)
 	log.Println("FFmpeg process started for stream", streamID, "with PID", cmd.Process.Pid)

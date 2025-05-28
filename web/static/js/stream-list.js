@@ -260,14 +260,18 @@ $(function() {
 
             let liveBadge = stream.Status === 'live' ? '<span class="badge bg-danger ms-2">LIVE</span>' : '';
             let title = `${stream.Name || 'Live Stream'}`;
+            let streamIdBadge = `<span class="stream-id-badge" title="Stream ID">ID: ${stream.ID}</span>`;
             let renameBtn = `<button class="btn btn-link p-0 ms-2 stream-rename-btn" data-id="${stream.ID}" title="Rename Stream Name"><i class="fa fa-pencil-alt"></i></button>`;
             let settingsBtn = `<button class="btn btn-outline-warning btn-sm stream-settings-btn position-absolute" style="bottom:16px;right:16px;z-index:10;" data-id="${stream.ID}" title="Stream Settings"><i class="fa fa-gear"></i></button>`;
             let cardHeader = `
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="fw-bold fs-5 stream-title-ellipsis" title="${title}">${title}</span>
-                    <div class="d-flex justify-content-end align-items-center gap-1">
-                        <button class="btn btn-sm btn-outline-primary stream-rename-btn me-1" data-id="${stream.ID}" title="Rename"><i class="fa fa-pencil-alt"></i></button>
-                        <button class="btn-close stream-delete-x" data-id="${stream.ID}" aria-label="Close"></button>
+                <div class="stream-header">
+                    ${streamIdBadge}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold fs-5 stream-title-ellipsis" title="${title}">${title}</span>
+                        <div class="d-flex align-items-center gap-1">
+                            <button class="btn btn-sm btn-outline-primary stream-rename-btn" data-id="${stream.ID}" title="Rename"><i class="fa fa-pencil-alt"></i></button>
+                            <button class="btn-close stream-delete-x" data-id="${stream.ID}" aria-label="Close"></button>
+                        </div>
                     </div>
                 </div>
             `;

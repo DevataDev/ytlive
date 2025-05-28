@@ -37,12 +37,27 @@
         #pagination {
             margin-bottom: 80px;
         }
+        .stream-header {
+            position: relative;
+            margin-bottom: 0.5rem;
+        }
         .stream-title-ellipsis {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             display: block;
-            max-width: 180px;
+            max-width: 100%;
+            padding-top: 1.5rem; /* Make space for the ID badge */
+        }
+        .stream-id-badge {
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 0.7rem;
+            padding: 0.2em 0.5em;
+            background-color: #6c757d;
+            border-radius: 0.25rem;
+            color: white;
         }
     </style>
 </head>
