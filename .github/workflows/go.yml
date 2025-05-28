@@ -18,7 +18,9 @@ jobs:
         with:
           go-version: 1.21
       - name: Set up Zig
-        uses: goto-bus-stop/setup-zig@v2
+        uses: mlugg/setup-zig@v1
+        with:
+          version: 0.15.0
       - name: Set output
         id: macos_sdk
         run: echo "path=$(xcrun --show-sdk-path)" >> $GITHUB_OUTPUT
