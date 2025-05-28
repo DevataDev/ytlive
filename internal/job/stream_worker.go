@@ -519,18 +519,26 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 			// Create a persistent concat file
 			concatFilename := fmt.Sprintf("audio_concat_%s.txt", strings.ToLower(streamKey))
 			concatPath := filepath.Join(concatDir, concatFilename)
-			file, err := os.Create(concatPath)
+
+			// Ensure the file doesn't exist first
+			if _, err := os.Stat(concatPath); err == nil {
+				// File exists, remove it first
+				if err := os.Remove(concatPath); err != nil {
+					log.Printf("Error removing existing concat file: %v", err)
+					return nil
+				}
+			}
+
+			// Create the file with 0666 permissions (read/write for all)
+			file, err := os.OpenFile(concatPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 			if err != nil {
 				log.Printf("Error creating concat file: %v", err)
 				return nil
 			}
 
-			// Set permissions to ensure FFmpeg can read the file
-			if err := os.Chmod(concatPath, 0644); err != nil {
-				log.Printf("Error setting file permissions: %v", err)
-				file.Close()
-				os.Remove(concatPath)
-				return nil
+			// Explicitly set permissions in case umask modified them
+			if err := file.Chmod(0666); err != nil {
+				log.Printf("Warning: Failed to set file permissions (continuing anyway): %v", err)
 			}
 
 			// Write file list to concat file with absolute paths
@@ -562,6 +570,11 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 				log.Printf("Error closing concat file: %v", err)
 				os.Remove(concatPath)
 				return nil
+			}
+
+			// Verify the file is readable by all
+			if err := os.Chmod(concatPath, 0666); err != nil {
+				log.Printf("Warning: Failed to set final file permissions (continuing anyway): %v", err)
 			}
 
 			// Add concat demuxer with loop count from settings
