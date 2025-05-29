@@ -57,6 +57,17 @@
     margin-top: 0.5rem;
     padding: 0.5rem 0;
     min-width: 12rem;
+    /* Prevent immediate hiding when moving to dropdown */
+    pointer-events: none;
+    opacity: 0;
+    display: block;
+    visibility: hidden;
+    transition: all 0.2s ease-in-out;
+    transform: translateY(10px);
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
 }
 
 .dropdown-item {
@@ -86,8 +97,45 @@
 
 /* Show dropdown on hover for desktop */
 @media (min-width: 992px) {
-    .dropdown:hover .dropdown-menu {
+    .dropdown:hover .dropdown-menu,
+    .dropdown .dropdown-menu.show {
         display: block;
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0);
+    }
+    
+    /* Add padding to the parent to make it easier to move to the dropdown */
+    .dropdown {
+        position: relative;
+    }
+    
+    .dropdown-menu {
+        position: absolute;
+        margin: 0;
+        top: 100%;
+        left: 0;
+        z-index: 1000;
+    }
+    
+    /* Add a small invisible area between the toggle and dropdown */
+    .dropdown-menu::before {
+        content: '';
+        position: absolute;
+        top: -10px;
+        left: 0;
+        width: 100%;
+        height: 10px;
+        background: transparent;
+    }
+    
+    /* Ensure the dropdown stays open when hovering over it */
+    .dropdown-menu:hover {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
     }
 }
 

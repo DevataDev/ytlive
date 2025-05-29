@@ -1,522 +1,678 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YukLive! Stream List</title>
-    <meta name="description" content="YukLive! Stream Manager">
-    <meta name="author" content="YukLive!">
-    <meta name="keywords" content="YukLive!, Stream Manager, YouTube Live, Live Stream, Live Streaming, Streaming">
-    <meta name="robots" content="noindex, nofollow">
-    <link rel="icon" type="image/png" href="/static/favicon.png">
-    <link rel="shortcut icon" type="image/x-icon" href="/static/favicon.ico">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/header.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YukLive! Stream List</title>
+  <meta name="description" content="YukLive! Stream Manager">
+  <meta name="author" content="YukLive!">
+  <meta name="keywords" content="YukLive!, Stream Manager, YouTube Live, Live Stream, Live Streaming, Streaming">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="shortcut icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/header.css">
+  <link rel="stylesheet" href="/static/css/footer.css">
+  <style>
+    html, body {
+      height: 100%;
+    }
+    
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    
+    .content-wrapper {
+      flex: 1 0 auto;
+      padding-bottom: 60px; /* Height of the footer */
+    }
+    
+    .footer {
+      flex-shrink: 0;
+      width: 100%;
+      padding: 1rem 0;
+      background-color: #f8f9fa;
+      border-top: 1px solid #dee2e6;
+    }
+  </style>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
     // Initialize header active state
     function setActiveNavItem() {
-        const currentPath = window.location.pathname;
-        const navLinks = document.querySelectorAll('.nav-link, .dropdown-item');
-        
-        navLinks.forEach(link => {
-            if (link.getAttribute('href') === currentPath) {
-                link.classList.add('active');
-                // If it's a dropdown item, also activate its parent dropdown
-                const dropdownItem = link.closest('.dropdown-item');
-                if (dropdownItem) {
-                    const parentDropdown = link.closest('.dropdown');
-                    if (parentDropdown) {
-                        parentDropdown.querySelector('.nav-link').classList.add('active');
-                    }
-                }
+      const currentPath = window.location.pathname;
+      const navLinks = document.querySelectorAll('.nav-link, .dropdown-item');
+
+      navLinks.forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+          link.classList.add('active');
+          // If it's a dropdown item, also activate its parent dropdown
+          const dropdownItem = link.closest('.dropdown-item');
+          if (dropdownItem) {
+            const parentDropdown = link.closest('.dropdown');
+            if (parentDropdown) {
+              parentDropdown.querySelector('.nav-link').classList.add('active');
             }
-        });
+          }
+        }
+      });
     }
 
     // Initialize when DOM is loaded
     document.addEventListener('DOMContentLoaded', () => {
-        setActiveNavItem();
-        
-        // Handle logout
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', function() {
-                // Add your logout logic here
-                window.location.href = '/logout';
-            });
-        }
+      setActiveNavItem();
+
+      // Handle logout
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function () {
+          // Add your logout logic here
+          window.location.href = '/logout';
+        });
+      }
     });
-    </script>
-    <style>
-        .live-indicator {
-            width: 18px; height: 18px; border-radius: 50%; background: #ff4b2b;
-            display: inline-block; margin-right: 8px; box-shadow: 0 0 8px #ff4b2b;
-            animation: liveBlink 1s infinite;
-        }
-        @keyframes liveBlink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.2; }
-        }
-        #footer.fixed-bottom {
-            z-index: 1050;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            width: 100vw;
-        }
-        body { padding-bottom: 56px; }
-        #pagination {
-            margin-bottom: 80px;
-        }
-        .stream-header {
-            position: relative;
-            margin-bottom: 0.5rem;
-        }
-        .stream-title-ellipsis {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: block;
-            width: 100%;
-            padding-top: 1.5rem; /* Make space for the ID badge */
-            flex: 1;
-            min-width: 0; /* Allows the ellipsis to work in flex container */
-        }
-        .stream-id-badge {
-            position: absolute;
-            top: 0;
-            left: 0;
-            font-size: 0.7rem;
-            padding: 0.2em 0.5em;
-            background-color: #6c757d;
-            border-radius: 0.25rem;
-            color: white;
-        }
-    </style>
+  </script>
+  <style>
+    .live-indicator {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ff4b2b;
+      display: inline-block;
+      margin-right: 8px;
+      box-shadow: 0 0 8px #ff4b2b;
+      animation: liveBlink 1s infinite;
+    }
+
+    @keyframes liveBlink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.2;
+      }
+    }
+
+    #footer.fixed-bottom {
+      z-index: 1050;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
+    }
+
+    body {
+      padding-bottom: 56px;
+    }
+
+    #pagination {
+      margin-bottom: 80px;
+    }
+
+    .stream-header {
+      position: relative;
+      margin-bottom: 0.5rem;
+    }
+
+    .stream-title-ellipsis {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      width: 100%;
+      padding-top: 1.5rem;
+      /* Make space for the ID badge */
+      flex: 1;
+      min-width: 0;
+      /* Allows the ellipsis to work in flex container */
+    }
+
+    .stream-id-badge {
+      position: absolute;
+      top: 0;
+      left: 0;
+      font-size: 0.7rem;
+      padding: 0.2em 0.5em;
+      background-color: #6c757d;
+      border-radius: 0.25rem;
+      color: white;
+    }
+  </style>
 </head>
-<body>
-    <header class="app-header">
-        <nav class="navbar navbar-expand-lg">
-            <div class="container-fluid px-3 px-lg-4">
-                <a class="navbar-brand" href="/dashboard">
-                    <i class="bi bi-broadcast"></i>
-                    <span>YukLive!</span>
-                </a>
-                
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" 
-                        aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                
-                <div class="collapse navbar-collapse" id="mainNavbar">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item">
-                            <a href="/dashboard" class="nav-link">
-                                <i class="bi bi-speedometer2"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="/stream" class="nav-link">
-                                <i class="bi bi-camera-reels"></i>
-                                <span>Stream</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="/mirror" class="nav-link">
-                                <i class="bi bi-play-circle"></i>
-                                <span>Mirror</span>
-                            </a>
-                        </li>
-                        <li class="nav-item dropdown" id="menuTikTok">
-                            <a class="nav-link dropdown-toggle" href="#" id="tiktokDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-tiktok"></i>
-                                <span>TikTok</span>
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="tiktokDropdown">
-                                <li>
-                                    <a class="dropdown-item" href="/live">
-                                        <i class="bi bi-broadcast me-2"></i>
-                                        <span>Live</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="/search">
-                                        <i class="bi bi-search me-2"></i>
-                                        <span>Search</span>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                        <li class="nav-item">
-                            <a href="/monitor" class="nav-link">
-                                <i class="bi bi-graph-up"></i>
-                                <span>Monitor</span>
-                            </a>
-                        </li>
-                        <li class="nav-item" id="menuManageChannels">
-                            <a href="/channels" class="nav-link">
-                                <i class="bi bi-collection-play"></i>
-                                <span>Channels</span>
-                            </a>
-                        </li>
-                    </ul>
-                    
-                    <div class="d-flex align-items-center">
-                        <div class="user-dropdown">
-                            <div class="user-avatar" id="userInitials">U</div>
-                            <button id="logoutBtn" class="btn btn-outline-primary btn-sm btn-logout">
-                                <i class="bi bi-box-arrow-right"></i>
-                                <span class="d-none d-sm-inline">Logout</span>
-                            </button>
-                        </div>
-                    </div>
+
+<body class="d-flex flex-column min-vh-100">
+  <header class="app-header">
+    <nav class="navbar navbar-expand-lg">
+      <div class="container-fluid px-3 px-lg-4">
+        <a class="navbar-brand" href="/dashboard">
+          <i class="bi bi-broadcast"></i>
+          <span>YukLive!</span>
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+          aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="mainNavbar">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item">
+              <a href="/dashboard" class="nav-link">
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="/stream" class="nav-link">
+                <i class="bi bi-camera-reels"></i>
+                <span>Stream</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="/mirror" class="nav-link">
+                <i class="bi bi-play-circle"></i>
+                <span>Mirror</span>
+              </a>
+            </li>
+            <li class="nav-item dropdown" id="menuTikTok">
+              <a class="nav-link dropdown-toggle" href="#" id="tiktokDropdown" role="button" data-bs-toggle="dropdown"
+                aria-expanded="false">
+                <i class="bi bi-tiktok"></i>
+                <span>TikTok</span>
+              </a>
+              <ul class="dropdown-menu" aria-labelledby="tiktokDropdown">
+                <li>
+                  <a class="dropdown-item" href="/live">
+                    <i class="bi bi-broadcast me-2"></i>
+                    <span>Live</span>
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="/search">
+                    <i class="bi bi-search me-2"></i>
+                    <span>Search</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <li class="nav-item">
+              <a href="/monitor" class="nav-link">
+                <i class="bi bi-graph-up"></i>
+                <span>Monitor</span>
+              </a>
+            </li>
+            <li class="nav-item" id="menuManageChannels">
+              <a href="/channels" class="nav-link">
+                <i class="bi bi-collection-play"></i>
+                <span>Channels</span>
+              </a>
+            </li>
+          </ul>
+
+          <div class="d-flex align-items-center">
+            <div class="user-dropdown">
+              <div class="user-avatar" id="userInitials">U</div>
+              <button id="logoutBtn" class="btn btn-outline-primary btn-sm btn-logout">
+                <i class="bi bi-box-arrow-right"></i>
+                <span class="d-none d-sm-inline">Logout</span>
+              </button>
             </div>
+          </div>
         </div>
+      </div>
     </nav>
-</header>
-<div class="container-fluid container-xl dashboard-container">
+  </header>
+  <main class="flex-grow-1 py-3">
+    <div class="container-fluid">
+      <div class="container-xl">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <span class="badge bg-danger me-2">Live Started: <span id="countLive">-</span></span>
-            <span class="badge bg-primary">Live Scheduled: <span id="countScheduled">-</span></span>
-        </div>
-        <button class="btn btn-success" id="uploadBtn">Tambah Stream</button>
+      <div>
+        <span class="badge bg-danger me-2">Live Started: <span id="countLive">-</span></span>
+        <span class="badge bg-primary">Live Scheduled: <span id="countScheduled">-</span></span>
+      </div>
+      <button class="btn btn-success" id="uploadBtn">Tambah Stream</button>
     </div>
     <!-- Stream List Cards -->
     <div id="stream-list-cards" class="row g-3">
-        <!-- Stream cards will be dynamically inserted here -->
+      <!-- Stream cards will be dynamically inserted here -->
     </div>
     <!-- Delete Confirmation Modal -->
     <style>
-        /* Ensure delete confirmation modal appears on top of other modals */
-        #deleteMediaModal {
-            z-index: 1060; /* Bootstrap's modal z-index is 1050 by default */
-        }
-        #deleteMediaModal ~ .modal-backdrop {
-            z-index: 1059; /* Just below our modal */
-        }
-        /* Make sure the parent modal remains interactive */
-        .modal.show {
-            pointer-events: none;
-        }
-        .modal.show .modal-dialog {
-            pointer-events: auto;
-        }
+      /* Ensure delete confirmation modal appears on top of other modals */
+      #deleteMediaModal {
+        z-index: 1060;
+        /* Bootstrap's modal z-index is 1050 by default */
+      }
+
+      #deleteMediaModal~.modal-backdrop {
+        z-index: 1059;
+        /* Just below our modal */
+      }
+
+      /* Make sure the parent modal remains interactive */
+      .modal.show {
+        pointer-events: none;
+      }
+
+      .modal.show .modal-dialog {
+        pointer-events: auto;
+      }
     </style>
-    <div class="modal fade" id="deleteMediaModal" tabindex="-1" aria-labelledby="deleteMediaModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deleteMediaModalLabel">Konfirmasi Hapus</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    Apakah Anda yakin ingin menghapus file ini?
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteMedia">Hapus</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- Pagination Bar -->
-    <div class="d-flex justify-content-center mt-4 mb-5">
-        <nav>
-            <ul class="pagination justify-content-center" id="pagination">
-                <!-- Pagination will be injected here -->
-            </ul>
-        </nav>
-    </div>
-<!-- Bind Channel Modal -->
-<div class="modal fade" id="bindChannelModal" tabindex="-1" aria-labelledby="bindChannelModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="bindChannelModalLabel">Bind Channel to Stream</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label for="channelSelect" class="form-label">Select Channel</label>
-          <select class="form-select" id="channelSelect"></select>
-        </div>
-        <div class="mb-3">
-          <label for="streamSelect" class="form-label">Select Live Stream</label>
-          <select class="form-select" id="streamSelect"></select>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" id="bindChannelSaveBtn">Bind</button>
-      </div>
-    </div>
-  </div>
-</div>
-<div id="bindChannelModalBackdrop" class="modal-backdrop fade" style="display:none;"></div>
-<!-- End Bind Channel Modal -->
-    </div>
-    <!-- Video Preview Modal -->
-    <div class="modal fade" id="videoPreviewModal" tabindex="-1" aria-labelledby="videoPreviewModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal fade" id="deleteMediaModal" tabindex="-1" aria-labelledby="deleteMediaModalLabel"
+      aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="videoPreviewModalLabel">Video Preview</h5>
+            <h5 class="modal-title" id="deleteMediaModalLabel">Konfirmasi Hapus</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <div class="ratio ratio-16x9" style="max-width: 100%;">
-              <video id="videoPreview" style="object-fit: contain; width: 100%; height: 100%; max-height: 70vh; background: #000" controls>
-                <source id="videoPreviewSource" src="" type="video/mp4">
-                Your browser does not support the video tag.
-              </video>
-            </div>
+            Apakah Anda yakin ingin menghapus file ini?
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="button" class="btn btn-danger" id="confirmDeleteMedia">Hapus</button>
           </div>
         </div>
       </div>
     </div>
-
-<!-- Bootstrap Toast Container -->
-<footer class="text-center text-muted py-3 fixed-bottom bg-white border-top shadow-sm" id="footer"></footer>
-<div aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
-  <div id="streamToast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
-    <div class="d-flex">
-      <div class="toast-body" id="streamToastBody">
-        <!-- Toast message will be injected here -->
-      </div>
-      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    <!-- Pagination Bar -->
+    <div class="d-flex justify-content-center mt-4 mb-5">
+      <nav>
+        <ul class="pagination justify-content-center" id="pagination">
+          <!-- Pagination will be injected here -->
+        </ul>
+      </nav>
     </div>
-  </div>
-</div>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-const sinceYear = 2025;
-const nowYear = new Date().getFullYear();
-let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
-
-fetch('/api/version')
-  .then(res => res.json())
-  .then(data => {
-    let versionStr = '';
-    if (data.version && data.commit) {
-      versionStr = ` | <span class='text-secondary'>Version: ${data.version} (<code>${data.commit.slice(0,7)}</code>)</span>`;
-    }
-    document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama${versionStr}`;
-    const script = document.createElement('script');
-    script.src = `/static/js/stream-list.js?v=${data.version ? data.version : '0.4.3'}`;
-    document.body.appendChild(script);
-  })
-  .catch(() => {
-    document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama`;
-    const script = document.createElement('script');
-    script.src = `/static/js/stream-list.js?v=0.4.3`;
-    document.body.appendChild(script);
-  });
-</script>
-
-<!-- Schedule Modal -->
-<div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="scheduleModalLabel">Schedule Stream</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <form id="scheduleForm">
-          <div class="mb-3">
-            <label for="scheduleStart" class="form-label">Start Time</label>
-            <input type="datetime-local" class="form-control" id="scheduleStart" required>
+    <!-- Bind Channel Modal -->
+    <div class="modal fade" id="bindChannelModal" tabindex="-1" aria-labelledby="bindChannelModalLabel"
+      aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="bindChannelModalLabel">Bind Channel to Stream</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <div class="mb-3">
-            <label for="scheduleEnd" class="form-label">End Time</label>
-            <input type="datetime-local" class="form-control" id="scheduleEnd" required>
-          </div>
-          <input type="hidden" id="scheduleStreamId">
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="saveScheduleBtn">Save Schedule</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Rename Modal -->
-<div class="modal fade" id="renameModal" tabindex="-1" aria-labelledby="renameModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="renameModalLabel">Setting Stream Information</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <input type="text" class="form-control" id="renameModalInput" />
-        <textarea class="form-control mt-2" id="streamDescriptionInput" rows="3"></textarea>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" id="renameModalSave">Save</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Add Duration Tooltip Template -->
-<div id="durationTooltipTemplate" style="display:none;">
-  <div class="card p-2" style="min-width:220px;">
-    <label for="durationInput" class="form-label mb-1">Set Stream Duration (hours)</label>
-    <input type="number" min="0" max="24" step="1" class="form-control mb-2" id="durationInput" value="0">
-    <div class="small text-muted mb-2">0 = Unlimited, 1-24 = Limit</div>
-    <button class="btn btn-primary btn-sm w-100 set-duration-confirm">Set</button>
-  </div>
-</div>
-
-<!-- Stream Settings Modal -->
-<div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="settingsModalLabel">Stream Settings</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <form id="settingsForm">
-          <input type="hidden" id="settingsStreamId">
-          <div class="mb-3">
-            <label for="settingsMode" class="form-label">Mode</label>
-            <select class="form-select" id="settingsMode" required>
-              <option value="LIVE">LIVE</option>
-              <option value="SCHEDULER">SCHEDULER</option>
-              <option value="DURATION">DURATION</option>
-              <option value="LOOPCOUNT">LOOPCOUNT</option>
-            </select>
-          </div>
-          <div id="schedulerFields" style="display:none;">
+          <div class="modal-body">
             <div class="mb-3">
-              <label for="settingsStart" class="form-label">Start Time</label>
-              <input type="datetime-local" class="form-control" id="settingsStart">
+              <label for="channelSelect" class="form-label">Select Channel</label>
+              <select class="form-select" id="channelSelect"></select>
             </div>
             <div class="mb-3">
-              <label for="settingsEnd" class="form-label">End Time</label>
-              <input type="datetime-local" class="form-control" id="settingsEnd">
+              <label for="streamSelect" class="form-label">Select Live Stream</label>
+              <select class="form-select" id="streamSelect"></select>
             </div>
           </div>
-          <div id="durationField" style="display:none;">
-            <div class="mb-3">
-              <label for="settingsDuration" class="form-label">Duration (hours, 0-24)</label>
-              <input type="number" class="form-control" id="settingsDuration" min="0" max="24" value="0">
-            </div>
-          </div>
-          <div class="mb-3" id="loopCountGroup" style="display:none;">
-            <label for="settingsLoopCount" class="form-label">Loop Count</label>
-            <input type="number" class="form-control" id="settingsLoopCount" value="-1" min="-1">
-            <div class="form-text">-1 means infinite loop. Minimum value is -1.</div>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-// Show/hide scheduler fields based on mode
-$('#settingsMode').on('change', function() {
-    if ($(this).val() === 'SCHEDULER') {
-        $('#schedulerFields').show();
-        $('#durationField').hide();
-        $('#loopCountGroup').hide();
-    } else if ($(this).val() === 'DURATION') {
-        $('#schedulerFields').hide();
-        $('#durationField').show();
-        $('#loopCountGroup').hide();
-    } else if ($(this).val() === 'LOOPCOUNT') {
-        $('#schedulerFields').hide();
-        $('#durationField').hide();
-        $('#loopCountGroup').show();
-    } else {
-        $('#schedulerFields').hide();
-        $('#durationField').hide();
-        $('#loopCountGroup').hide();
-    }
-});
-// Ensure default value
-$('#settingsLoopCount').val('-1');
-</script>
-
-<!-- FFmpeg Logs Modal -->
-<div class="modal fade" id="ffmpegLogsModal" tabindex="-1" aria-labelledby="ffmpegLogsModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="ffmpegLogsModalLabel">FFmpeg Logs</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body" style="max-height:60vh;overflow:auto;">
-        <pre id="ffmpegLogsContent" style="background:#222;color:#eee;padding:1em;border-radius:8px;min-height:200px;"></pre>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
-<!-- Media File Management Modal -->
-<div class="modal fade" id="mediaFileModal" tabindex="-1" aria-labelledby="mediaFileModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="mediaFileModalLabel">Kelola Media File</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <h6>File Media Saat Ini</h6>
-          <div id="currentMediaFiles" class="list-group mb-3">
-            <!-- Current media files will be listed here -->
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="bindChannelSaveBtn">Bind</button>
           </div>
         </div>
-        <hr>
-        <div>
-          <h6>Tambah File Media Baru</h6>
-          <form id="uploadMediaForm">
-            <input type="hidden" id="mediaStreamId" name="streamId">
+      </div>
+    </div>
+    <div id="bindChannelModalBackdrop" class="modal-backdrop fade" style="display:none;"></div>
+    <!-- End Bind Channel Modal -->
+  </div>
+  <!-- Video Preview Modal -->
+  <div class="modal fade" id="videoPreviewModal" tabindex="-1" aria-labelledby="videoPreviewModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="videoPreviewModalLabel">Video Preview</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="ratio ratio-16x9" style="max-width: 100%;">
+            <video id="videoPreview"
+              style="object-fit: contain; width: 100%; height: 100%; max-height: 70vh; background: #000" controls>
+              <source id="videoPreviewSource" src="" type="video/mp4">
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap Toast Container -->
+  <div aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
+    <div id="streamToast" class="toast align-items-center border-0" role="alert" aria-live="assertive"
+      aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="streamToastBody">
+          <!-- Toast message will be injected here -->
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+          aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <!-- Schedule Modal -->
+  <div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="scheduleModalLabel">Schedule Stream</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="scheduleForm">
             <div class="mb-3">
-              <label for="mediaType" class="form-label">Tipe Media</label>
-              <select class="form-select mb-3" id="mediaType" name="mediaType" required>
-                <option value="video">Video</option>
-                <option value="audio">Audio</option>
-                <option value="image">Gambar</option>
+              <label for="scheduleStart" class="form-label">Start Time</label>
+              <input type="datetime-local" class="form-control" id="scheduleStart" required>
+            </div>
+            <div class="mb-3">
+              <label for="scheduleEnd" class="form-label">End Time</label>
+              <input type="datetime-local" class="form-control" id="scheduleEnd" required>
+            </div>
+            <input type="hidden" id="scheduleStreamId">
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveScheduleBtn">Save Schedule</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rename Modal -->
+  <div class="modal fade" id="renameModal" tabindex="-1" aria-labelledby="renameModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="renameModalLabel">Setting Stream Information</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="text" class="form-control" id="renameModalInput" />
+          <textarea class="form-control mt-2" id="streamDescriptionInput" rows="3"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="renameModalSave">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Duration Tooltip Template -->
+  <div id="durationTooltipTemplate" style="display:none;">
+    <div class="card p-2" style="min-width:220px;">
+      <label for="durationInput" class="form-label mb-1">Set Stream Duration (hours)</label>
+      <input type="number" min="0" max="24" step="1" class="form-control mb-2" id="durationInput" value="0">
+      <div class="small text-muted mb-2">0 = Unlimited, 1-24 = Limit</div>
+      <button class="btn btn-primary btn-sm w-100 set-duration-confirm">Set</button>
+    </div>
+  </div>
+
+  <!-- Stream Settings Modal -->
+  <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="settingsModalLabel">Stream Settings</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="settingsForm">
+            <input type="hidden" id="settingsStreamId">
+            <div class="mb-3">
+              <label for="settingsMode" class="form-label">Mode</label>
+              <select class="form-select" id="settingsMode" required>
+                <option value="LIVE">LIVE</option>
+                <option value="SCHEDULER">SCHEDULER</option>
+                <option value="DURATION">DURATION</option>
+                <option value="LOOPCOUNT">LOOPCOUNT</option>
               </select>
-            
-              <label for="mediaFile" class="form-label">Pilih File</label>
-              <div class="input-group input-group-sm mb-3">
-                <input class="form-control form-control-sm" type="file" id="mediaFile" name="file" accept=".mp4,.mkv,.wav,.mp3" required>
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-upload"></i>
-                </button>
+            </div>
+            <div id="schedulerFields" style="display:none;">
+              <div class="mb-3">
+                <label for="settingsStart" class="form-label">Start Time</label>
+                <input type="datetime-local" class="form-control" id="settingsStart">
               </div>
-              <div class="form-text">Format yang didukung: MP4, MKV, WAV, MP3</div>
+              <div class="mb-3">
+                <label for="settingsEnd" class="form-label">End Time</label>
+                <input type="datetime-local" class="form-control" id="settingsEnd">
+              </div>
+            </div>
+            <div id="durationField" style="display:none;">
+              <div class="mb-3">
+                <label for="settingsDuration" class="form-label">Duration (hours, 0-24)</label>
+                <input type="number" class="form-control" id="settingsDuration" min="0" max="24" value="0">
+              </div>
+            </div>
+            <div class="mb-3" id="loopCountGroup" style="display:none;">
+              <label for="settingsLoopCount" class="form-label">Loop Count</label>
+              <input type="number" class="form-control" id="settingsLoopCount" value="-1" min="-1">
+              <div class="form-text">-1 means infinite loop. Minimum value is -1.</div>
             </div>
           </form>
         </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
+  <script>
+    // Show/hide scheduler fields based on mode
+    $('#settingsMode').on('change', function () {
+      if ($(this).val() === 'SCHEDULER') {
+        $('#schedulerFields').show();
+        $('#durationField').hide();
+        $('#loopCountGroup').hide();
+      } else if ($(this).val() === 'DURATION') {
+        $('#schedulerFields').hide();
+        $('#durationField').show();
+        $('#loopCountGroup').hide();
+      } else if ($(this).val() === 'LOOPCOUNT') {
+        $('#schedulerFields').hide();
+        $('#durationField').hide();
+        $('#loopCountGroup').show();
+      } else {
+        $('#schedulerFields').hide();
+        $('#durationField').hide();
+        $('#loopCountGroup').hide();
+      }
+    });
+    // Ensure default value
+    $('#settingsLoopCount').val('-1');
+  </script>
+
+  <!-- FFmpeg Logs Modal -->
+  <div class="modal fade" id="ffmpegLogsModal" tabindex="-1" aria-labelledby="ffmpegLogsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="ffmpegLogsModalLabel">FFmpeg Logs</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" style="max-height:60vh;overflow:auto;">
+          <pre id="ffmpegLogsContent"
+            style="background:#222;color:#eee;padding:1em;border-radius:8px;min-height:200px;"></pre>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Media File Management Modal -->
+  <div class="modal fade" id="mediaFileModal" tabindex="-1" aria-labelledby="mediaFileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="mediaFileModalLabel">Kelola Media File</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <h6>File Media Saat Ini</h6>
+            <div id="currentMediaFiles" class="list-group mb-3">
+              <!-- Current media files will be listed here -->
+            </div>
+          </div>
+          <hr>
+          <div>
+            <h6>Tambah File Media Baru</h6>
+            <form id="uploadMediaForm">
+              <input type="hidden" id="mediaStreamId" name="streamId">
+              <div class="mb-3">
+                <label for="mediaType" class="form-label">Tipe Media</label>
+                <select class="form-select mb-3" id="mediaType" name="mediaType" required>
+                  <option value="video">Video</option>
+                  <option value="audio">Audio</option>
+                  <option value="image">Gambar</option>
+                </select>
+
+                <label for="mediaFile" class="form-label">Pilih File</label>
+                <div class="input-group input-group-sm mb-3">
+                  <input class="form-control form-control-sm" type="file" id="mediaFile" name="file"
+                    accept=".mp4,.mkv,.wav,.mp3" required>
+                  <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-upload"></i>
+                  </button>
+                </div>
+                <div class="form-text">Format yang didukung: MP4, MKV, WAV, MP3</div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+  <style>
+    /* Ensure the footer stays at the bottom */
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .dashboard-container {
+      flex: 1;
+      padding-bottom: 2rem;
+    }
+
+    .app-footer {
+      background-color: #f8f9fa;
+      border-top: 1px solid #e9ecef;
+      padding: 1.5rem 0;
+      margin-top: 2rem;
+    }
+  </style>
+
+  <script>
+    // Set current year in footer
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+      // Set up the version info and load the script
+      fetch('/api/version')
+        .then(res => res.json())
+        .then(data => {
+          if (data.version && data.commit) {
+            const versionInfo = document.getElementById('versionInfo');
+            if (versionInfo) {
+              versionInfo.textContent = `v${data.version} (${data.commit.slice(0, 7)})`;
+              versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
+            }
+          }
+
+          // Load the main script
+          const script = document.createElement('script');
+          script.src = `/static/js/stream-list.js?v=${data.version ? data.version : '0.4.3'}`;
+          document.body.appendChild(script);
+        })
+        .catch((err) => {
+          console.error("Error initializing app:", err);
+          const script = document.createElement('script');
+          script.src = '/static/js/stream-list.js?v=0.4.3';
+          document.body.appendChild(script);
+        });
+    });
+  </script>
+
+      </div> <!-- Close container-xl -->
+    </div> <!-- Close container-fluid -->
+  </main>
+  
+  <!-- Main Footer -->
+  <footer class="footer mt-auto">
+    <div class="container">
+      <div class="row">
+        <div class="col-12 text-center">
+          <div class="footer-links mb-2">
+            <a href="/about" class="text-muted me-3">About</a>
+            <a href="/privacy" class="text-muted me-3">Privacy Policy</a>
+            <a href="/terms" class="text-muted me-3">Terms of Service</a>
+            <a href="/contact" class="text-muted">Contact</a>
+          </div>
+          <div class="footer-copyright">
+            &copy; <span id="currentYear"></span> Yuk Live! By PT Jejaring Internet Bersama
+          </div>
+          <div id="versionInfo" class="version-info small text-muted mt-2"></div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Set current year in footer
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // Set up the version info and load the script
+        fetch('/api/version')
+            .then(res => res.json())
+            .then(data => {
+                if (data.version && data.commit) {
+                    const versionInfo = document.getElementById('versionInfo');
+                    if (versionInfo) {
+                        versionInfo.textContent = `v${data.version} (${data.commit.slice(0,7)})`;
+                        versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
+                    }
+                }
+                
+                // Load the main script
+                const script = document.createElement('script');
+                script.src = `/static/js/stream-list.js?v=${data.version ? data.version : '0.4.3'}`;
+                document.body.appendChild(script);
+            })
+            .catch((err) => {
+                console.error("Error initializing app:", err);
+                const script = document.createElement('script');
+                script.src = '/static/js/stream-list.js?v=0.4.3';
+                document.body.appendChild(script);
+            });
+    });
+    </script>
 </body>
+
 </html>

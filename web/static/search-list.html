@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
   <link rel="stylesheet" href="/static/css/header.css">
+  <link rel="stylesheet" href="/static/css/footer.css">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video-js.min.css" rel="stylesheet" />
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -140,8 +141,10 @@
       </div>
     </nav>
   </header>
-  <main class="flex-fill pb-5">
-    <div class="container-fluid container-xl dashboard-container">
+  <main class="flex-grow-1 py-3">
+    <div class="container-fluid">
+      <div class="container-xl">
+        <div class="dashboard-container">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
           <span class="badge bg-info me-2">Search Result Count: <span id="countRoom">-</span></span>
@@ -194,8 +197,24 @@
       -->
     </div>
   </main>
-  <footer class="footer mt-auto py-3 bg-light border-top text-center w-100">
-    <span class="text-muted" id="footer-copyright"></span>
+
+  <footer class="footer mt-auto">
+    <div class="container">
+      <div class="row">
+        <div class="col-12 text-center">
+          <div class="footer-links mb-2">
+            <a href="/about" class="text-muted me-3">About</a>
+            <a href="/privacy" class="text-muted me-3">Privacy Policy</a>
+            <a href="/terms" class="text-muted me-3">Terms of Service</a>
+            <a href="/contact" class="text-muted">Contact</a>
+          </div>
+          <div class="footer-copyright">
+            &copy; <span id="currentYear"></span> Yuk Live! By PT Jejaring Internet Bersama
+          </div>
+          <div id="versionInfo" class="version-info small text-muted mt-2"></div>
+        </div>
+      </div>
+    </div>
   </footer>
   <!-- Bootstrap Toast Container -->
   <div aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
@@ -216,22 +235,26 @@
 const sinceYear = 2025;
 const nowYear = new Date().getFullYear();
 let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
+// Set current year in footer
+document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+// Set up the version info and load the script
 fetch('/api/version')
   .then(res => res.json())
   .then(data => {
-    let versionStr = '';
     if (data.version && data.commit) {
-      versionStr = ` | <span class='text-secondary'>Version: ${data.version} (<code>${data.commit.slice(0,7)}</code>)</span>`;
+      const versionInfo = document.getElementById('versionInfo');
+      versionInfo.textContent = `v${data.version} (${data.commit.slice(0,7)})`;
+      versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
     }
-    document.getElementById('footer-copyright').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama${versionStr}`;
     const script = document.createElement('script');
     script.src = `/static/js/search-list.js?v=${data.version ? data.version : '0.4.3'}`;
     document.body.appendChild(script);
   })
-  .catch(() => {
-    document.getElementById('footer-copyright').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama`;
+  .catch((err) => {
+    console.error("Error initializing app:", err);
     const script = document.createElement('script');
-    script.src = `/static/js/search-list.js?v=0.4.3`;
+    script.src = '/static/js/search-list.js?v=0.4.3';
     document.body.appendChild(script);
   });
 </script>

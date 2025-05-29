@@ -24,6 +24,8 @@ async function fetchChannels() {
     }
 }
 
+fetchChannels();
+
 
 // --- Channel logic ---
 // handle add channel
