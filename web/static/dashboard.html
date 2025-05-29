@@ -575,7 +575,7 @@
                             <thead class="bg-light">
                                 <tr>
                                     <th>Event</th>
-                                    <th>Stream</th>
+                                    <th>Description</th>
                                     <th>Status</th>
                                     <th>Time</th>
                                     <th class="text-end">Actions</th>
@@ -612,6 +612,38 @@ let networkInData = [];
 let networkOutData = [];
 let timeLabels = [];
 
+// Fetch recent activities from the server
+function fetchRecentActivities() {
+    fetch('/api/dashboard/activities/recent', {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('jwt_token')
+        }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Failed to fetch activities');
+        return response.json();
+    })
+    .then(data => {
+        if (data.success && data.activities) {
+            updateRecentActivity(data.activities);
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching activities:', error);
+        // Show error in the table
+        const tbody = document.getElementById('recentActivity');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Failed to load activities
+                    </td>
+                </tr>`;
+        }
+    });
+}
+
 // Initialize the dashboard
 function initDashboard() {
     initNetworkChart();
@@ -624,6 +656,7 @@ function initDashboard() {
     // Initial data fetch
     fetchDashboardStreams();
     fetchStorageInfo();
+    fetchRecentActivities();
     
     // Set up periodic refresh for storage info (every 30 seconds)
     setInterval(fetchStorageInfo, 30000);
@@ -632,6 +665,7 @@ function initDashboard() {
     document.getElementById('refreshBtn').addEventListener('click', function() {
         fetchDashboardStreams();
         fetchStorageInfo();
+        fetchRecentActivities();
     });
 }
 
@@ -971,25 +1005,94 @@ function updateChartData(inValue, outValue) {
     networkChart.update();
 }
 
+// Format time ago
+function timeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    let interval = Math.floor(seconds / 31536000);
+    if (interval >= 1) return interval + ' year' + (interval === 1 ? '' : 's') + ' ago';
+    
+    interval = Math.floor(seconds / 2592000);
+    if (interval >= 1) return interval + ' month' + (interval === 1 ? '' : 's') + ' ago';
+    
+    interval = Math.floor(seconds / 86400);
+    if (interval >= 1) return interval + ' day' + (interval === 1 ? '' : 's') + ' ago';
+    
+    interval = Math.floor(seconds / 3600);
+    if (interval >= 1) return interval + ' hour' + (interval === 1 ? '' : 's') + ' ago';
+    
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) return interval + ' minute' + (interval === 1 ? '' : 's') + ' ago';
+    
+    return 'Just now';
+}
+
+// Get status class based on status
+function getStatusClass(status) {
+    const statusMap = {
+        'started': 'success',
+        'completed': 'primary',
+        'failed': 'danger',
+        'processing': 'warning',
+        'scheduled': 'info',
+        'stopped': 'secondary',
+        'error': 'danger'
+    };
+    return statusMap[status.toLowerCase()] || 'secondary';
+}
+
 // Update recent activity
 function updateRecentActivity(activities) {
     const tbody = document.getElementById('recentActivity');
     if (!tbody) return;
+    
+    if (!activities || activities.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-4 text-muted">
+                    No recent activities found
+                </td>
+            </tr>`;
+        return;
+    }
     
     tbody.innerHTML = '';
     
     activities.forEach(activity => {
         const tr = document.createElement('tr');
         tr.className = 'fade-in';
+        
+        // Format the timestamp
+        const timestamp = activity.timestamp ? timeAgo(activity.timestamp) : 'Just now';
+        
+        // Get status class based on status
+        const statusClass = getStatusClass(activity.status || 'completed');
+        const statusText = (activity.status || 'completed').charAt(0).toUpperCase() + (activity.status || 'completed').slice(1);
+        
         tr.innerHTML = `
-            <td>${activity.event}</td>
-            <td>${activity.stream}</td>
-            <td><span class="badge bg-${activity.statusClass}">${activity.status}</span></td>
-            <td>${activity.time}</td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <i class="bi ${activity.icon || 'bi-activity'} me-2"></i>
+                    <span>${activity.event || 'Activity'}</span>
+                </div>
+            </td>
+            <td>${activity.description || 'N/A'}</td>
+            <td><span class="badge bg-${statusClass}">${statusText}</span></td>
+            <td>${timestamp}</td>
             <td class="text-end">
-                <button class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-three-dots-vertical"></i>
-                </button>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#"><i class="bi bi-info-circle me-2"></i>Details</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="bi bi-arrow-repeat me-2"></i>Retry</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash me-2"></i>Delete</a></li>
+                    </ul>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);

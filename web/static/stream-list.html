@@ -612,9 +612,6 @@
         })
         .catch((err) => {
           console.error("Error initializing app:", err);
-          const script = document.createElement('script');
-          script.src = '/static/js/stream-list.js?v=0.4.3';
-          document.body.appendChild(script);
         });
     });
   </script>
@@ -758,37 +755,6 @@
     }
   }
   </style>
-
-  <script>
-    // Set current year in footer
-    document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('currentYear').textContent = new Date().getFullYear();
-
-        // Set up the version info and load the script
-        fetch('/api/version')
-            .then(res => res.json())
-            .then(data => {
-                if (data.version && data.commit) {
-                    const versionInfo = document.getElementById('versionInfo');
-                    if (versionInfo) {
-                        versionInfo.textContent = `v${data.version} (${data.commit.slice(0,7)})`;
-                        versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
-                    }
-                }
-                
-                // Load the main script
-                const script = document.createElement('script');
-                script.src = `/static/js/stream-list.js?v=${data.version ? data.version : '0.4.3'}`;
-                document.body.appendChild(script);
-            })
-            .catch((err) => {
-                console.error("Error initializing app:", err);
-                const script = document.createElement('script');
-                script.src = '/static/js/stream-list.js?v=0.4.3';
-                document.body.appendChild(script);
-            });
-    });
-    </script>
 </body>
 
 </html>

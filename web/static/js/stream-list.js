@@ -594,30 +594,72 @@ $(function() {
         });
     });
 
-    // Stop stream handler
-    $(document).on("click", ".stream-stop", function(e) {
+    // Stop stream handler with event delegation and click tracking
+    $(document).on('click.stopStream', ".stream-stop:not('.disabled')", function(e) {
         e.preventDefault();
-        const id = $(this).data("id");
+        e.stopPropagation(); // Prevent event bubbling
+        
+        const $btn = $(this);
+        
+        // Prevent double clicks
+        if ($btn.data('clicked')) return;
+        $btn.data('clicked', true);
+        
+        const id = $btn.data("id");
         const token = localStorage.getItem("jwt_token");
-        const btn = $(this);
-        btn.prop("disabled", true);
+        
+        // Disable button and add loading state
+        $btn.prop("disabled", true).addClass('disabled')
+           .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Stopping...');
+        
+        // Add a timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        
+        // Create a unique request ID to track this specific request
+        const requestId = 'req_' + Math.random().toString(36).substr(2, 9);
+        $btn.data('requestId', requestId);
+        
         ajaxWithRefresh({
-            url: `/api/streams/${id}/stop`,
+            url: `/api/streams/${id}/stop?_=${timestamp}`,
             method: "POST",
-            headers: { Authorization: "Bearer " + token },
-            success: function() {
-                showStreamToast('Stream stopped successfully!', 'success');
-                // If using websocket, the list will be refreshed by ws event
-                // Otherwise, fallback to fetchStreams
-                if (window.streamListSocket && window.streamListSocket.readyState === 1) {
-                    // Do nothing, ws will update
-                } else {
-                    fetchStreams();
+            headers: { 
+                'X-Request-ID': requestId,
+                'Authorization': "Bearer " + token 
+            },
+            success: (response, status, xhr) => {
+                // Only process if this is the most recent request
+                if ($btn.data('requestId') === requestId) {
+                    showStreamToast('Stream stopped successfully!', 'success');
+                    // Keep button disabled - WebSocket will update the UI
                 }
             },
-            error: function(xhr) {
-                alert(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : "Failed to stop stream.");
-                btn.prop("disabled", false);
+            error: (xhr) => {
+                // Only process if this is the most recent request
+                if ($btn.data('requestId') === requestId) {
+                    let errorMsg = 'Failed to stop stream';
+                    try {
+                        if (xhr && xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMsg = xhr.responseJSON.error;
+                        } else if (xhr && xhr.statusText) {
+                            errorMsg = `Error: ${xhr.statusText}`;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing error response:', e);
+                    }
+                    showStreamToast(errorMsg, 'danger');
+                    $btn.prop("disabled", false)
+                       .removeClass('disabled')
+                       .removeData('clicked')
+                       .html('Stop');
+                }
+            },
+            complete: () => {
+                // Clean up after a delay
+                setTimeout(() => {
+                    if ($btn.data('requestId') === requestId) {
+                        $btn.removeData('clicked').removeData('requestId');
+                    }
+                }, 5000);
             }
         });
     });

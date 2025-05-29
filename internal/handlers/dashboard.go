@@ -2,7 +2,11 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"os"
+	"strconv"
+	"time"
+
 	"windsorf-youtube-live/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +33,65 @@ func (h *DashboardHandler) GetDashboardSystemMetrics(c *gin.Context) {
 	upload = 120.5
 	download = 340.8
 	c.JSON(200, gin.H{"cpu": cpu, "memory": memory, "upload": upload, "download": download})
+}
+
+// GetStorageInfo returns information about system disk usage
+// GetRecentActivities returns recent activities for the current user
+func (h *DashboardHandler) GetRecentActivities(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
+	// Get query parameters with defaults
+	limit := 10
+	if l := c.Query("limit"); l != "" {
+		if lInt, err := strconv.Atoi(l); err == nil && lInt > 0 {
+			limit = lInt
+		}
+	}
+
+	// Get activities from database
+	activities, err := models.GetRecentActivities(h.DB, userID.(string), limit)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to fetch activities"})
+		return
+	}
+
+	// Format activities for the frontend
+	formattedActivities := make([]map[string]interface{}, len(activities))
+	for i, activity := range activities {
+		// Determine icon based on activity type
+		icon := "bi-activity"
+		switch activity.Type {
+		case models.ActivityTypeStreamStarted:
+			icon = "bi-play-circle"
+		case models.ActivityTypeStreamStopped:
+			icon = "bi-stop-circle"
+		case models.ActivityTypeStreamScheduled:
+			icon = "bi-calendar-event"
+		case models.ActivityTypeStreamError:
+			icon = "bi-exclamation-triangle"
+		case models.ActivityTypeVideoUploaded:
+			icon = "bi-upload"
+		case models.ActivityTypeVideoProcessed:
+			icon = "bi-check-circle"
+		}
+
+		log.Println("Activity:", activity)
+
+		// Format the activity for the frontend
+		formattedActivities[i] = map[string]interface{}{
+			"id":          activity.ID,
+			"event":       activity.Title,
+			"description": activity.Description,
+			"status":      string(activity.Status),
+			"timestamp":   activity.CreatedAt.Format(time.RFC3339),
+			"icon":        icon,
+		}
+	}
+
+	c.JSON(200, gin.H{
+		"success":    true,
+		"activities": formattedActivities,
+	})
 }
 
 // GetStorageInfo returns information about system disk usage
