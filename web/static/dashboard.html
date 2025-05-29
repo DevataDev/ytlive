@@ -12,164 +12,1249 @@
     <link rel="shortcut icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/header.css">
+    <link rel="stylesheet" href="/static/css/footer.css">
+    <style>
+        /* Dashboard Specific Styles */
+        :root {
+            --primary: #4361ee;
+            --primary-light: #eef2ff;
+            --secondary: #6c757d;
+            --success: #28a745;
+            --info: #17a2b8;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --card-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.05);
+            --card-hover-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            background-color: #f5f7fb;
+            color: #333;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Card Styles */
+        .card {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: var(--card-shadow);
+            transition: var(--transition);
+            overflow: hidden;
+            background: #fff;
+            margin-bottom: 1.5rem;
+        }
+
+        .card:hover {
+            box-shadow: var(--card-hover-shadow);
+            transform: translateY(-5px);
+        }
+
+
+        /* Stat Cards */
+        .stat-card {
+            border: none;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            transition: var(--transition);
+            position: relative;
+            z-index: 1;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: -1;
+            transition: var(--transition);
+            opacity: 0;
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card .icon-shape {
+            transition: var(--transition);
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stat-card:hover .icon-shape {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Gradients */
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        }
+
+        .bg-gradient-info {
+            background: linear-gradient(135deg, #4cc9f0 0%, #4895ef 100%);
+        }
+
+        .bg-gradient-warning {
+            background: linear-gradient(135deg, #f9c74f 0%, #f8961e 100%);
+        }
+
+        .bg-gradient-danger {
+            background: linear-gradient(135deg, #f72585 0%, #b5179e 100%);
+        }
+
+        .bg-gradient-success {
+            background: linear-gradient(135deg, #4cc9f0 0%, #4895ef 100%);
+        }
+
+        /* Progress Circles */
+        .progress-circle {
+            position: relative;
+            width: 60px;
+            height: 60px;
+        }
+
+        .progress-circle-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .progress-circle-bg {
+            fill: none;
+            stroke: #e9ecef;
+            stroke-width: 3;
+        }
+
+        .progress-circle-fill {
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 3;
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.6s ease;
+        }
+
+        .progress-circle-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Badges */
+        .badge {
+            font-weight: 500;
+            padding: 0.35em 0.65em;
+            border-radius: 0.5rem;
+        }
+
+        /* Table Styles */
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            color: #6c757d;
+            border-top: none;
+        }
+
+        .table > :not(:first-child) {
+            border-top: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 767.98px) {
+            .stat-card {
+                margin-bottom: 1rem;
+            }
+            
+            .card-header h5 {
+                font-size: 1rem;
+            }
+        }
+
+        /* Legend Indicators */
+        .legend-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        /* Custom Utilities */
+        .text-white-50 {
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+
+        .bg-white-10 {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .bg-white-20 {
+            background-color: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .text-dark-50 {
+            color: rgba(33, 37, 41, 0.7) !important;
+        }
+    </style>
 </head>
-<body>
-<header class="sticky-top bg-white border-bottom shadow-sm mb-4">
-    <nav class="navbar navbar-expand-lg bg-white">
-        <div class="container-fluid">
-            <span class="fw-bold fs-4 me-3">YukLive!</span>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+<body class="d-flex flex-column min-vh-100">
+<header class="app-header">
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid px-3 px-lg-4">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="bi bi-broadcast"></i>
+                <span>YukLive!</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" 
+                    aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
+            
             <div class="collapse navbar-collapse" id="mainNavbar">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item">
-                        <a href="/dashboard" class="nav-link" id="menuDashboard">Dashboard</a>
+                        <a href="/dashboard" class="nav-link" id="menuDashboard">
+                            <i class="bi bi-speedometer2"></i>
+                            <span>Dashboard</span>
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a href="/stream" class="nav-link" id="menuStream">Stream</a>
+                        <a href="/stream" class="nav-link" id="menuStream">
+                            <i class="bi bi-camera-reels"></i>
+                            <span>Stream</span>
+                        </a>
                     </li>
                     <li class="nav-item" id="menuMirror">
-                        <a href="/mirror" class="nav-link">Mirror</a>
+                        <a href="/mirror" class="nav-link">
+                            <i class="bi bi-play-circle"></i>
+                            <span>Mirror</span>
+                        </a>
                     </li>
-                    <li class="nav-item" id="menuLive">
-                        <a href="/live" class="nav-link">TikTok Live</a>
-                    </li>
-                    <li class="nav-item" id="menuSearch">
-                        <a href="/search" class="nav-link">TikTok Search</a>
+                    <li class="nav-item dropdown" id="menuTikTok">
+                        <a class="nav-link dropdown-toggle" href="#" id="tiktokDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-tiktok"></i>
+                            <span>TikTok</span>
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="tiktokDropdown">
+                            <li>
+                                <a class="dropdown-item" href="/live" id="menuLive">
+                                    <i class="bi bi-broadcast me-2"></i>
+                                    <span>Live</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="/search" id="menuSearch">
+                                    <i class="bi bi-search me-2"></i>
+                                    <span>Search</span>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     <li class="nav-item" id="menuUserMgmt">
-                        <a href="/users" class="nav-link">User Management</a>
+                        <a href="/users" class="nav-link">
+                            <i class="bi bi-people"></i>
+                            <span>Users</span>
+                        </a>
                     </li>
-                <li class="nav-item" id="menuManageChannels">
-                    <a href="/channels" class="nav-link">Manage Channels</a>
-                </li>
+                    <li class="nav-item">
+                        <a href="/monitor" class="nav-link">
+                            <i class="bi bi-graph-up"></i>
+                            <span>Monitor</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" id="menuManageChannels">
+                        <a href="/channels" class="nav-link">
+                            <i class="bi bi-collection-play"></i>
+                            <span>Channels</span>
+                        </a>
+                    </li>
                 </ul>
-                <button id="logoutBtn" class="btn btn-outline-secondary ms-lg-2">Logout</button>
+                
+                <div class="d-flex align-items-center">
+                    <div class="user-dropdown">
+                    <div class="user-avatar" id="userInitials">U</div>
+                    <button id="logoutBtn" class="btn btn-outline-primary btn-sm btn-logout">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span class="d-none d-sm-inline">Logout</span>
+                    </button>
+                    </div>
+                </div>
             </div>
         </div>
     </nav>
 </header>
-<div class="container dashboard-container">
-    <h2 class="mb-4">Dashboard</h2>
-    <div class="row mb-4">
-        <div class="col-md-6 mb-3">
-            <div class="card text-center dashboard-card bg-live">
-                <div class="card-body">
-                    <h5 class="card-title">Live Streams Started</h5>
-                    <p class="display-4" id="streamsStarted">-</p>
+
+<main class="flex-grow-1 py-4">
+    <div class="container-fluid">
+        <div class="container-xxl">
+            <!-- Header with Stats -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="fw-bold mb-0">Dashboard Overview</h2>
+                    <p class="text-muted mb-0">Welcome back! Here's what's happening with your streams</p>
+                </div>
+                <div class="text-end">
+                    <div class="text-muted small">Last updated: <span id="lastUpdated">Just now</span></div>
+                    <button class="btn btn-sm btn-outline-secondary mt-1" id="refreshBtn">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                    </button>
                 </div>
             </div>
-        </div>
-        <div class="col-md-6 mb-3">
-            <div class="card text-center dashboard-card bg-scheduled">
-                <div class="card-body">
-                    <h5 class="card-title">Scheduled Streams</h5>
-                    <p class="display-4" id="streamsScheduled">-</p>
+
+            <!-- Stats Cards -->
+            <div class="row g-4 mb-4">
+                <!-- Live Streams Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card stat-card bg-gradient-primary text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-uppercase text-white-50 mb-1">Live Streams</h6>
+                                    <h2 class="mb-0 fw-bold" id="streamsStarted">0</h2>
+                                </div>
+                                <div class="icon-shape bg-white-10 rounded-circle p-3">
+                                    <i class="bi bi-broadcast fs-3"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scheduled Streams Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card stat-card bg-gradient-info text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-uppercase text-white-50 mb-1">Scheduled</h6>
+                                    <h2 class="mb-0 fw-bold" id="streamsScheduled">0</h2>
+                                </div>
+                                <div class="icon-shape bg-white-10 rounded-circle p-3">
+                                    <i class="bi bi-calendar2-check fs-3"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CPU Usage Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card stat-card bg-gradient-warning text-dark h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-uppercase text-dark-50 mb-1">CPU Usage</h6>
+                                    <h2 class="mb-0 fw-bold" id="cpuUsage">-</h2>
+                                </div>
+                                <div class="progress-circle" id="cpuCircle" data-value="0">
+                                    <svg class="progress-circle-svg" viewBox="0 0 36 36">
+                                        <path class="progress-circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        <path class="progress-circle-fill" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    </svg>
+                                    <span class="progress-circle-text">0%</span>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <span class="badge bg-white-20 text-dark"><i class="bi bi-graph-up me-1"></i> <span id="cpuTrend">-</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Memory Usage Card -->
+                <div class="col-md-6 col-xl-3">
+                    <div class="card stat-card bg-gradient-danger text-white h-100 memory-usage-card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-uppercase text-white-50 mb-1">Memory Usage</h6>
+                                    <h2 class="mb-0 fw-bold" id="memoryUsage">-</h2>
+                                </div>
+                                <div class="progress-circle" id="memoryCircle" data-value="0">
+                                    <svg class="progress-circle-svg" viewBox="0 0 36 36">
+                                        <path class="progress-circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        <path class="progress-circle-fill" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    </svg>
+                                    <span class="progress-circle-text">0%</span>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <span class="badge bg-white-10"><span id="memoryUsed"></span> / <span id="memoryTotal"></span> GB</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-    <h4 class="mb-3">Storage</h4>
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h6 class="card-title mb-3">Storage Usage</h6>
-                    <div class="d-flex align-items-center mb-2">
-                        <div class="progress flex-grow-1 me-3" style="height: 20px;">
-                            <div id="storageProgress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+
+            <!-- Network and Storage Row -->
+            <div class="row g-4 mb-4">
+                <!-- Network Stats -->
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-transparent border-bottom-0 pb-0">
+                            <h5 class="mb-0">Network Performance</h5>
                         </div>
-                        <div class="text-nowrap">
-                            <span id="storageUsed">0 B</span> of <span id="storageTotal">0 B</span>
+                        <div class="card-body">
+                            <div class="row g-4">
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-shape bg-primary bg-opacity-10 text-primary rounded-3 p-3 me-3">
+                                            <i class="bi bi-upload fs-4"></i>
+                                        </div>
+                                        <div>
+                                            <span class="d-block text-muted small">Upload</span>
+                                            <h5 class="mb-0 fw-bold" id="uploadRate">0 Mbps</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon-shape bg-success bg-opacity-10 text-success rounded-3 p-3 me-3">
+                                            <i class="bi bi-download fs-4"></i>
+                                        </div>
+                                        <div>
+                                            <span class="d-block text-muted small">Download</span>
+                                            <h5 class="mb-0 fw-bold" id="downloadRate">0 Mbps</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="chart-container" style="height: 120px;">
+                                        <canvas id="networkChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Storage Usage -->
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-transparent border-bottom-0 pb-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Storage Usage</h5>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="storageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        This Month
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="storageDropdown">
+                                        <li><a class="dropdown-item" href="#">Today</a></li>
+                                        <li><a class="dropdown-item active" href="#">This Week</a></li>
+                                        <li><a class="dropdown-item" href="#">This Month</a></li>
+                                        <li><a class="dropdown-item" href="#">This Year</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-4">
+                                <div class="flex-shrink-0 me-4">
+                                    <div class="storage-indicator">
+                                        <div class="progress-circle" id="storageCircle" data-value="0" style="width: 80px; height: 80px;">
+                                            <svg class="progress-circle-svg" viewBox="0 0 36 36">
+                                                <path class="progress-circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                                <path class="progress-circle-fill" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                            </svg>
+                                            <span class="progress-circle-text">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Used</span>
+                                        <span class="fw-medium" id="storageUsed">0 GB</span>
+                                    </div>
+                                    <div class="progress" style="height: 6px;">
+                                        <div id="storageProgress" class="progress-bar bg-primary" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    <div class="d-flex justify-content-between mt-2">
+                                        <span class="text-muted">Total</span>
+                                        <span class="fw-medium" id="storageTotal">0 GB</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center">
+                                        <span class="legend-indicator bg-primary me-2"></span>
+                                        <div>
+                                            <h6 class="mb-0">Videos</h6>
+                                            <small class="text-muted"><span id="videoCount">0</span> files</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center">
+                                        <span class="legend-indicator bg-success me-2"></span>
+                                        <div>
+                                            <h6 class="mb-0">Audio</h6>
+                                            <small class="text-muted"><span id="audioCount">0</span> files</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="d-flex align-items-center">
+                                        <span class="legend-indicator bg-info me-2"></span>
+                                        <div>
+                                            <h6 class="mb-0">Total Files</h6>
+                                            <small class="text-muted"><span id="totalFiles">0</span> files</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card mb-4">
+                <div class="card-header bg-transparent border-bottom-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Activity</h5>
+                        <a href="#" class="btn btn-sm btn-outline-primary">View All</a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Stream</th>
+                                    <th>Status</th>
+                                    <th>Time</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentActivity">
+                                <!-- Will be populated by JavaScript -->
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <span class="ms-2">Loading activity...</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    <h4 class="mb-3">Server Metrics</h4>
-    <div class="row">
-        <div class="col-md-6 mb-3">
-            <div class="card text-center dashboard-card bg-cpu">
-                <div class="card-body">
-                    <h6 class="card-title">CPU Usage</h6>
-                    <p class="fs-4" id="cpuUsage">-</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-3">
-            <div class="card text-center dashboard-card bg-memory">
-                <div class="card-body">
-                    <h6 class="card-title">Memory Usage</h6>
-                    <p class="fs-4" id="memoryUsage">-</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-md-6 mb-3">
-            <div class="card text-center dashboard-card bg-upload">
-                <div class="card-body">
-                    <h6 class="card-title">Upload Rate</h6>
-                    <p class="fs-4" id="uploadRate">-</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 mb-3">
-            <div class="card text-center dashboard-card bg-download">
-                <div class="card-body">
-                    <h6 class="card-title">Download Rate</h6>
-                    <p class="fs-4" id="downloadRate">-</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-<footer class="text-center text-muted py-3" id="footer"></footer>
+</main>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-const sinceYear = 2025;
-const nowYear = new Date().getFullYear();
-let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<script>
+// Initialize Chart.js
+let networkChart;
+let cpuUsageData = [];
+let memoryUsageData = [];
+let networkInData = [];
+let networkOutData = [];
+let timeLabels = [];
+
+// Initialize the dashboard
+function initDashboard() {
+    initNetworkChart();
+    updateProgressCircles();
+    setActiveNavItem();
+    
+    // Initialize WebSocket connection
+    setupDashboardWebSocket();
+    
+    // Initial data fetch
+    fetchDashboardStreams();
+    fetchStorageInfo();
+    
+    // Set up periodic refresh for storage info (every 30 seconds)
+    setInterval(fetchStorageInfo, 30000);
+    
+    // Refresh button click handler
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        fetchDashboardStreams();
+        fetchStorageInfo();
+    });
+}
+
+// Initialize network chart
+function initNetworkChart() {
+    const ctx = document.getElementById('networkChart').getContext('2d');
+    networkChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timeLabels,
+            datasets: [
+                {
+                    label: 'Download',
+                    data: networkInData,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Upload',
+                    data: networkOutData,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value + ' Mbps';
+                        }
+                    }
+                }
+            },
+            animation: {
+                duration: 1000
+            },
+            elements: {
+                point: {
+                    radius: 0
+                }
+            }
+        }
+    });
+}
+
+// Update progress circles
+function updateProgressCircles() {
+    const circles = document.querySelectorAll('.progress-circle');
+    circles.forEach(circle => {
+        const value = parseFloat(circle.getAttribute('data-value')) || 0;
+        const fill = circle.querySelector('.progress-circle-fill');
+        const text = circle.querySelector('.progress-circle-text');
+        const radius = 15.9155; // 36/2 - 2*3 (stroke width)
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (value / 100) * circumference;
+        
+        fill.style.strokeDasharray = circumference;
+        fill.style.strokeDashoffset = offset;
+        
+        if (text) {
+            text.textContent = `${Math.round(value)}%`;
+        }
+    });
+}
+
+// Format bytes to human readable format
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+// Format bits to Mbps
+function formatBits(bits, decimals = 2) {
+    if (bits === 0) return '0 Mbps';
+    const k = 1000;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps'];
+    const i = Math.floor(Math.log(bits) / Math.log(k));
+    return parseFloat((bits / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+// WebSocket connection for real-time updates
+function setupDashboardWebSocket() {
+    if (window.dashboardSocket) {
+        window.dashboardSocket.close();
+    }
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const token = localStorage.getItem("jwt_token");
+    const wsUrl = protocol + '://' + window.location.host + '/ws?token=' + encodeURIComponent(token);
+    
+    window.dashboardSocket = new WebSocket(wsUrl);
+    
+    window.dashboardSocket.onopen = function() {
+        console.log('WebSocket connection established');
+    };
+    
+    window.dashboardSocket.onmessage = function(event) {
+        try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'dashboard_metrics') {
+                updateSystemMetrics({
+                    cpu: msg.cpu,
+                    memory: msg.memory,
+                    upload: msg.upload,
+                    download: msg.download || 0,
+                    ram_total: msg.ram_total || 0,
+                    ram_used: msg.ram_used || 0
+                });
+            }
+        } catch (e) {
+            console.error('Error processing WebSocket message:', e);
+        }
+    };
+    
+    window.dashboardSocket.onclose = function() {
+        console.log('WebSocket connection closed, attempting to reconnect...');
+        setTimeout(setupDashboardWebSocket, 5000);
+    };
+    
+    window.dashboardSocket.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
+}
+
+// Fetch dashboard streams data
+function fetchDashboardStreams() {
+    $.ajax({
+        url: '/api/dashboard/streams',
+        type: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('jwt_token')
+        },
+        success: function(data) {
+            updateStreamsData(data);
+        },
+        error: function(xhr, status, error) {
+            console.error('Error fetching streams:', error);
+        }
+    });
+}
+
+// Fetch storage information
+function fetchStorageInfo() {
+    $.ajax({
+        url: '/api/dashboard/storage',
+        type: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('jwt_token')
+        },
+        success: function(data) {
+            updateStorageInfo(data);
+        },
+        error: function(xhr, status, error) {
+            console.error('Error fetching storage info:', error);
+        }
+    });
+}
+
+// Update streams data in the UI
+function updateStreamsData(data) {
+    if (data.live !== undefined) {
+        document.getElementById('streamsStarted').textContent = data.live;
+    }
+    if (data.scheduled !== undefined) {
+        document.getElementById('streamsScheduled').textContent = data.scheduled;
+    }
+    updateLastUpdated();
+}
+
+// Update storage information in the UI
+function updateStorageInfo(data) {
+    if (data.used !== undefined && data.total !== undefined) {
+        const usedGB = (data.used / (1024 * 1024 * 1024)).toFixed(2);
+        const totalGB = (data.total / (1024 * 1024 * 1024)).toFixed(2);
+        const usedPercent = Math.round((data.used / data.total) * 100);
+        
+        // Update storage usage
+        document.getElementById('storageUsed').textContent = `${usedGB} GB`;
+        document.getElementById('storageTotal').textContent = `${totalGB} GB`;
+        document.getElementById('storageProgress').style.width = `${usedPercent}%`;
+        document.getElementById('storageCircle').setAttribute('data-value', usedPercent);
+        
+        // Update file counts if available
+        if (data.fileCounts) {
+            document.getElementById('videoCount').textContent = data.fileCounts.videos || 0;
+            document.getElementById('audioCount').textContent = data.fileCounts.audio || 0;
+            document.getElementById('totalFiles').textContent = (parseInt(data.fileCounts.videos || 0) + parseInt(data.fileCounts.audio || 0)).toLocaleString();
+        }
+        
+        updateProgressCircles();
+    }
+}
+
+// Example of how the data should be structured from the server:
+// {
+//     used: 1234567890,  // bytes
+//     total: 5368709120, // bytes
+//     fileCounts: {
+//         videos: 42,
+//         audio: 15
+//     }
+// }
+
+// Format bytes to human readable format
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+// Update system metrics from WebSocket
+function updateSystemMetrics(metrics) {
+    // Update CPU
+    if (metrics.cpu !== undefined) {
+        const cpuPercent = Math.round(metrics.cpu);
+        document.getElementById('cpuUsage').textContent = `${cpuPercent}%`;
+        document.getElementById('cpuCircle').setAttribute('data-value', cpuPercent);
+    }
+    
+    // Update Memory
+    if (metrics.memory !== undefined) {
+        const memoryPercent = Math.round(metrics.memory);
+        document.getElementById('memoryUsage').textContent = `${memoryPercent}%`;
+        document.getElementById('memoryCircle').setAttribute('data-value', memoryPercent);
+        
+        // Update RAM details if available
+        if (metrics.ram_used !== undefined && metrics.ram_total !== undefined) {
+            const usedGB = (metrics.ram_used / (1024 * 1024 * 1024)).toFixed(2);
+            const totalGB = (metrics.ram_total / (1024 * 1024 * 1024)).toFixed(2);
+            const ramUsageText = `${usedGB} GB / ${totalGB} GB`;
+            
+            // Check if the RAM details element exists, if not create it
+
+            let memoryUsed = document.getElementById('memoryUsed');
+            let memoryTotal = document.getElementById('memoryTotal');
+            
+            if (memoryUsed && memoryTotal) {
+                memoryUsed.textContent = `${usedGB}`;
+                memoryTotal.textContent = `${totalGB}`;
+            }
+        }
+    }
+    
+    // Update network stats
+    if (metrics.upload !== undefined) {
+        document.getElementById('uploadRate').textContent = `${metrics.upload.toFixed(2)} Mbps`;
+    }
+    
+    if (metrics.download !== undefined) {
+        document.getElementById('downloadRate').textContent = `${metrics.download.toFixed(2)} Mbps`;
+        // Update network chart
+        updateChartData(metrics.download, metrics.upload);
+    }
+    
+    updateProgressCircles();
+    updateLastUpdated();
+}
+
+// Update chart with new network data
+function updateChartData(downloadValue, uploadValue) {
+    // Add new data point
+    const now = new Date();
+    const timeLabel = now.getHours() + ':' + now.getMinutes().toString().padStart(2, '0');
+    
+    // Limit to 10 data points
+    if (timeLabels.length >= 10) {
+        timeLabels.shift();
+        networkInData.shift();
+        networkOutData.shift();
+    }
+    
+    timeLabels.push(timeLabel);
+    networkInData.push(downloadValue);
+    networkOutData.push(uploadValue);
+    
+    // Update chart if it exists
+    if (window.networkChart) {
+        networkChart.data.labels = timeLabels;
+        networkChart.data.datasets[0].data = networkInData;
+        networkChart.data.datasets[1].data = networkOutData;
+        networkChart.update();
+    }
+}
+
+// Update chart with new data
+function updateChartData(inValue, outValue) {
+    // Add new data point
+    const now = new Date();
+    const timeLabel = now.getHours() + ':' + now.getMinutes().toString().padStart(2, '0');
+    
+    // Limit to 10 data points
+    if (timeLabels.length >= 10) {
+        timeLabels.shift();
+        networkInData.shift();
+        networkOutData.shift();
+    }
+    
+    timeLabels.push(timeLabel);
+    networkInData.push(inValue);
+    networkOutData.push(outValue);
+    
+    // Update chart
+    networkChart.data.labels = timeLabels;
+    networkChart.data.datasets[0].data = networkInData;
+    networkChart.data.datasets[1].data = networkOutData;
+    networkChart.update();
+}
+
+// Update recent activity
+function updateRecentActivity(activities) {
+    const tbody = document.getElementById('recentActivity');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    activities.forEach(activity => {
+        const tr = document.createElement('tr');
+        tr.className = 'fade-in';
+        tr.innerHTML = `
+            <td>${activity.event}</td>
+            <td>${activity.stream}</td>
+            <td><span class="badge bg-${activity.statusClass}">${activity.status}</span></td>
+            <td>${activity.time}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// Update last updated time
+function updateLastUpdated() {
+    const now = new Date();
+    const options = { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: true
+    };
+    document.getElementById('lastUpdated').textContent = now.toLocaleTimeString('en-US', options);
+}
+
+// Set active state for current page
+function setActiveNavItem() {
+    const currentPath = window.location.pathname;
+    const navLinks = document.querySelectorAll('.nav-link, .dropdown-item');
+    let activeFound = false;
+    
+    // First, find and activate the matching link
+    navLinks.forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+            link.classList.add('active');
+            // If it's a dropdown item, also activate its parent dropdown
+            const dropdownItem = link.closest('.dropdown-item');
+            if (dropdownItem) {
+                const parentDropdown = link.closest('.dropdown');
+                if (parentDropdown) {
+                    parentDropdown.querySelector('.nav-link').classList.add('active');
+                }
+            }
+            // Update page title to include section name
+            const sectionName = link.querySelector('span')?.textContent || link.textContent.trim();
+            if (sectionName) {
+                document.title = `${sectionName} | YukLive!`;
+            }
+            activeFound = true;
+        }
+    });
+    
+    // If no active link found, check for parent paths
+    // Set user initials
+    const userInitials = 'U'; // Replace with actual user initials
+    document.getElementById('userInitials').textContent = userInitials;
+    
+    // Set current year in footer
+    document.getElementById('currentYear').textContent = new Date().getFullYear();
+    
+    // Load version info
+    fetch('/api/version')
+        .then(res => res.json())
+        .then(data => {
+            if (data.version && data.commit) {
+                const versionInfo = document.getElementById('versionInfo');
+                if (versionInfo) {
+                    versionInfo.textContent = `v${data.version} (${data.commit.slice(0,7)})`;
+                    versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
+                }
+            }
+            
+            // Load the main script
+            const script = document.createElement('script');
+            //script.src = `/static/js/dashboard.js?v=${data.version ? data.version : '0.4.3'}`;
+            //document.body.appendChild(script);
+        })
+        .catch(() => {
+            const script = document.createElement('script');
+            //script.src = '/static/js/dashboard.js?v=0.4.3';
+            //document.body.appendChild(script);
+        });
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    initDashboard();
+    setActiveNavItem();
+});
+</script>
+
+<footer class="footer mt-auto border-top">
+    <div class="container py-3">
+        <div class="row align-items-center">
+            <div class="col-md-6 text-center text-md-start mb-2 mb-md-0">
+                <div class="d-flex align-items-center justify-content-center justify-content-md-start">
+                    <div class="me-3 d-flex align-items-center">
+                        <i class="bi bi-broadcast me-2 text-primary broadcast-icon"></i>
+                        <span class="brand-text">Yuk Live!</span>
+                    </div>
+                    <div class="vr d-none d-md-block"></div>
+                    <div class="ms-md-3">
+                        <span id="versionInfo" class="version-badge"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 text-center text-md-end">
+                <div class="copyright-text">
+                    &copy; <span id="currentYear"></span> PT Jejaring Internet Bersama. All rights reserved.
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<style>
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.footer {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    animation: fadeInUp 0.6s ease-out forwards;
+    padding: 1rem 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.footer:hover {
+    background: linear-gradient(135deg, #f1f3f5 0%, #f8f9fa 100%);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.vr {
+    width: 1px;
+    height: 1.5rem;
+    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.1), transparent);
+    opacity: 0.7;
+    transition: all 0.3s ease;
+}
+
+.broadcast-icon {
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.broadcast-icon:hover {
+    animation: pulse 1.5s infinite;
+    color: #0d6efd !important;
+}
+
+.brand-text {
+    color: #6c757d;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+    font-size: 0.9rem;
+}
+
+.brand-text::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: -2px;
+    left: 0;
+    background-color: #0d6efd;
+    transition: width 0.3s ease;
+}
+
+.brand-text:hover::after {
+    width: 100%;
+}
+
+.version-badge {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    color: #fff;
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    border-radius: 50rem;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.version-badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: 0.5s;
+}
+
+.version-badge:hover {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.version-badge:hover::before {
+    left: 100%;
+}
+
+.copyright-text {
+    color: #6c757d;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+    margin: 0;
+}
+
+.copyright-text:hover {
+    color: #495057;
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 767.98px) {
+    .footer {
+        text-align: center;
+        padding: 0.75rem 0;
+    }
+    .vr {
+        display: none !important;
+    }
+    .footer .row > div {
+        margin-bottom: 0.5rem;
+    }
+}
+</style>
+
+<script>
+// Set current year in footer
+document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+// Set up the version info
 fetch('/api/version')
   .then(res => res.json())
   .then(data => {
-    let versionStr = '';
     if (data.version && data.commit) {
-      versionStr = ` | <span class='text-secondary'>Version: ${data.version} (<code>${data.commit.slice(0,7)}</code>)</span>`;
-    }
-    document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama${versionStr}`;
-    const script = document.createElement('script');
-    script.src = `/static/js/dashboard.js?v=${data.version ? data.version : '0.4.3'}`;
-    document.body.appendChild(script);
-  })
-  .catch(() => {
-    document.getElementById('footer').innerHTML = `&copy; ${yearStr} Yuk Live! By PT Jejaring Internet Bersama`;
-    const script = document.createElement('script');
-    script.src = `/static/js/dashboard.js?v=0.4.3`;
-    document.body.appendChild(script);
-  });
+      const versionInfo = document.getElementById('versionInfo');
+      if (versionInfo) {
+        versionInfo.textContent = `v${data.version} (${data.commit.slice(0,7)})`;
+        versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
+      }
 
-// Show User Management menu if user is admin
-$(function() {
-    const token = localStorage.getItem('jwt_token');
-    if (token) {
-        // Decode JWT to check is_admin (assume payload is base64 encoded JSON)
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            if (!payload.is_admin) {
-                $('#menuUserMgmt').addClass('d-none');
-            }
-        } catch (e) {}
-    } else {
-        $('#menuUserMgmt').addClass('d-none');
+      const script = document.createElement('script');
+      script.src = `/static/js/dashboard.js?v=${data.version ? data.version : '0.4.3'}`;
+      document.body.appendChild(script);
+      
     }
-});
+  })
+  .catch(console.error);
 </script>
+
 </body>
 </html>

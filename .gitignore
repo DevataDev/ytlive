@@ -68,6 +68,8 @@ go.work
 .idea/**/uiDesigner.xml
 .idea/**/dbnavigator.xml
 
+venv/**
+
 # Gradle
 .idea/**/gradle.xml
 .idea/**/libraries
