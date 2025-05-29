@@ -194,6 +194,41 @@ func (w *StreamWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 	}
 }
 
+func (w *StreamWorker) CheckIfAnyFfmpegProcessIsRunning(streamKey string) bool {
+	// list all ffmpeg process
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		// Create command to find ffmpeg processes
+		cmd := exec.Command("pgrep", "-f", "ffmpeg.*"+streamKey)
+
+		// Capture the output
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			// pgrep returns non-zero exit status when no processes are found
+			// So we only log the error if it's not the "no processes found" case
+			if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 1 {
+				log.Printf("Error checking for ffmpeg processes: %v", err)
+			}
+			return false
+		}
+
+		// If we got any output, it means there are matching processes
+		return len(output) > 0
+	} else if runtime.GOOS == "windows" {
+		// Windows implementation
+		cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq ffmpeg.exe")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Printf("Error checking for ffmpeg processes: %v", err)
+			return false
+		}
+		// Check if the output contains ffmpeg.exe
+		return strings.Contains(strings.ToLower(string(output)), "ffmpeg.exe")
+	}
+
+	// Unsupported OS
+	return false
+}
+
 func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, rtmpUrl string, loopVideo bool, loopCount *int, database *gorm.DB, redisPubSub *redisutil.RedisPubSub) (*StreamWorker, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	worker := &StreamWorker{
@@ -270,6 +305,11 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 		}
 	}
 
+	if worker.CheckIfAnyFfmpegProcessIsRunning(streamKey) {
+		log.Println("FFmpeg process is already running for stream", streamID)
+		return nil, 0, errors.New("FFmpeg process is already running for stream " + streamID)
+	}
+
 	var cmd *exec.Cmd
 	args := buildFfmpegArgsWithMediaFiles(maxBitrate, loopVideo, worker.Videos, worker.Audio, streamKey, rtmpUrl, loopCount)
 
@@ -288,42 +328,63 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 		return nil, 0, err
 	}
 
-	//should we waiting here ?
+	// should we waiting here ?
 	go func() {
 		concatPath := filepath.Join("data", "ffmpeg_concat", "audio_concat_"+strings.ToLower(streamKey)+".txt")
 		if err := cmd.Wait(); err != nil {
-			log.Printf("FFmpeg process ended with error: %v", err)
-			// if signal killed then do not restart
-			// Handle process completion (e.g., notify channels, cleanup)
-			StopStreamWorker(streamID, false)
-			os.Remove(concatPath)
-			if err.Error() == "signal: killed" {
+			// Check if this is a normal exit after completing the requested loops
+			isNormalCompletion := false
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 255 && loopCount != nil {
+				// When using -stream_loop with a count, FFmpeg exits with 255 when done
+				log.Printf("FFmpeg completed %d loops for stream %s with error: %v\n", *loopCount, streamID, err)
+				// Update database
+				if database != nil {
+					database.Model(&models.Stream{}).Where("stream_key = ?", streamKey).Update("status", "stopped")
+				}
+				isNormalCompletion = true
+			} else if err.Error() == "signal: killed" {
+				// Handle killed signal
 				log.Println("FFmpeg process killed by signal for stream", streamID)
 				worker.Logger.Write([]byte("FFmpeg process killed by signal\n"))
-				RemoveWorker(streamID)
+				// Update database
+				if database != nil {
+					database.Model(&models.Stream{}).Where("stream_key = ?", streamKey).Update("status", "stopped")
+				}
+				os.Remove(concatPath)
 				return
 			}
-			// write error to log
-			worker.Logger.Write([]byte("FFmpeg process ended with error: " + err.Error() + "\n"))
+
+			if !isNormalCompletion {
+				log.Printf("FFmpeg process ended with error for stream %s: %v\n", streamID, err)
+				worker.Logger.Write([]byte("FFmpeg process ended with error: " + err.Error() + "\n"))
+			}
+
+			StopStreamWorker(streamID, false)
 			RemoveWorker(streamID)
-			//restart stream worker
-			if loopVideo {
+
+			if isNormalCompletion {
+				broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
+			}
+			// Only restart if this was a normal completion with loopVideo true
+			if loopVideo && !isNormalCompletion && !worker.CheckIfAnyFfmpegProcessIsRunning(streamKey) {
+				log.Printf("Restarting stream %s after an errorr\n", streamID)
 				RestartLock.Lock()
 				StartStreamWorkerWithDatabase(streamID, streamKey, maxBitrate, rtmpUrl, loopVideo, loopCount, database, redisPubSub)
 				RestartLock.Unlock()
-				broadcast.Bus.Broadcast(broadcast.RefreshStream, nil)
 			}
 		} else {
-			log.Println("FFmpeg process completed successfully")
+			// Normal successful completion
+			log.Println("FFmpeg process completed successfully for stream", streamID)
 			worker.Logger.Write([]byte("FFmpeg process completed successfully\n"))
 			// delete concat file
+			concatPath := filepath.Join("data", "ffmpeg_concat", "audio_concat_"+strings.ToLower(streamKey)+".txt")
 			os.Remove(concatPath)
 			StopStreamWorker(streamID, false)
 			RemoveWorker(streamID)
 			// update database
-			database.Model(&models.Stream{}).Where("id = ?", streamID).Updates(map[string]interface{}{
-				"Status": "stopped",
-			})
+			if database != nil {
+				database.Model(&models.Stream{}).Where("stream_key = ?", streamKey).Update("status", "stopped")
+			}
 		}
 	}()
 
@@ -492,10 +553,10 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 	}
 
 	// Handle audio inputs with loop support
-	audioInputs := make([]string, 0)
+	// audioInputs := make([]string, 0)
+	var validAudioFiles []models.MediaFile
 	if len(audio) > 0 {
 		// First, filter out any audio files that don't exist
-		var validAudioFiles []models.MediaFile
 		for _, audioFile := range audio {
 			if _, err := os.Stat(audioFile.FilePath); err == nil {
 				validAudioFiles = append(validAudioFiles, audioFile)
@@ -506,8 +567,8 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 
 		if len(validAudioFiles) == 0 {
 			// No valid audio files, skip audio processing
-			log.Println("No valid audio files found, skipping audio")
-		} else if loopVideo {
+			log.Println("No valid audio files found, skipping audio processing")
+		} else {
 			// Create a dedicated directory for concat files if it doesn't exist
 			concatDir := filepath.Join("data", "ffmpeg_concat")
 			// Ensure the directory exists
@@ -541,6 +602,14 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 				log.Printf("Warning: Failed to set file permissions (continuing anyway): %v", err)
 			}
 
+			//adding the ffconcat header
+			if _, err := fmt.Fprintf(file, "ffconcat version 1.0\n"); err != nil {
+				log.Printf("Error writing to concat file: %v", err)
+				file.Close()
+				os.Remove(concatPath)
+				return nil
+			}
+
 			// Write file list to concat file with absolute paths
 			for _, audioFile := range validAudioFiles {
 				absPath, err := filepath.Abs(audioFile.FilePath)
@@ -548,6 +617,7 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 					log.Printf("Error getting absolute path for %s: %v", audioFile.FilePath, err)
 					continue
 				}
+				log.Println("Using absolute path for concat file:", absPath)
 				// Use proper escaping for file paths in the concat file
 				if _, err := fmt.Fprintf(file, "file '%s'\n", strings.ReplaceAll(absPath, "'", "'\\''")); err != nil {
 					log.Printf("Error writing to concat file: %v", err)
@@ -555,6 +625,20 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 					os.Remove(concatPath)
 					return nil
 				}
+			}
+
+			absPathConcatFile, err := filepath.Abs(concatPath)
+			if err != nil {
+				log.Printf("Error getting absolute path for concat file: %v", err)
+				os.Remove(concatPath)
+				return nil
+			}
+			// add in the last line to the concat file
+			if _, err := fmt.Fprintf(file, "file '%s'\n", strings.ReplaceAll(absPathConcatFile, "'", "'\\''")); err != nil {
+				log.Printf("Error writing to concat file: %v", err)
+				file.Close()
+				os.Remove(concatPath)
+				return nil
 			}
 
 			// Ensure all data is written to disk
@@ -592,36 +676,60 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 				concatPath = absPath
 			}
 
-			// For MP3 files, we need to ensure consistent audio format
-			if len(validAudioFiles) > 0 && strings.HasSuffix(validAudioFiles[0].FilePath, ".mp3") {
-				// First add the concat input
-				args = append(args, "-f", "concat", "-safe", "0", "-stream_loop", loopCountVal, "-i", concatPath)
-				// Then add the audio filter to ensure consistent format
-				args = append(args, "-af", "aformat=sample_fmts=s16:channel_layouts=stereo")
+			// Log the concat file path and permissions for debugging
+			if fileInfo, err := os.Stat(concatPath); err == nil {
+				log.Printf("Using concat file: %s (size: %d bytes, mode: %s)\n",
+					concatPath, fileInfo.Size(), fileInfo.Mode().String())
 			} else {
-				// For WAV files, we can use direct concat
-				args = append(args,
-					"-f", "concat",
-					"-safe", "0",
-					"-stream_loop", loopCountVal,
-					"-i", concatPath)
+				log.Printf("Error getting concat file info: %v\n", err)
+			}
+
+			// Handle audio inputs
+			if len(validAudioFiles) > 0 {
+				if loopVideo {
+					// If we have exactly one audio file,
+					if len(validAudioFiles) == 1 {
+						// For a single file, use it directly with stream_loop
+						audioFile := validAudioFiles[0].FilePath
+						log.Printf("Using single audio file directly with stream_loop: %s\n", audioFile)
+						args = append(args, "-stream_loop", loopCountVal, "-i", audioFile)
+					} else {
+						// For multiple files, use concat protocol with | separator
+						var escapedFiles []string
+						for _, f := range validAudioFiles {
+							escapedFiles = append(escapedFiles, strings.ReplaceAll(f.FilePath, "'", "'\\''"))
+						}
+						concatInput := "concat:" + strings.Join(escapedFiles, "|")
+						log.Printf("Using concat protocol for %d audio files\n", len(validAudioFiles))
+						args = append(args, "-stream_loop", loopCountVal, "-i", concatInput)
+
+						// Ensure consistent audio format for the output
+						args = append(args, "-c:a", "aac", "-ar", "44100", "-b:a", "128k", "-ac", "2")
+					}
+				} else {
+					// For non-looping, just add the audio files directly
+					for _, audioFile := range validAudioFiles {
+						args = append(args, "-i", audioFile.FilePath)
+					}
+				}
 			}
 
 			// Schedule the file for cleanup when the stream ends or fails
 			// The file will be removed when the stream is stopped or encounters an error
 			// You can also implement a periodic cleanup of old concat files if needed
-			audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos))) // Single input for all audio files
-		} else {
-			// Original behavior without loop - only add existing files
-			for i, audioFile := range validAudioFiles {
-				absPath, err := filepath.Abs(audioFile.FilePath)
-				if err != nil {
-					log.Printf("Error getting absolute path for %s: %v", audioFile.FilePath, err)
-					continue
-				}
-				args = append(args, "-i", absPath)
-				audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos)+i)) // Account for video input
-			}
+			// audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos))) // Single input for all audio files
+			// } else {
+			// 	// Original behavior without loop - only add existing files
+			// 	for i, audioFile := range validAudioFiles {
+			// 		absPath, err := filepath.Abs(audioFile.FilePath)
+			// 		if err != nil {
+			// 			log.Printf("Error getting absolute path for %s: %v", audioFile.FilePath, err)
+			// 			continue
+			// 		}
+			// 		args = append(args, "-i", absPath)
+			// 		audioInputs = append(audioInputs, fmt.Sprintf("%d", len(videos)+i)) // Account for video input
+			// 	}
+			// }
 		}
 	}
 
@@ -637,6 +745,8 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 		if !loopVideo || loopCount != nil {
 			args = append(args, "-shortest")
 		}
+		// Add error resilience options
+		// args = append(args, "-reconnect", "1", "-reconnect_at_eof", "1", "-reconnect_streamed", "1")
 
 		// For MP3 files, we've already added the format conversion
 		// For WAV files, ensure proper format
@@ -645,14 +755,22 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 		}
 
 		if loopVideo {
-			// For looped audio, we have a single concat input
+			// Handle audio mapping based on input type
+			audioIndex := "0"
 			if len(videos) > 0 {
-				// Video + looped audio
-				args = append(args, "-map", "1:a:0", "-c:a", "aac", "-b:a", "128k")
-			} else {
-				// Audio only with loop
-				args = append(args, "-map", "0:a:0", "-c:a", "aac", "-b:a", "128k")
+				// If we have video, audio is the second input (index 1)
+				audioIndex = "1"
 			}
+
+			args = append(args, "-map", fmt.Sprintf("%s:a:0", audioIndex))
+
+			// Only transcode if needed (non-MP3 files)
+			if len(validAudioFiles) > 0 && !strings.HasSuffix(validAudioFiles[0].FilePath, ".mp3") {
+				args = append(args, "-c:a", "aac", "-ar", "44100", "-b:a", "128k", "-ac", "2")
+			} else {
+				args = append(args, "-c:a", "libmp3lame", "-ar", "44100", "-b:a", "128k", "-ac", "2")
+			}
+			log.Println("streaming with audio")
 		} else {
 			// Original behavior for non-looped audio
 			if len(audio) == 1 {
@@ -687,7 +805,13 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 				}
 
 				// Encode audio
-				args = append(args, "-c:a", "aac", "-ar", "44100", "-b:a", "128k", "-ac", "2")
+				if len(audio) > 0 {
+					if !strings.HasSuffix(audio[0].FilePath, ".mp3") {
+						args = append(args, "-c:a", "aac", "-ar", "44100", "-b:a", "128k", "-ac", "2")
+					} else {
+						args = append(args, "-c:a", "copy")
+					}
+				}
 			}
 		}
 	} else {
@@ -695,9 +819,14 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 		args = append(args, "-c:a", "copy")
 	}
 
+	fullRtmpUrl = strings.TrimSpace(fullRtmpUrl)
 	// Add output options
 	args = append(args,
 		"-f", "flv",
+		"-flvflags", "no_duration_filesize",
+		// "-ignore_io_errors", "1",
+		// "-fflags", "nobuffer+fastseek+flush_packets",
+		"-flags", "low_delay",
 		"-drop_pkts_on_overflow", "1",
 		"-attempt_recovery", "1",
 		"-recover_any_error", "1",
