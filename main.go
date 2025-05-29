@@ -21,6 +21,7 @@ import (
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/redisutil"
 	"windsorf-youtube-live/internal/tiktok"
+	"windsorf-youtube-live/internal/utils"
 	"windsorf-youtube-live/internal/version"
 	"windsorf-youtube-live/internal/workers"
 
@@ -108,11 +109,55 @@ func loadConfig(path string) (*config.Config, error) {
 	return &cfg, nil
 }
 
+// closeDB closes the database connection
+func closeDB(db *gorm.DB, cfg *config.Config) {
+	if db == nil {
+		return
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Printf("Error getting database instance: %v", err)
+		return
+	}
+
+	// Try to gracefully close the database
+	err = sqlDB.Close()
+	if err != nil {
+		log.Printf("Error closing database: %v", err)
+	}
+
+	// Additional cleanup for SQLite WAL files
+	if cfg != nil && cfg.App.Sql == "sqlite3" {
+		// Remove WAL and SHM files if they exist
+		walFile := cfg.Sqlite.Db + "-wal"
+		shmFile := cfg.Sqlite.Db + "-shm"
+		
+		if _, err := os.Stat(walFile); err == nil {
+			if err := os.Remove(walFile); err != nil {
+				log.Printf("Error removing WAL file: %v", err)
+			}
+		}
+		if _, err := os.Stat(shmFile); err == nil {
+			if err := os.Remove(shmFile); err != nil {
+				log.Printf("Error removing SHM file: %v", err)
+			}
+		}
+	}
+}
+
 func main() {
 	cfg, err := loadConfig("config.yaml")
 	if err != nil {
 		panic(fmt.Sprintf("failed to read config.yaml: %v", err))
 	}
+	
+	// Ensure database connection is closed on exit
+	defer func() {
+		if database != nil {
+			closeDB(database, cfg)
+		}
+	}()
 
 	var db *gorm.DB
 	var dbErr error
@@ -132,7 +177,33 @@ func main() {
 				panic(fmt.Sprintf("failed to create database file: %v", err))
 			}
 		}
-		db, dbErr = gorm.Open(sqlite.Open(cfg.Sqlite.Db), &gorm.Config{})
+		// Configure SQLite with WAL mode and busy timeout
+		db, dbErr = gorm.Open(
+			sqlite.Open(cfg.Sqlite.Db+"?_journal=WAL&_busy_timeout=5000&_synchronous=NORMAL&_foreign_keys=true"),
+			&gorm.Config{},
+		)
+
+		if dbErr == nil {
+			// Set connection pool settings
+			sqlDB, err := db.DB()
+			if err == nil {
+				sqlDB.SetMaxIdleConns(10)  // Increased from 1
+				sqlDB.SetMaxOpenConns(10)  // Increased from 1
+				sqlDB.SetConnMaxLifetime(time.Hour)
+			}
+
+			// Set WAL mode and other PRAGMAs in a transaction
+			tx := db.Exec(`
+				PRAGMA journal_mode=WAL;
+				PRAGMA busy_timeout=5000;
+				PRAGMA synchronous=NORMAL;
+				PRAGMA journal_size_limit=10000000;
+				PRAGMA cache_size=-2000;
+			`)
+			if tx.Error != nil {
+				log.Printf("Failed to set SQLite PRAGMAs: %v", tx.Error)
+			}
+		}
 	} else {
 		panic(fmt.Sprintf("Invalid SQL type: %s", cfg.App.Sql))
 	}
@@ -196,8 +267,16 @@ func main() {
 		log.Fatalf("failed to migrate media files table: %v", err)
 	}
 
+	// Auto-migrate activities table
+	err = db.AutoMigrate(&models.Activity{})
+	if err != nil {
+		log.Fatalf("failed to migrate activities table: %v", err)
+	}
+
 	// Init device presets
 	tiktok.InitDevicePresets()
+
+	activityLogger := utils.NewActivityLogger(db)
 
 	// Create default user if not exists
 	var defaultUser models.User
@@ -344,7 +423,7 @@ func main() {
 	r.POST("/api/refresh-token", authHandler.RefreshToken)
 
 	// Stream handler
-	streamHandler := &handlers.StreamHandler{DB: db, Config: cfg}
+	streamHandler := &handlers.StreamHandler{DB: db, Config: cfg, ActivityLogger: activityLogger, RedisPubSub: &redisPubSub}
 	fileUploadHandler := &handlers.FileUploadHandler{DB: db, Config: cfg}
 	r.PUT("/api/streams/:id/maxbitrate", handlers.JWTMiddleware(), streamHandler.SetMaxBitrate)
 	r.GET("/api/streams", handlers.JWTMiddleware(), streamHandler.ListStreams)
@@ -363,6 +442,7 @@ func main() {
 	r.GET("/api/dashboard/streams", handlers.JWTMiddleware(), dashboardHandler.GetDashboardStreamMetrics)
 	r.GET("/api/dashboard/metrics", handlers.JWTMiddleware(), dashboardHandler.GetDashboardSystemMetrics)
 	r.GET("/api/dashboard/storage", handlers.JWTMiddleware(), dashboardHandler.GetStorageInfo)
+	r.GET("/api/dashboard/activities/recent", handlers.JWTMiddleware(), dashboardHandler.GetRecentActivities)
 
 	// Media file handler
 	mediaFileHandler := &handlers.MediaFileHandler{DB: db}

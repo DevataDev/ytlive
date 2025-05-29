@@ -17,6 +17,7 @@ import (
 	"windsorf-youtube-live/internal/job"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/redisutil"
+	"windsorf-youtube-live/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/oklog/ulid/v2"
@@ -24,9 +25,10 @@ import (
 )
 
 type StreamHandler struct {
-	DB          *gorm.DB
-	Config      *configuration.Config
-	RedisPubSub *redisutil.RedisPubSub
+	DB             *gorm.DB
+	Config         *configuration.Config
+	RedisPubSub    *redisutil.RedisPubSub
+	ActivityLogger *utils.ActivityLogger
 }
 
 // PUT /api/streams/:id/maxbitrate
@@ -241,6 +243,20 @@ func (h *StreamHandler) CreateStream(c *gin.Context) {
 	if err := tx.Commit().Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction: " + err.Error()})
 		return
+	}
+
+	// Log stream creation activity
+	if err := h.ActivityLogger.LogActivity(
+		userID.(string),
+		"Stream Created",
+		fmt.Sprintf("New stream '%s' has been created", stream.Name),
+		models.ActivityTypeSystem,
+		models.ActivityStatusSuccess,
+		&stream.ID,
+		&stream.Name,
+		nil,
+	); err != nil {
+		log.Printf("Failed to log stream creation activity: %v", err)
 	}
 
 	// Return the created stream with empty media files array
@@ -896,6 +912,21 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 			return
 		}
 
+		// Log scheduled activity
+		userID, _ := c.Get("user_id")
+		if err := h.ActivityLogger.LogActivity(
+			userID.(string),
+			"Stream Scheduled",
+			fmt.Sprintf("Stream '%s' scheduled to start at %s", stream.Name, stream.ScheduledStartAt.Format(time.RFC1123)),
+			models.ActivityTypeStreamScheduled,
+			models.ActivityStatusSuccess,
+			&stream.ID,
+			&stream.Name,
+			nil,
+		); err != nil {
+			log.Printf("Failed to log stream scheduled activity: %v", err)
+		}
+
 		// Commit the transaction
 		if err := tx.Commit().Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
@@ -953,6 +984,9 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 	stream.Status = "live"
 	stream.StartedAt = &startedAt
 
+	// Log stream started activity
+	userID, _ := c.Get("user_id")
+
 	if err := tx.Save(&stream).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start stream"})
@@ -971,6 +1005,19 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 	// Start the streaming process (this would be your actual streaming logic)
 	go h.startStreaming(&stream)
 
+	if err := h.ActivityLogger.LogActivity(
+		userID.(string),
+		"Stream Started",
+		fmt.Sprintf("Stream '%s' has started", stream.Name),
+		models.ActivityTypeStreamStarted,
+		models.ActivityStatusSuccess,
+		&stream.ID,
+		&stream.Name,
+		nil,
+	); err != nil {
+		log.Printf("Failed to log stream started activity: %v", err)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Stream started successfully",
 		"status":  "live",
@@ -988,8 +1035,11 @@ func (h *StreamHandler) StopStreamBackground(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Stream is not live."})
 		return
 	}
-	err := job.StopStreamWorker(stream.ID, true)
-	if err != nil {
+
+	// Log stream stopped activity before actually stopping
+	userID, _ := c.Get("user_id")
+	// Stop the stream worker
+	if stopErr := job.StopStreamWorker(stream.ID, true); stopErr != nil {
 		c.JSON(500, gin.H{"error": "Failed to stop stream."})
 		return
 	}
@@ -999,11 +1049,24 @@ func (h *StreamHandler) StopStreamBackground(c *gin.Context) {
 		"ffmpeg_p_id": nil,
 	})
 	// Broadcast to all ws clients
-	userID, _ := c.Get("user_id")
 	go func() {
 		BroadcastStreamListUpdate()
 		BroadcastDashboardStreams(h.DB, userID.(string))
 	}()
+
+	if err := h.ActivityLogger.LogActivity(
+		userID.(string),
+		"Stream Stopped",
+		fmt.Sprintf("Stream '%s' has been stopped", stream.Name),
+		models.ActivityTypeStreamStopped,
+		models.ActivityStatusSuccess,
+		&stream.ID,
+		&stream.Name,
+		nil,
+	); err != nil {
+		log.Printf("Failed to log stream stopped activity: %v", err)
+	}
+
 	c.JSON(200, gin.H{"success": true})
 }
 
@@ -1014,28 +1077,50 @@ func (h *StreamHandler) DeleteStream(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "Stream not found."})
 		return
 	}
+
+	// Log stream deletion activity
+	userID, _ := c.Get("user_id")
+	if err := h.ActivityLogger.LogActivity(
+		userID.(string),
+		"Stream Deleted",
+		fmt.Sprintf("Stream '%s' has been deleted", stream.Name),
+		models.ActivityTypeStreamDeleted,
+		models.ActivityStatusSuccess,
+		&stream.ID,
+		&stream.Name,
+		nil,
+	); err != nil {
+		log.Printf("Failed to log stream deletion activity: %v", err)
+	}
+
 	// Optionally: stop the stream if it's live
 	if stream.Status == "live" {
 		_ = job.StopStreamWorker(stream.ID, true)
 	}
+
 	// Remove video file if exists
-	// list all media files
 	var mediaFiles []models.MediaFile
 	if err := h.DB.Where("stream_id = ?", id).Find(&mediaFiles).Error; err != nil {
 		c.JSON(500, gin.H{"error": "Failed to list media files."})
 		return
 	}
+
+	// Delete all media files
 	for _, mediaFile := range mediaFiles {
 		if mediaFile.FilePath != "" {
-			_ = os.Remove(mediaFile.FilePath)
+			if err := os.Remove(mediaFile.FilePath); err != nil {
+				log.Printf("Failed to delete media file %s: %v", mediaFile.FilePath, err)
+			}
 		}
 	}
 
+	// Delete the stream from database
 	if err := h.DB.Delete(&stream).Error; err != nil {
 		c.JSON(500, gin.H{"error": "Failed to delete stream."})
 		return
 	}
-	userID, _ := c.Get("user_id")
+
+	// Broadcast updates to all clients
 	go func() {
 		BroadcastStreamListUpdate()
 		BroadcastDashboardStreams(h.DB, userID.(string))
