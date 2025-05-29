@@ -632,8 +632,11 @@ func buildFfmpegArgsWithMediaFiles(maxBitrate *int, loopVideo bool, videos []mod
 
 	// Handle audio mapping based on whether we're looping or not
 	if len(audio) > 0 {
-		// Add -shortest flag to ensure FFmpeg stops when audio finishes
-		args = append(args, "-shortest")
+		// Only add -shortest if we're not looping the video
+		// or if we have a specific loop count for the audio
+		if !loopVideo || loopCount != nil {
+			args = append(args, "-shortest")
+		}
 
 		// For MP3 files, we've already added the format conversion
 		// For WAV files, ensure proper format
