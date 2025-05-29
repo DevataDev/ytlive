@@ -47,10 +47,31 @@ func (h *DashboardHandler) GetStorageInfo(c *gin.Context) {
 		return
 	}
 
+	var fileCounts map[string]interface{}
+	fileCounts = map[string]interface{}{
+		"videos": 0,
+		"audio":  0,
+	}
+
+	// Get file from media files
+	var mediaFiles []models.MediaFile
+	if err := h.DB.Find(&mediaFiles).Error; err != nil {
+		c.JSON(500, gin.H{"error": "failed to fetch media files"})
+		return
+	}
+	for _, mediaFile := range mediaFiles {
+		if mediaFile.MediaType == "video" {
+			fileCounts["videos"] = fileCounts["videos"].(int) + 1
+		} else if mediaFile.MediaType == "audio" {
+			fileCounts["audio"] = fileCounts["audio"].(int) + 1
+		}
+	}
+
 	c.JSON(200, gin.H{
 		"total":        usage.Total,
 		"used":         usage.Used,
 		"free":         usage.Free,
 		"used_percent": usage.UsedPercent,
+		"fileCounts":   fileCounts,
 	})
 }

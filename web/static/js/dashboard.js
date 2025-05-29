@@ -115,30 +115,30 @@ $(function() {
     setInterval(fetchDashboardStreams, 5000);
     setInterval(fetchStorageInfo, 30000); // Update storage info every 30 seconds
 
-    function setupDashboardWebSocket() {
-        if (window.dashboardSocket) {
-            window.dashboardSocket.close();
-        }
-        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const token = localStorage.getItem("jwt_token");
-        const wsUrl = protocol + '://' + window.location.host + '/ws?token=' + encodeURIComponent(token);
-        window.dashboardSocket = new WebSocket(wsUrl);
-        window.dashboardSocket.onmessage = function(event) {
-            try {
-                const msg = JSON.parse(event.data);
-                if (msg.type === 'dashboard_metrics') {
-                    $("#cpuUsage").text(msg.cpu.toFixed(1) + "%");
-                    $("#memoryUsage").text(msg.memory.toFixed(1) + "%");
-                    $("#uploadRate").text(msg.upload.toFixed(2) + " Mbps");
-                    $("#downloadRate").text(msg.download.toFixed(2) + " Mbps");
-                }
-            } catch(e) {}
-        };
-        window.dashboardSocket.onclose = function() {
-            setTimeout(setupDashboardWebSocket, 2000);
-        };
-    }
-    setupDashboardWebSocket();
+    // function setupDashboardWebSocket() {
+    //     if (window.dashboardSocket) {
+    //         window.dashboardSocket.close();
+    //     }
+    //     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    //     const token = localStorage.getItem("jwt_token");
+    //     const wsUrl = protocol + '://' + window.location.host + '/ws?token=' + encodeURIComponent(token);
+    //     window.dashboardSocket = new WebSocket(wsUrl);
+    //     window.dashboardSocket.onmessage = function(event) {
+    //         try {
+    //             const msg = JSON.parse(event.data);
+    //             if (msg.type === 'dashboard_metrics') {
+    //                 $("#cpuUsage").text(msg.cpu.toFixed(1) + "%");
+    //                 $("#memoryUsage").text(msg.memory.toFixed(1) + "%");
+    //                 $("#uploadRate").text(msg.upload.toFixed(2) + " Mbps");
+    //                 $("#downloadRate").text(msg.download.toFixed(2) + " Mbps");
+    //             }
+    //         } catch(e) {}
+    //     };
+    //     window.dashboardSocket.onclose = function() {
+    //         setTimeout(setupDashboardWebSocket, 2000);
+    //     };
+    // }
+    // setupDashboardWebSocket();
     
     // Initial fetch of storage info
     fetchStorageInfo();

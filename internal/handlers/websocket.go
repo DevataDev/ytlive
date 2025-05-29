@@ -87,11 +87,13 @@ func BroadcastDashboardMetrics() {
 	}
 
 	metrics := map[string]interface{}{
-		"type":     "dashboard_metrics",
-		"cpu":      0.0,
-		"memory":   0.0,
-		"upload":   uploadMbps,
-		"download": downloadMbps,
+		"type":      "dashboard_metrics",
+		"cpu":       0.0,
+		"memory":    0.0,
+		"upload":    uploadMbps,
+		"download":  downloadMbps,
+		"ram_total": 0,
+		"ram_used":  0,
 	}
 	if len(cpuPercent) > 0 {
 		metrics["cpu"] = cpuPercent[0]
@@ -99,11 +101,22 @@ func BroadcastDashboardMetrics() {
 	if memStats != nil {
 		metrics["memory"] = memStats.UsedPercent
 	}
+	total, used := getRamTotalAndCurrent()
+	metrics["ram_total"] = total
+	metrics["ram_used"] = used
 	streamListClientsMu.Lock()
 	for c := range streamListClients {
 		c.WriteJSON(metrics)
 	}
 	streamListClientsMu.Unlock()
+}
+
+func getRamTotalAndCurrent() (uint64, uint64) {
+	memStats, err := mem.VirtualMemory()
+	if err != nil {
+		return 0, 0
+	}
+	return memStats.Total, memStats.Used
 }
 
 // Periodically broadcast per-stream stats to all clients
