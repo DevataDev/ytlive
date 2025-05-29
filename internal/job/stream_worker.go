@@ -256,7 +256,7 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 			description = "Watch live stream " + stream.Name
 		}
 
-		if accessToken != "" {
+		if accessToken != "" && stream.Status == "stopped" {
 			broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
 				"stream_id":     streamID,
 				"stream_key":    streamKey,
