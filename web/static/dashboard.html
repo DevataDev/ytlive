@@ -13,10 +13,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/header.css">
     <link rel="stylesheet" href="/static/css/footer.css">
 </head>
@@ -190,25 +190,8 @@
         </div>
     </div>
 </main>
-
-<footer class="footer mt-auto">
-    <div class="container">
-        <div class="row">
-            <div class="col-12 text-center">
-                <div class="footer-links mb-2">
-                    <a href="/about" class="text-muted me-3">About</a>
-                    <a href="/privacy" class="text-muted me-3">Privacy Policy</a>
-                    <a href="/terms" class="text-muted me-3">Terms of Service</a>
-                    <a href="/contact" class="text-muted">Contact</a>
-                </div>
-                <div class="footer-copyright">
-                    &copy; <span id="currentYear"></span> Yuk Live! By PT Jejaring Internet Bersama
-                </div>
-                <div id="versionInfo" class="version-info small text-muted mt-2"></div>
-            </div>
-        </div>
-    </div>
-</footer>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
 // Set active state for current page
@@ -239,37 +222,200 @@ function setActiveNavItem() {
     });
     
     // If no active link found, check for parent paths
-    if (!activeFound) {
-        navLinks.forEach(link => {
-            const href = link.getAttribute('href');
-            if (href && href !== '#' && currentPath.startsWith(href)) {
-                link.classList.add('active');
-                // If it's a dropdown item, also activate its parent dropdown
-                const dropdownItem = link.closest('.dropdown-item');
-                if (dropdownItem) {
-                    const parentDropdown = link.closest('.dropdown');
-                    if (parentDropdown) {
-                        parentDropdown.querySelector('.nav-link').classList.add('active');
-                    }
-                }
-            }
-        });
-    }
-    
     // Set user initials
     const userInitials = 'U'; // Replace with actual user initials
     document.getElementById('userInitials').textContent = userInitials;
+    
+    // Set current year in footer
+    document.getElementById('currentYear').textContent = new Date().getFullYear();
+    
+    // Load version info
+    fetch('/api/version')
+        .then(res => res.json())
+        .then(data => {
+            if (data.version && data.commit) {
+                const versionInfo = document.getElementById('versionInfo');
+                if (versionInfo) {
+                    versionInfo.textContent = `v${data.version} (${data.commit.slice(0,7)})`;
+                    versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
+                }
+            }
+            
+            // Load the main script
+            const script = document.createElement('script');
+            script.src = `/static/js/dashboard.js?v=${data.version ? data.version : '0.4.3'}`;
+            document.body.appendChild(script);
+        })
+        .catch(() => {
+            const script = document.createElement('script');
+            script.src = '/static/js/dashboard.js?v=0.4.3';
+            document.body.appendChild(script);
+        });
 }
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', setActiveNavItem);
 </script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-const sinceYear = 2025;
-const nowYear = new Date().getFullYear();
-let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
 
+<footer class="footer mt-auto border-top">
+    <div class="container py-3">
+        <div class="row align-items-center">
+            <div class="col-md-6 text-center text-md-start mb-2 mb-md-0">
+                <div class="d-flex align-items-center justify-content-center justify-content-md-start">
+                    <div class="me-3 d-flex align-items-center">
+                        <i class="bi bi-broadcast me-2 text-primary broadcast-icon"></i>
+                        <span class="brand-text">Yuk Live!</span>
+                    </div>
+                    <div class="vr d-none d-md-block"></div>
+                    <div class="ms-md-3">
+                        <span id="versionInfo" class="version-badge"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 text-center text-md-end">
+                <div class="copyright-text">
+                    &copy; <span id="currentYear"></span> PT Jejaring Internet Bersama. All rights reserved.
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<style>
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.footer {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    animation: fadeInUp 0.6s ease-out forwards;
+    padding: 1rem 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.footer:hover {
+    background: linear-gradient(135deg, #f1f3f5 0%, #f8f9fa 100%);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.vr {
+    width: 1px;
+    height: 1.5rem;
+    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.1), transparent);
+    opacity: 0.7;
+    transition: all 0.3s ease;
+}
+
+.broadcast-icon {
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.broadcast-icon:hover {
+    animation: pulse 1.5s infinite;
+    color: #0d6efd !important;
+}
+
+.brand-text {
+    color: #6c757d;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+    font-size: 0.9rem;
+}
+
+.brand-text::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: -2px;
+    left: 0;
+    background-color: #0d6efd;
+    transition: width 0.3s ease;
+}
+
+.brand-text:hover::after {
+    width: 100%;
+}
+
+.version-badge {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    color: #fff;
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    border-radius: 50rem;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.version-badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: 0.5s;
+}
+
+.version-badge:hover {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.version-badge:hover::before {
+    left: 100%;
+}
+
+.copyright-text {
+    color: #6c757d;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+    margin: 0;
+}
+
+.copyright-text:hover {
+    color: #495057;
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 767.98px) {
+    .footer {
+        text-align: center;
+        padding: 0.75rem 0;
+    }
+    .vr {
+        display: none !important;
+    }
+    .footer .row > div {
+        margin-bottom: 0.5rem;
+    }
+}
+</style>
+
+<script>
 // Set current year in footer
 document.getElementById('currentYear').textContent = new Date().getFullYear();
 
@@ -279,35 +425,19 @@ fetch('/api/version')
   .then(data => {
     if (data.version && data.commit) {
       const versionInfo = document.getElementById('versionInfo');
-      versionInfo.textContent = `v${data.version} (${data.commit.slice(0,7)})`;
-      versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
-    }
-    const script = document.createElement('script');
-    script.src = `/static/js/dashboard.js?v=${data.version ? data.version : '0.4.3'}`;
-    document.body.appendChild(script);
-  })
-  .catch((err) => {
-    console.error("Error initializing app:", err);
-    const script = document.createElement('script');
-    script.src = '/static/js/dashboard.js?v=0.4.3';
-    document.body.appendChild(script);
-  });
+      if (versionInfo) {
+        versionInfo.textContent = `v${data.version} (${data.commit.slice(0,7)})`;
+        versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
+      }
 
-// Show User Management menu if user is admin
-$(function() {
-    const token = localStorage.getItem('jwt_token');
-    if (token) {
-        // Decode JWT to check is_admin (assume payload is base64 encoded JSON)
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            if (!payload.is_admin) {
-                $('#menuUserMgmt').addClass('d-none');
-            }
-        } catch (e) {}
-    } else {
-        $('#menuUserMgmt').addClass('d-none');
+      const script = document.createElement('script');
+      script.src = `/static/js/dashboard.js?v=${data.version ? data.version : '0.4.3'}`;
+      document.body.appendChild(script);
+      
     }
-});
+  })
+  .catch(console.error);
 </script>
+
 </body>
 </html>
