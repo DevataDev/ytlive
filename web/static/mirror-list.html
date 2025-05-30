@@ -54,8 +54,183 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            display: block;
-            max-width: 180px;
+            display: inline-block;
+            max-width: 150px; /* Adjust this value as needed */
+            vertical-align: middle;
+        }
+        
+        .card-title {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .card-title i {
+            flex-shrink: 0;
+            margin-right: 8px;
+        }
+        
+        .stream-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .stream-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-body {
+            padding: 1.25rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .card-title {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+            background: #000;
+            aspect-ratio: 16/9;
+        }
+        
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .status-badge {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .status-badge i {
+            font-size: 0.8em;
+        }
+        
+        .badge-online {
+            background-color: #e3f5ee;
+            color: #0a8150;
+        }
+        
+        .badge-offline {
+            background-color: #f1f1f1;
+            color: #6c757d;
+        }
+        
+        .badge-live {
+            background-color: #fdf2f2;
+            color: #e53e3e;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .badge-queued {
+            background-color: #fff8e6;
+            color: #d69e2e;
+        }
+        
+        .card-meta {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 0.75rem;
+        }
+        
+        .card-actions {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .btn-action {
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+        
+        .btn-action i {
+            font-size: 1rem;
+        }
+        
+        .btn-start {
+            background-color: #10b981;
+            border-color: #10b981;
+        }
+        
+        .btn-stop {
+            background-color: #ef4444;
+            border-color: #ef4444;
+        }
+        
+        .btn-bind {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+        
+        .btn-logs {
+            background-color: #f3f4f6;
+            border-color: #e5e7eb;
+            color: #4b5563;
+        }
+        
+        .btn-delete {
+            background-color: #f9fafb;
+            border-color: #e5e7eb;
+            color: #ef4444;
+        }
+        
+        .stream-key-group {
+            margin-top: 0.75rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 0.5rem;
+        }
+        
+        .stream-key-label {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stream-key-input {
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
         }
     </style>
 </head>
