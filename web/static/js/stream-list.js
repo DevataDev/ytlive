@@ -913,15 +913,13 @@ $(function() {
         
         const $button = $(currentDeleteButton);
         const token = localStorage.getItem("jwt_token");
+        const $modal = $('#deleteConfirmationModal');
         
         // Disable the button to prevent multiple clicks
         $button.prop('disabled', true).addClass('disabled');
         
-        // Hide the modal
-        deleteModal.hide();
-        
         // Show loading state on the delete button
-        const $confirmBtn = $('#confirmDeleteBtn');
+        const $confirmBtn = $(this);
         const originalBtnText = $confirmBtn.html();
         $confirmBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...');
         
@@ -932,43 +930,51 @@ $(function() {
             headers: { Authorization: "Bearer " + token },
             success: function() {
                 fetchStreams();
-                // Re-enable the button if there was an error
-                $button.prop('disabled', false).removeClass('disabled');
-                $confirmBtn.prop('disabled', false).html(originalBtnText);
-                // Reset the current delete ID and button
-                currentDeleteId = null;
-                currentDeleteButton = null;
-                // Show success toast
                 showStreamToast('Stream deleted successfully', 'success');
             },
             error: function(xhr) {
                 const errorMsg = xhr.responseJSON?.message || 'Failed to delete stream';
-                showToast(errorMsg, 'danger');
-                // Re-enable the button if there was an error
-                $button.prop('disabled', false).removeClass('disabled');
-                $confirmBtn.prop('disabled', false).html(originalBtnText);
-                // Reset the current delete ID and button
-                currentDeleteId = null;
-                currentDeleteButton = null;
+                showStreamToast(errorMsg, 'danger');
             },
             complete: function() {
-                // Reset the button state
+                // Reset button states
+                $button.prop('disabled', false).removeClass('disabled');
                 $confirmBtn.prop('disabled', false).html(originalBtnText);
-                // Re-enable the original delete button
-                if ($button && $button.length) {
-                    $button.prop('disabled', false).removeClass('disabled');
-                }
+                
                 // Reset the current delete ID and button
                 currentDeleteId = null;
                 currentDeleteButton = null;
+                
+                // Hide and reset the modal
+                if ($modal.length) {
+                    // Hide the modal using Bootstrap's method
+                    const bsModal = bootstrap.Modal.getInstance($modal[0]);
+                    if (bsModal) {
+                        bsModal.hide();
+                    } else {
+                        // Fallback in case the modal instance isn't available
+                        $modal.modal('hide');
+                        $('body').removeClass('modal-open');
+                        $('.modal-backdrop').remove();
+                    }
+                }
             }
         });
     });
     
-    // Reset state when modal is hidden
+    // Clean up when modal is hidden
     $('#deleteConfirmationModal').on('hidden.bs.modal', function() {
+        // Reset any modal state if needed
+        const $confirmBtn = $('#confirmDeleteBtn');
+        $confirmBtn.prop('disabled', false).html("<i class='bi bi-trash me-1'></i> Delete");
+        
+        // Reset the current delete ID and button
         currentDeleteId = null;
         currentDeleteButton = null;
+        
+        // Ensure backdrop is removed
+        $('body').removeClass('modal-open');
+        $('.modal-backdrop').remove();
     });
 
     // Schedule button handler
@@ -1032,6 +1038,7 @@ $(function() {
     // Save rename
     $('#saveRenameBtn').on('click', function(e) {
         e.preventDefault();
+
         const streamId = $('#renameStreamId').val();
         const newName = $('#renameFileName').val().trim();
         const token = localStorage.getItem('jwt_token');
@@ -1140,6 +1147,7 @@ $(function() {
         const newTitle = $('#renameModalInput').val().trim();
         const newDescription = $('#streamDescriptionInput').val().trim();
         const modalElement = document.getElementById('renameModal');
+        const token = localStorage.getItem('jwt_token');
         
         if (!newTitle) {
             alert('Please enter a file name.');
@@ -1155,8 +1163,9 @@ $(function() {
         
         // Send rename request
         $.ajax({
-            url: `/api/streams/${renameStreamId}`,
+            url: `/api/streams/${renameStreamId}/rename`,
             type: 'PUT',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
             contentType: 'application/json',
             data: JSON.stringify({ 
                 name: newTitle,

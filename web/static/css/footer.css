@@ -1,5 +1,5 @@
-/* Simple and effective sticky footer */
-html, body {
+/* Sticky footer styles */
+html {
     height: 100%;
     margin: 0;
     padding: 0;
@@ -9,6 +9,8 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    margin: 0;
+    padding: 0;
 }
 
 /* Main content wrapper */
@@ -22,13 +24,22 @@ body {
 main {
     flex: 1 0 auto;
     width: 100%;
-    padding: 1.5rem 0 4rem 0;
+    padding-bottom: 4rem;
 }
 
 /* Footer - stays at bottom */
 footer {
     flex-shrink: 0;
     width: 100%;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    padding: 1.5rem 0;
+    margin-top: auto;
+}
+
+/* Footer specific container */
+footer .container-fluid {
+    padding-bottom: 0;
 }
 
 /* Pagination container */
@@ -36,11 +47,6 @@ footer {
     padding: 1rem 1.5rem !important;
     background-color: #fff !important;
     border-top: 1px solid rgba(0, 0, 0, 0.05) !important;
-}
-
-/* Ensure content has enough space */
-.container-fluid {
-    padding-bottom: 1.5rem;
 }
 
 .footer .footer-content {
