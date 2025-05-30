@@ -334,14 +334,19 @@ $(function() {
                 <div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-4">
                     <div class="card h-100 border-0 shadow-sm overflow-hidden">
                         <!-- Card Header -->
-                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center">
-                                <h5 class="card-title mb-0 text-truncate" style="max-width: 180px;" title="${stream.Name || 'Untitled Stream'}">
-                                    ${stream.Name || 'Untitled Stream'}
-                                </h5>
-                                <span class="ms-2">${statusBadge}</span>
+                        <div class="card-header bg-white">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div class="d-flex align-items-center">
+                                    <h5 class="card-title mb-0 text-truncate" style="max-width: 180px;" title="${stream.Name || 'Untitled Stream'}">
+                                        ${stream.Name || 'Untitled Stream'}
+                                    </h5>
+                                    <span class="ms-2">${statusBadge}</span>
+                                </div>
+                                ${secondaryActions}
                             </div>
-                            ${secondaryActions}
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">ID: ${stream.ID || 'N/A'}</small>
+                            </div>
                         </div>
                         
                         <!-- Card Body -->
