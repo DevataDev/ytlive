@@ -413,13 +413,19 @@ $(document).on('click', '.bind-channel-btn', function() {
                 res.channels.forEach(function(ch) {
                     $('#channelSelect').append(`<option value="${ch.ID}">${ch.ChannelName}</option>`);
                 });
+                //enabled the streamSelect
+                $('#streamSelect').prop('disabled', false);
             } else {
                 $('#channelSelect').append('<option value="">No channels found</option>');
+                //disabled the streamSelect
+                $('#streamSelect').prop('disabled', true);
             }
             $('#streamSelect').empty();
         },
         error: function() {
             $('#channelSelect').append('<option value="">Failed to load channels</option>');
+            //disabled the streamSelect
+            $('#streamSelect').prop('disabled', true);
         }
     });
 });
@@ -439,12 +445,18 @@ $('#channelSelect').on('change', function() {
                 res.streams.forEach(function(stream) {
                     $('#streamSelect').append(`<option value="${stream.stream_key}">${stream.title} - ${stream.stream_key}</option>`);
                 });
+                //enabled the streamSelect
+                $('#streamSelect').prop('disabled', false);
             } else {
                 $('#streamSelect').append('<option value="">No live streams found</option>');
+                //disabled the streamSelect
+                $('#streamSelect').prop('disabled', true);
             }
         },
         error: function() {
             $('#streamSelect').append('<option value="">Failed to load streams</option>');
+            //disabled the streamSelect
+            $('#streamSelect').prop('disabled', true);
         }
     });
 });

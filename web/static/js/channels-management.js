@@ -130,7 +130,6 @@ async function handleAddChannel(e) {
         
         const data = await response.json();
         window.open(data.auth_url, '_blank');
-        channelIdInput.value = '';
         showToast('Please authorize the application in the new tab', 'info');
     } catch (error) {
         console.error('Error adding channel:', error);
