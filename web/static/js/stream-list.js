@@ -206,111 +206,187 @@ $(function() {
         const cardContainer = $("#stream-list-cards");
         cardContainer.empty();
         if (!data.streams || data.streams.length === 0) {
-            cardContainer.append('<div class="col-12 text-center text-muted">No streams found.</div>');
+            cardContainer.append(`
+                <div class="col-12">
+                    <div class="card border-dashed h-100 py-5">
+                        <div class="card-body text-center d-flex flex-column justify-content-center">
+                            <i class="bi bi-broadcast fs-1 text-muted mb-3"></i>
+                            <h5 class="text-muted mb-3">No streams found</h5>
+                            <p class="text-muted mb-0">Click the button below to add a new stream</p>
+                            <button class="btn btn-primary mt-3 mx-auto" id="uploadBtn">
+                                <i class="bi bi-plus-lg me-2"></i> Add Stream
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `);
             return;
         }
+
+        // Update counters
+        const liveCount = data.streams.filter(s => s.Status === 'live').length;
+        const scheduledCount = data.streams.filter(s => s.Status === 'scheduled').length;
+        $('#countLive').text(liveCount);
+        $('#countScheduled').text(scheduledCount);
+
         data.streams.forEach(stream => {
-            let liveIndicator = stream.Status === 'live' ? '<span class="live-indicator"></span>' : '';
-            let stopDisabled = (stream.Status !== 'live') ? 'disabled' : '';
-            let loopChecked = stream.LoopVideo ? 'checked' : '';
-            let previewUrl = `/api/streams/${stream.ID}/preview`;
-            let streamKeyField = `<input type="password" class="form-control form-control-sm stream-password" id="streamkey-input-${stream.ID}" value="${stream.StreamKey || ''}" style="max-width:180px;display:inline-block;">`;
-            let streamKeySaveBtn = `<button class="btn btn-outline-success btn-sm ms-1 streamkey-save" data-id="${stream.ID}" title="Save Stream Key"><i class="fa fa-save"></i></button>`;
-            let showPasswordBtn = `<button class="btn btn-outline-secondary btn-sm ms-1 stream-password-toggle" title="Show/Hide"><i class="fa fa-eye"></i></button>`;
-            let rtmpUrlField = `<input type="text" class="form-control form-control-sm stream-rtmp-url w-100" id="rtmpurl-input-${stream.ID}" value="${stream.RTMPUrl || 'rtmp://a.rtmp.youtube.com/live2/'}" style="min-width:200px;max-width:100%;display:inline-block;" />`;
-            let rtmpUrlSaveBtn = `<button class="btn btn-outline-success btn-sm ms-2 rtmpurl-save" data-id="${stream.ID}" title="Save RTMP URL"><i class="fa fa-save"></i></button>`;
-            let streamKeyIsSet = !!(stream.StreamKey && stream.StreamKey.trim().length > 0);
-            let startDisabled = streamKeyIsSet ? '' : 'disabled';
-            let mainBtn = '';
-            if (stream.Status === 'live') {
-                mainBtn = `<button class="btn btn-danger btn-sm stream-stop" data-id="${stream.ID}">Stop</button>`;
+            const isLive = stream.Status === 'live';
+            const isScheduled = stream.Status === 'scheduled';
+            const streamKeyIsSet = !!(stream.StreamKey && stream.StreamKey.trim().length > 0);
+            
+            // Status badge
+            let statusBadge = '';
+            if (isLive) {
+                statusBadge = '<span class="badge bg-danger bg-opacity-10 text-danger"><span class="live-indicator"></span> Live</span>';
+            } else if (isScheduled) {
+                statusBadge = '<span class="badge bg-primary bg-opacity-10 text-primary"><i class="bi bi-alarm me-1"></i> Scheduled</span>';
             } else {
-                mainBtn = `<button class="btn btn-success btn-sm stream-start" data-id="${stream.ID}" ${startDisabled}>Start</button>`;
+                statusBadge = '<span class="badge bg-secondary bg-opacity-10 text-secondary">Idle</span>';
             }
-            let bindBtn = `<button class='btn btn-outline-primary btn-sm ms-2 bind-channel-btn' data-id='${stream.ID}'>Bind</button>`;
-            let mediaBtn = `<button class="btn btn-outline-warning btn-sm media-manage-btn ms-2" data-id="${stream.ID}" title="Kelola Media"><i class="fa fa-file-video"></i></button>`;
-            let deleteBtn = `<button class="btn btn-secondary btn-sm stream-delete ms-2" data-id="${stream.ID}">Hapus</button>`;
-            let cloneBtn = `<button class="btn btn-info btn-sm stream-clone ms-2" data-id="${stream.ID}" title="Clone"><i class="fa fa-clone"></i></button>`;
-            let logsBtn = `<button class="btn btn-info btn-sm view-logs-btn stream-logs ms-2" data-id="${stream.ID}" title="Logs"><i class="fa fa-info-circle"></i></button>`;
 
-            // --- File size formatting ---
-            let fileSizeStr = '';
-            if (stream.FileSizeBytes != null) {
-                const size = stream.FileSizeBytes;
-                if (size >= 1024 * 1024 * 1024) {
-                    fileSizeStr = (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-                } else if (size >= 1024 * 1024) {
-                    fileSizeStr = (size / (1024 * 1024)).toFixed(2) + ' MB';
-                } else if (size >= 1024) {
-                    fileSizeStr = (size / 1024).toFixed(2) + ' KB';
-                } else {
-                    fileSizeStr = size + ' bytes';
-                }
+            // Main action button
+            let mainBtn = '';
+            if (isLive) {
+                mainBtn = `
+                    <button class="btn btn-danger btn-sm stream-stop" data-id="${stream.ID}">
+                        <i class="bi bi-stop-fill me-1"></i> Stop
+                    </button>`;
+            } else {
+                mainBtn = `
+                    <button class="btn btn-success btn-sm stream-start" data-id="${stream.ID}" ${!streamKeyIsSet ? 'disabled' : ''}>
+                        <i class="bi bi-play-fill me-1"></i> Start
+                    </button>`;
             }
-            // --- Uploaded time formatting ---
-            let uploadedTimeStr = '';
+
+            // Secondary actions
+            const secondaryActions = `
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item stream-rename-btn" href="#" data-id="${stream.ID}" data-description="${stream.Description || ''}"><i class="bi bi-pencil me-2"></i>Rename</a></li>
+                        <li><a class="dropdown-item bind-channel-btn" href="#" data-id="${stream.ID}"><i class="bi bi-link-45deg me-2"></i>Bind Channel</a></li>
+                        <li><a class="dropdown-item media-manage-btn" href="#" data-id="${stream.ID}"><i class="bi bi-folder2-open me-2"></i>Media Files</a></li>
+                        <li><a class="dropdown-item view-logs-btn" href="#" data-id="${stream.ID}"><i class="bi bi-terminal me-2"></i>View Logs</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item stream-clone text-primary" href="#" data-id="${stream.ID}"><i class="bi bi-copy me-2"></i>Clone Stream</a></li>
+                        <li><a class="dropdown-item stream-delete text-danger" href="#" data-id="${stream.ID}"><i class="bi bi-trash me-2"></i>Delete</a></li>
+                    </ul>
+                </div>`;
+
+            // Stream info
+            const streamInfo = [];
             if (stream.CreatedAt) {
-                const uploadedDate = new Date(stream.CreatedAt);
-                uploadedTimeStr = uploadedDate.toLocaleString();
+                const date = new Date(stream.CreatedAt);
+                streamInfo.push(`<div class="text-muted small"><i class="bi bi-calendar3 me-1"></i> ${date.toLocaleString()}</div>`);
             }
-            let infoBlock = '';
-            if (fileSizeStr || uploadedTimeStr) {
-                infoBlock = `<div class="text-muted small mt-1">${fileSizeStr ? 'Size: ' + fileSizeStr : ''}${fileSizeStr && uploadedTimeStr ? ' | ' : ''}${uploadedTimeStr ? 'Uploaded: ' + uploadedTimeStr : ''}</div>`;
+            if (stream.FileSizeBytes) {
+                const size = formatFileSize(stream.FileSizeBytes);
+                streamInfo.push(`<div class="text-muted small"><i class="bi bi-file-earmark me-1"></i> ${size}</div>`);
             }
 
-            let liveBadge = stream.Status === 'live' ? '<span class="badge bg-danger ms-2">LIVE</span>' : '';
-            let title = `${stream.Name || 'Live Stream'}`;
-            let streamIdBadge = `<span class="stream-id-badge" title="Stream ID">ID: ${stream.ID}</span>`;
-            let renameBtn = `<button class="btn btn-link p-0 ms-2 stream-rename-btn" data-id="${stream.ID}" title="Rename Stream Name"><i class="fa fa-pencil-alt"></i></button>`;
-            let settingsBtn = `<button class="btn btn-outline-warning btn-sm stream-settings-btn position-absolute" style="bottom:16px;right:16px;z-index:10;" data-id="${stream.ID}" title="Stream Settings"><i class="fa fa-gear"></i></button>`;
-            let cardHeader = `
-                <div class="stream-header">
-                    ${streamIdBadge}
-                    <div class="d-flex justify-content-between align-items-center" style="width: 100%;">
-                        <div style="flex: 1; min-width: 0;">
-                            <span class="fw-bold fs-5 stream-title-ellipsis" title="${title}">${title}</span>
+            // Stream key input with toggle
+            const streamKeyField = `
+                <div class="input-group input-group-sm mb-3">
+                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                    <input type="password" 
+                           class="form-control form-control-sm stream-password" 
+                           id="streamkey-input-${stream.ID}" 
+                           value="${stream.StreamKey || ''}" 
+                           placeholder="Stream Key"
+                           aria-label="Stream Key">
+                    <button class="btn btn-outline-secondary stream-password-toggle" type="button" title="Show/Hide">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button class="btn btn-outline-success streamkey-save" type="button" data-id="${stream.ID}" title="Save Stream Key">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                </div>`;
+
+            // RTMP URL input
+            const rtmpUrlField = `
+                <div class="input-group input-group-sm mb-3">
+                    <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                    <input type="text" 
+                           class="form-control form-control-sm stream-rtmp-url" 
+                           id="rtmpurl-input-${stream.ID}" 
+                           value="${stream.RTMPUrl || 'rtmp://a.rtmp.youtube.com/live2/'}" 
+                           placeholder="RTMP URL"
+                           aria-label="RTMP URL">
+                    <button class="btn btn-outline-success rtmpurl-save" type="button" data-id="${stream.ID}" title="Save RTMP URL">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                </div>`;
+
+            // Loop toggle switch
+            const loopToggle = `
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input stream-loop-toggle" 
+                           type="checkbox" 
+                           id="loopSwitch${stream.ID}" 
+                           data-id="${stream.ID}" 
+                           ${stream.LoopVideo ? 'checked' : ''}>
+                    <label class="form-check-label" for="loopSwitch${stream.ID}">
+                        <i class="bi bi-arrow-repeat me-1"></i> Loop Video
+                    </label>
+                </div>`;
+
+            // Stream card
+            const card = `
+                <div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-4">
+                    <div class="card h-100 border-0 shadow-sm overflow-hidden">
+                        <!-- Card Header -->
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <h5 class="card-title mb-0 text-truncate" style="max-width: 180px;" title="${stream.Name || 'Untitled Stream'}">
+                                    ${stream.Name || 'Untitled Stream'}
+                                </h5>
+                                <span class="ms-2">${statusBadge}</span>
+                            </div>
+                            ${secondaryActions}
                         </div>
-                        <div class="d-flex align-items-center gap-1" style="flex-shrink: 0;">
-                            <button class="btn btn-sm btn-outline-primary stream-rename-btn" data-id="${stream.ID}" data-description="${stream.Description || ''}" title="Edit"><i class="fa fa-pencil-alt"></i></button>
-                            <button class="btn-close stream-delete-x" data-id="${stream.ID}" aria-label="Close"></button>
+                        
+                        <!-- Card Body -->
+                        <div class="card-body p-3">
+                            <!-- Stream Info -->
+                            <div class="d-flex flex-column gap-1 mb-3">
+                                ${streamInfo.join('')}
+                            </div>
+                            
+                            <!-- Stream Key -->
+                            <div class="mb-3">
+                                <label class="form-label small text-muted mb-1">Stream Key</label>
+                                ${streamKeyField}
+                            </div>
+                            
+                            <!-- RTMP URL -->
+                            <div class="mb-3">
+                                <label class="form-label small text-muted mb-1">RTMP URL</label>
+                                ${rtmpUrlField}
+                            </div>
+                            
+                            <!-- Loop Toggle -->
+                            ${loopToggle}
+                        </div>
+                        
+                        <!-- Card Footer -->
+                        <div class="card-footer bg-white border-top-0 pt-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                ${mainBtn}
+                                <div class="d-flex align-items-center">
+                                    <button class="btn btn-outline-secondary btn-sm me-2 view-logs-btn" data-id="${stream.ID}" title="View Logs">
+                                        <i class="bi bi-terminal"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm media-manage-btn" data-id="${stream.ID}" title="Media Files">
+                                        <i class="bi bi-folder2-open"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
-            let card = `
-            <div class="col-12 col-md-6 col-lg-4">
-                <div class="stream-card card shadow-sm rounded-4 p-3 position-relative mb-3">
-                    ${cardHeader}
-                    ${infoBlock}
-                    <div class="ratio ratio-16x9 mb-2">
-                        <video src="${previewUrl}" class="w-100 rounded-3" ${stream.LoopVideo ? 'loop' : ''} controls poster="/static/img/preview.jpg" style="background:#000;"></video>
-                    </div>
-                    <div class="mb-2 d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center">
-                            ${streamKeyField}
-                            ${streamKeySaveBtn}
-                            ${showPasswordBtn}
-                        </div>
-                        <div class="form-check form-switch ms-2">
-                            <input class="form-check-input stream-loop-toggle" type="checkbox" id="loopSwitch${stream.ID}" data-id="${stream.ID}" ${loopChecked}>
-                            <label class="form-check-label" for="loopSwitch${stream.ID}">Loop Video</label>
-                        </div>
-                    </div>
-                    <div class="mb-2 d-flex align-items-center">
-                        ${rtmpUrlField}
-                        ${rtmpUrlSaveBtn}
-                    </div>
-                    <div class="d-flex align-items-center">
-                        ${mainBtn}
-                        ${deleteBtn}
-                        ${bindBtn}
-                        ${mediaBtn}
-                        ${logsBtn}
-                        ${liveBadge}
-                    </div>
-                    ${settingsBtn}
-                </div>
-            </div>`;
+                </div>`;
+                
             cardContainer.append(card);
         });
     }

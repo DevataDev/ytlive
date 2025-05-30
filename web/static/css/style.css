@@ -145,10 +145,10 @@ header.sticky-top {
     z-index: 1030;
     background: #fff;
 }
-.container {
+/* .container {
     flex: 1 0 auto;
     max-width: 500px; 
-}
+} */
 .dashboard-container {
     margin-top: 2rem !important;
     flex: 1 1 auto;
