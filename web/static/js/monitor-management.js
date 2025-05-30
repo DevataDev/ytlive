@@ -5,6 +5,15 @@ let totalMonitors = 0;
 
 // Initialize pagination event listeners
 function initPagination() {
+    // First page button
+    document.getElementById('firstPage')?.addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage = 1;
+            fetchMonitors();
+        }
+    });
+
+    // Previous page button
     document.getElementById('prevPage')?.addEventListener('click', () => {
         if (currentPage > 1) {
             currentPage--;
@@ -12,10 +21,20 @@ function initPagination() {
         }
     });
 
+    // Next page button
     document.getElementById('nextPage')?.addEventListener('click', () => {
         const maxPage = Math.ceil(totalMonitors / itemsPerPage);
         if (currentPage < maxPage) {
             currentPage++;
+            fetchMonitors();
+        }
+    });
+
+    // Last page button
+    document.getElementById('lastPage')?.addEventListener('click', () => {
+        const maxPage = Math.ceil(totalMonitors / itemsPerPage);
+        if (currentPage < maxPage) {
+            currentPage = maxPage;
             fetchMonitors();
         }
     });
@@ -207,25 +226,42 @@ let selectedMonitorId = null;
 
 // Update pagination UI controls
 function updatePaginationUI() {
+    const firstBtn = document.getElementById('firstPage');
     const prevBtn = document.getElementById('prevPage');
     const nextBtn = document.getElementById('nextPage');
+    const lastBtn = document.getElementById('lastPage');
     const currentPageEl = document.getElementById('currentPage');
-    const showingCountEl = document.getElementById('showingCount');
+    const showingStartEl = document.getElementById('showingStart');
+    const showingEndEl = document.getElementById('showingEnd');
     const totalCountEl = document.getElementById('totalCount');
-    
-    const startItem = (currentPage - 1) * itemsPerPage + 1;
-    const endItem = Math.min(currentPage * itemsPerPage, totalMonitors);
-    
-    // Update showing count
-    showingCountEl.textContent = totalMonitors === 0 ? 0 : `${startItem}-${endItem}`;
-    totalCountEl.textContent = totalMonitors;
-    
-    // Update current page
-    currentPageEl.textContent = currentPage;
+    const pageSizeInfoEl = document.getElementById('pageSizeInfo');
+
+    const maxPage = Math.ceil(totalMonitors / itemsPerPage) || 1;
     
     // Update button states
-    prevBtn.disabled = currentPage === 1;
-    nextBtn.disabled = currentPage * itemsPerPage >= totalMonitors;
+    if (firstBtn) firstBtn.disabled = currentPage === 1;
+    if (prevBtn) prevBtn.disabled = currentPage === 1;
+    if (nextBtn) nextBtn.disabled = currentPage >= maxPage;
+    if (lastBtn) lastBtn.disabled = currentPage >= maxPage;
+    
+    // Update current page display
+    if (currentPageEl) currentPageEl.textContent = `${currentPage} of ${maxPage}`;
+    
+    // Update item counts
+    const start = Math.min((currentPage - 1) * itemsPerPage + 1, totalMonitors) || 0;
+    const end = Math.min(currentPage * itemsPerPage, totalMonitors) || 0;
+    
+    if (showingStartEl) showingStartEl.textContent = start;
+    if (showingEndEl) showingEndEl.textContent = end;
+    if (totalCountEl) totalCountEl.textContent = totalMonitors;
+    if (pageSizeInfoEl) pageSizeInfoEl.textContent = itemsPerPage;
+    
+    // Update button active states
+    document.querySelectorAll('.page-item').forEach(item => item.classList.remove('active'));
+    const currentPageItem = document.querySelector(`.page-item[data-page="${currentPage}"]`);
+    if (currentPageItem) {
+        currentPageItem.classList.add('active');
+    }
 }
 
 // Attach event listeners to monitor elements

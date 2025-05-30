@@ -227,6 +227,67 @@
                 border: 1px solid #e9ecef;
             }
             
+            .pagination-container {
+                background: #fff;
+                border-radius: 6px;
+                padding: 0.25rem;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            }
+            
+            .page-link {
+                min-width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #4a5568;
+                border: 1px solid #e2e8f0;
+                margin: 0 2px;
+                transition: all 0.2s ease;
+            }
+            
+            .page-link:hover {
+                background-color: #f8fafc;
+                border-color: #cbd5e0;
+                color: #2d3748;
+            }
+            
+            .page-link:focus {
+                box-shadow: 0 0 0 0.2rem rgba(66, 153, 225, 0.25);
+            }
+            
+            .page-item.disabled .page-link {
+                color: #a0aec0;
+                background-color: #f7fafc;
+                border-color: #e2e8f0;
+            }
+            
+            .page-item.active .page-link {
+                background-color: #4299e1;
+                border-color: #4299e1;
+                color: white;
+            }
+            
+            .pagination-info {
+                font-size: 0.875rem;
+                color: #4a5568;
+            }
+            
+            @media (max-width: 768px) {
+                .pagination-container {
+                    width: 100%;
+                    justify-content: center;
+                    margin-top: 1rem;
+                }
+                
+                .page-link {
+                    min-width: 28px;
+                    height: 28px;
+                    font-size: 0.75rem;
+                    padding: 0.25rem 0.5rem;
+                }
+            }
+            
             .btn {
                 padding: 0.4rem 0.75rem;
                 font-size: 0.8rem;
@@ -388,18 +449,45 @@
                         </table>
                     </div>
                 </div>
-                <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center">
-                    <div class="text-muted small">
-                        Showing <span id="showingCount">0</span> of <span id="totalCount">0</span> monitors
-                    </div>
-                    <div class="pagination">
-                        <button class="btn btn-sm btn-outline-secondary me-1" id="prevPage" disabled>
-                            <i class="bi bi-chevron-left"></i>
-                        </button>
-                        <span class="px-2 align-middle">Page <span id="currentPage">1</span></span>
-                        <button class="btn btn-sm btn-outline-secondary ms-1" id="nextPage" disabled>
-                            <i class="bi bi-chevron-right"></i>
-                        </button>
+                <div class="card-footer bg-white border-0">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+                        <div class="text-muted small mb-2 mb-md-0">
+                            Showing <span id="showingStart">0</span> to <span id="showingEnd">0</span> of <span id="totalCount" class="fw-medium">0</span> monitors
+                        </div>
+                        <div class="pagination-container d-flex align-items-center">
+                            <nav aria-label="Page navigation">
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item">
+                                        <button class="page-link" id="firstPage" aria-label="First" disabled>
+                                            <i class="bi bi-chevron-bar-left"></i>
+                                        </button>
+                                    </li>
+                                    <li class="page-item">
+                                        <button class="page-link" id="prevPage" aria-label="Previous" disabled>
+                                            <i class="bi bi-chevron-left"></i>
+                                        </button>
+                                    </li>
+                                    <li class="page-item disabled">
+                                        <span class="page-link text-muted" id="pageInfo">
+                                            Page <span id="currentPage">1</span>
+                                        </span>
+                                    </li>
+                                    <li class="page-item">
+                                        <button class="page-link" id="nextPage" aria-label="Next" disabled>
+                                            <i class="bi bi-chevron-right"></i>
+                                        </button>
+                                    </li>
+                                    <li class="page-item">
+                                        <button class="page-link" id="lastPage" aria-label="Last" disabled>
+                                            <i class="bi bi-chevron-bar-right"></i>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
+                            <div class="ms-2 small text-muted d-none d-md-block">
+                                <span id="pageSizeInfo">10</span> per page
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
