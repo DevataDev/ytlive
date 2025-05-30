@@ -460,6 +460,16 @@ $('#channelSelect').on('change', function() {
         }
     });
 });
+// listen streamSelect change
+$('#streamSelect').on('change', function() {
+    const liveStreamId = $(this).val();
+    // if live stream not = '' enabled bind button
+    if (liveStreamId) {
+        $('#bindChannelSaveBtn').prop('disabled', false);
+    } else {
+        $('#bindChannelSaveBtn').prop('disabled', true);
+    }
+});
 // Bind button
 $('#bindChannelSaveBtn').on('click', function() {
     const channelId = $('#channelSelect').val();
