@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
+	"strconv"
 	"time"
 	"windsorf-youtube-live/internal/models"
 
@@ -19,12 +21,28 @@ func (h *MonitorHandler) ListMonitors(c *gin.Context) {
 		userId = c.GetString("user_id")
 	}
 
+	var limit int
+	var offset int
+	if c.Query("limit") != "" {
+		limit, _ = strconv.Atoi(c.Query("limit"))
+	}
+	if c.Query("offset") != "" {
+		offset, _ = strconv.Atoi(c.Query("offset"))
+	}
+
 	var monitors []models.Monitor
-	if err := h.DB.Where("user_id = ?", userId).Find(&monitors).Error; err != nil {
+	if err := h.DB.Where("user_id = ?", userId).Limit(limit).Offset(offset).Find(&monitors).Error; err != nil {
+		log.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch monitors"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"monitors": monitors})
+	var total int64
+	if err := h.DB.Where("user_id = ? AND deleted_at IS NULL", userId).Table("monitors").Count(&total).Error; err != nil {
+		log.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch monitors"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"monitors": monitors, "pagination": gin.H{"total": total, "limit": limit, "offset": offset}})
 }
 
 func (h *MonitorHandler) AddMonitor(c *gin.Context) {
