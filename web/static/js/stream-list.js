@@ -270,7 +270,6 @@ $(function() {
                         <li><a class="dropdown-item media-manage-btn" href="#" data-id="${stream.ID}"><i class="bi bi-folder2-open me-2"></i>Media Files</a></li>
                         <li><a class="dropdown-item view-logs-btn" href="#" data-id="${stream.ID}"><i class="bi bi-terminal me-2"></i>View Logs</a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item stream-clone text-primary" href="#" data-id="${stream.ID}"><i class="bi bi-copy me-2"></i>Clone Stream</a></li>
                         <li><a class="dropdown-item stream-delete text-danger" href="#" data-id="${stream.ID}"><i class="bi bi-trash me-2"></i>Delete</a></li>
                     </ul>
                 </div>`;

@@ -231,6 +231,36 @@
       border-radius: 0.25rem;
       color: white;
     }
+    
+    /* Stream Card Styles */
+    .stream-card {
+      background-color: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s ease-in-out;
+      height: 100%;
+    }
+    
+    .stream-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    .stream-card .card-body {
+      padding: 1.25rem;
+    }
+    
+    .stream-card .card-title {
+      color: #1a202c;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    
+    .stream-card .card-text {
+      color: #4a5568;
+      font-size: 0.875rem;
+    }
   </style>
 </head>
 
@@ -549,24 +579,18 @@
       });
     </script>
     <style>
-      /* Ensure delete confirmation modal appears on top of other modals */
-      #deleteMediaModal {
+      /* Minimal modal fix */
+      .modal {
         z-index: 1060;
-        /* Bootstrap's modal z-index is 1050 by default */
       }
-
-      #deleteMediaModal~.modal-backdrop {
-        z-index: 1059;
-        /* Just below our modal */
+      
+      .modal-backdrop {
+        z-index: 1050;
       }
-
-      /* Make sure the parent modal remains interactive */
-      .modal.show {
-        pointer-events: none;
-      }
-
-      .modal.show .modal-dialog {
-        pointer-events: auto;
+      
+      /* Ensure delete confirmation modal appears on top */
+      #deleteMediaModal {
+        z-index: 1061;
       }
     </style>
     <div class="modal fade" id="deleteMediaModal" tabindex="-1" aria-labelledby="deleteMediaModalLabel"
