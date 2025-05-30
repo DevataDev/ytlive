@@ -578,7 +578,6 @@
                                     <th>Description</th>
                                     <th>Status</th>
                                     <th>Time</th>
-                                    <th class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="recentActivity">
@@ -1081,19 +1080,6 @@ function updateRecentActivity(activities) {
             <td>${activity.description || 'N/A'}</td>
             <td><span class="badge bg-${statusClass}">${statusText}</span></td>
             <td>${timestamp}</td>
-            <td class="text-end">
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-three-dots-vertical"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#"><i class="bi bi-info-circle me-2"></i>Details</a></li>
-                        <li><a class="dropdown-item" href="#"><i class="bi bi-arrow-repeat me-2"></i>Retry</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash me-2"></i>Delete</a></li>
-                    </ul>
-                </div>
-            </td>
         `;
         tbody.appendChild(tr);
     });
@@ -1358,6 +1344,5 @@ fetch('/api/version')
   })
   .catch(console.error);
 </script>
-
 </body>
 </html>
