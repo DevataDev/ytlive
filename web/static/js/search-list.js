@@ -57,6 +57,7 @@ $(function () {
 
     // Load more button click handler
     $(document).on("click", "#loadMoreBtn", function() {
+        console.log("Load more clicked");
         if (!isLoading && hasMore) {
             currentPage++;
             performSearch(currentSearchQuery, true);
@@ -64,6 +65,7 @@ $(function () {
     });
 
     function performSearch(query, isLoadMore = false) {
+        console.log("Performing search for query:", query);
         if (!query && !isLoadMore) {
             // If no query and not loading more, show suggested feeds
             fetchSuggestedFeeds();
@@ -122,6 +124,11 @@ $(function () {
                     
                     // Update count
                     $("#countRoom").text(searchFeeds.length);
+
+                    console.dir(`hasMore: ${hasMore}`);
+                    console.dir(`isLoadMore: ${isLoadMore}`);
+                    console.dir(`searchFeeds: ${searchFeeds}`);
+                    
                     
                     // Render the results
                     renderLiveFeedsTable({
@@ -139,6 +146,16 @@ $(function () {
                     // No results for initial search
                     $roomList.html('<div class="col-12 text-center py-5"><div class="empty-state"><i class="bi bi-search fs-1 text-muted mb-3"></i><h5 class="mb-2">No results found</h5><p class="text-muted">Try different keywords or check back later.</p></div></div>');
                     $("#countRoom").text('0');
+                } else {
+                    //show you have reached the end of the search results
+                    $loadMoreBtn.hide();
+                    $loadMoreBtn.after(`
+                        <div id="loadMoreBtnWrapper" class="text-center my-4">
+                            <div class="text-muted">
+                                <i class="bi bi-check-circle me-2"></i> You have reached the end of the search results
+                            </div>
+                        </div>
+                    `);
                 }
             },
             error: function(xhr) {
@@ -243,7 +260,7 @@ $(function () {
         
         // Check if we have rooms to display
         const hasRooms = liveFeeds?.rooms?.length > 0;
-        const hasMore = liveFeeds?.pagination?.has_more === true;
+        const hasMore = liveFeeds?.pagination?.has_more === true || liveFeeds?.rooms == null;
         
         // If no rooms and not loading more, show empty state
         if (!hasRooms && !isLoadMore) {
@@ -261,6 +278,9 @@ $(function () {
             `);
             return;
         }
+
+        console.dir(`hasMore: ${hasMore}`);
+        console.dir(`hasRooms: ${hasRooms}`);
         
         // If we're loading more but got no new rooms, just return without doing anything
         if (isLoadMore && !hasRooms) {
@@ -387,7 +407,7 @@ $(function () {
                             })();
                         </script>
                     `;
-                } else if (liveFeed.live_url && liveFeed.live_url.includes("m3u")) {
+                } else if (liveUrl && (liveUrl.includes('.m3u8') || liveUrl.includes('m3u'))) {
                     // For HLS streams, use video.js with HLS support
                     videoPlayerHtml = `
                         <div class="video-container">
@@ -423,36 +443,88 @@ $(function () {
                                         
                                         // Store reference for cleanup
                                         if (!window._videoJsPlayers) window._videoJsPlayers = [];
-                                        window._videoJsPlayers.push(player);
+                                        window._videoJsPlayers.push({
+                                            id: '${liveFeed.id}',
+                                            player: player
+                                        });
+
+                                        // Handle player errors
+                                        player.on('error', function() {
+                                            const error = player.error();
+                                            console.error('Video.js Error:', error);
+                                            showSnackbar('Error playing video stream', true);
+                                        });
                                     }
                                 } catch (e) {
                                     console.error('Error initializing video player:', e);
+                                    showSnackbar('Failed to initialize video player', true);
                                 }
                             })();
                         </script>
                     `;
-                }
-            } else {
-                videoPlayerHtml = `
-                    <div class="video-placeholder d-flex align-items-center justify-content-center" 
-                        style="background: #f8f9fa; border-radius: var(--border-radius); height: 200px;">
-                        <div class="text-center">
-                            <i class="bi bi-camera-video-off fs-1 text-muted"></i>
-                            <p class="mt-2 mb-0 text-muted">No stream available</p>
+                } else if (liveUrl && liveUrl.includes('.mp4')) {
+                    // For direct MP4 streams
+                    videoPlayerHtml = `
+                        <div class="video-container">
+                            <video id="live-video-${liveFeed.id}" 
+                                   class="video-js vjs-default-skin vjs-big-play-centered"
+                                   controls 
+                                   preload="auto" 
+                                   playsinline>
+                                <source src="${liveUrl}" type="video/mp4">
+                            </video>
                         </div>
-                    </div>
-                `;
+                        <script>
+                            (function() {
+                                try {
+                                    const video = document.getElementById('live-video-${liveFeed.id}');
+                                    if (video) {
+                                        const player = videojs(video, {
+                                            controls: true,
+                                            autoplay: false,
+                                            preload: 'auto'
+                                        });
+                                        
+                                        if (!window._videoJsPlayers) window._videoJsPlayers = [];
+                                        window._videoJsPlayers.push({
+                                            id: '${liveFeed.id}',
+                                            player: player
+                                        });
+
+                                        player.on('error', function() {
+                                            console.error('Video.js Error:', player.error());
+                                            showSnackbar('Error playing video', true);
+                                        });
+                                    }
+                                } catch (e) {
+                                    console.error('Error initializing MP4 player:', e);
+                                    showSnackbar('Failed to initialize video player', true);
+                                }
+                            })();
+                        </script>
+                    `;
+                } else {
+                    videoPlayerHtml = `
+                        <div class="video-placeholder d-flex align-items-center justify-content-center" 
+                            style="background: #f8f9fa; border-radius: var(--border-radius); height: 200px;">
+                            <div class="text-center">
+                                <i class="bi bi-camera-video-off fs-1 text-muted"></i>
+                                <p class="mt-2 mb-0 text-muted">No stream available</p>
+                            </div>
+                        </div>
+                    `;
+                }
             }
 
-            // Create the card HTML
-            const cardHtml = `
-                <div class="col-12 col-sm-6 col-lg-4 col-xxl-3 mb-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-img-top position-relative" style="padding-top: 56.25%; overflow: hidden; background: #000;">
-                            ${videoPlayerHtml}
-                        </div>
-                        <div class="card-body d-flex flex-column">
-                            <h5 class="card-title text-truncate mb-1" title="${roomTitle}">${roomTitle}</h5>
+                // Create the card HTML
+                const cardHtml = `
+                    <div class="col-12 col-sm-6 col-lg-4 col-xxl-3 mb-4">
+                        <div class="card h-auto shadow-sm">
+                            <div class="card-img-top position-relative" style="aspect-ratio: 16/9; overflow: hidden; background: #000;">
+                                ${videoPlayerHtml}
+                            </div>
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title text-truncate mb-1" title="${roomTitle}">${roomTitle}</h5>
                             <div class="d-flex align-items-center mb-2">
                                 <div class="avatar-sm me-2">
                                     <span class="avatar-title rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; font-size: 12px;">
@@ -613,7 +685,7 @@ $(function () {
                     <button id="loadMoreBtn" class="btn btn-primary">${searchLoading ? 'Loading...' : 'Load More'}</button>
                 </div>
             `);
-        } else if (searchFeeds.length > 0) {
+        } else if (!searchHasMore) {
             cardContainer.after(`
                 <div id="loadMoreBtnWrapper" class="text-center my-3">
                     <button id="loadMoreBtn" class="btn btn-secondary" disabled>No more results</button>
@@ -719,22 +791,6 @@ $(function () {
         });
     }
 
-    // Remove infinite scroll handler for clarity
-    $(window).off('scroll');
-
-    // Handler for Load More button
-    $(document).off('click', '#loadMoreBtn');
-    $(document).on('click', '#loadMoreBtn', function() {
-        if (!searchHasMore || searchLoading) return;
-        fetchSearchFeeds(searchPage, true);
-    });
-
-    // Handler for Search button
-    $(document).on("click", "#searchBtn", function(e) {
-        e.preventDefault();
-        fetchSearchFeeds(1, false);
-    });
-
     // Handler for Start/Stop toggle button
     $(document).on("click", ".live-add-mirror", function(e) {
         e.preventDefault();
@@ -815,27 +871,6 @@ $(function () {
         const toast = new bootstrap.Toast(toastEl);
         toast.show();
     }
-
-    // Handler for RTMP URL save
-    $(document).on("click", ".live-rtmpurl-save", function(e) {
-        e.preventDefault();
-        const id = $(this).data("id");
-        const newUrl = $(`#live-rtmpurl-input-${id}`).val();
-        $.ajax({
-            url: `/api/live/${id}/rtmp-url`,
-            type: 'PUT',
-            contentType: 'application/json',
-            headers: { Authorization: 'Bearer ' + localStorage.getItem("jwt_token") },
-            data: JSON.stringify({ rtmp_url: newUrl }),
-            success: function() {
-                showSnackbar("RTMP URL saved successfully.", false);
-                fetchMirrors();
-            },
-            error: function(xhr) {
-                showSnackbar("Failed to save RTMP URL: " + (xhr.responseText || xhr.statusText), true);
-            }
-        });
-    });
 
     fetchSuggestedFeeds();
 });
