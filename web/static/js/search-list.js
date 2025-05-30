@@ -538,7 +538,7 @@ $(function () {
                                     <i class="bi bi-circle-fill me-1"></i>
                                     ${viewCount} watching
                                 </span>
-                                <button class="btn btn-outline-primary btn-sm" data-id="${roomId}" data-title="${roomTitle}" data-action="addMirror">
+                                <button class="btn btn-outline-primary btn-sm search-add-mirror" data-id="${roomId}" data-title="${roomTitle}" data-action="addMirror">
                                     <i class="bi bi-plus-circle me-1"></i> Add Mirror
                                 </button>
                             </div>
@@ -702,97 +702,8 @@ $(function () {
     let searchFeedsAll = [];
     let searchId = '';
 
-    function fetchSearchFeeds(page = 1, append = false) {
-        const token = localStorage.getItem("jwt_token");
-        const searchInput = $("#searchInput").val();
-
-        if (!searchInput) {
-            showSnackbar("Please enter a search keyword.", true);
-            return;
-        }
-
-        if (searchLoading) {
-            console.log("fetchSearchFeeds called but already loading");
-            return;
-        }
-        searchLoading = true;
-
-        if (!append) {
-            searchPage = 1;
-            searchHasMore = true;
-            searchFeedsAll = [];
-            searchKeyword = searchInput;
-            searchId = '';
-        }
-
-        let paginationAppendUrl = '';
-        if (append || searchPage > 1) {
-            paginationAppendUrl = `?page=${searchPage}`;
-        }
-
-        console.log("Calling /api/tiktok/search", {
-            url: '/api/tiktok/search' + paginationAppendUrl,
-            page: searchPage,
-            append,
-            searchId,
-            searchKeyword
-        });
-
-        $.ajax({
-            url: '/api/tiktok/search' + paginationAppendUrl,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ keyword: encodeURIComponent(searchKeyword), search_id: searchId }),
-            headers: { Authorization: 'Bearer ' + token },
-            success: function(data) {
-                console.log("API Success", data);
-                if (append) {
-                    searchFeedsAll = searchFeedsAll.concat(data.rooms || []);
-                } else {
-                    searchFeedsAll = data.rooms || [];
-                }
-                if (searchId != data.pagination.search_id) {
-                    searchId = data.pagination.search_id;
-                }
-                renderSearchFeedsTable(searchFeedsAll, append);
-                $("#countRoom").text(searchFeedsAll.length);
-                searchHasMore = data.pagination.has_more;
-                searchPage += 1;
-                searchLoading = false;
-                console.log("After success:", {searchHasMore, searchPage, searchFeedsAllLength: searchFeedsAll.length});
-            },
-            error: function(xhr) {
-                console.log("API Error", xhr);
-                searchLoading = false;
-                $("#room-list-cards").html('<div class="col-12 text-center text-danger">Failed to load rooms.</div>');
-            },
-            complete: function() {
-                searchLoading = false;
-                console.log("AJAX complete, loading reset");
-                // Remove existing load more button if any
-                $("#loadMoreBtnWrapper").remove();
-                let cardContainer = $("#room-list-cards");
-
-                // Add Load More button if needed
-                if (searchHasMore) {
-                    cardContainer.after(`
-                        <div id="loadMoreBtnWrapper" class="text-center my-3">
-                            <button id="loadMoreBtn" class="btn btn-primary">${searchLoading ? 'Loading...' : 'Load More'}</button>
-                        </div>
-                    `);
-                } else if (!searchHasMore) {
-                    cardContainer.after(`
-                        <div id="loadMoreBtnWrapper" class="text-center my-3">
-                            <button id="loadMoreBtn" class="btn btn-secondary" disabled>No more results</button>
-                        </div>
-                    `);
-                }
-            }
-        });
-    }
-
     // Handler for Start/Stop toggle button
-    $(document).on("click", ".live-add-mirror", function(e) {
+    $(document).on("click", ".search-add-mirror", function(e) {
         e.preventDefault();
         const id = $(this).data("id");
         const action = $(this).data("action");
@@ -820,37 +731,6 @@ $(function () {
                 complete: function() {
                     $(this).prop("disabled", false);
                     $(this).html('Add Mirror');
-                }
-            });
-        }
-    });
-
-    // Handler for Start/Stop toggle button
-    $(document).on("click", ".search-add-mirror", function(e) {
-        e.preventDefault();
-        const id = $(this).data("id");
-        const action = $(this).data("action");
-        const token = localStorage.getItem("jwt_token");
-        $(this).prop("disabled", true);
-        $(this).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...');
-        if (action === 'addMirror') {
-            $.ajax({
-                url: '/api/mirrors',
-                method: 'POST',
-                contentType: 'application/json',
-                headers: { Authorization: 'Bearer ' + token },
-                data: JSON.stringify({ tiktok: id }),
-                success: function(resp) {
-                    showSnackbar("Mirror added successfully.", false);
-                    $(".search-add-mirror[data-id='" + id + "']").html("Mirror added");
-                    $(".search-add-mirror[data-id='" + id + "']").prop("disabled", true);
-                },
-                error: function(xhr) {
-                    let msg = 'Failed to add mirror.';
-                    if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
-                    showSnackbar(msg, true);
-                    $(".search-add-mirror[data-id='" + id + "']").html("Add Mirror");
-                    $(".search-add-mirror[data-id='" + id + "']").prop("disabled", false);
                 }
             });
         }
