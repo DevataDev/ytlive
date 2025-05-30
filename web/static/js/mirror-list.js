@@ -104,7 +104,9 @@ $(function() {
             let isLive = status === 'live';
             let isQueued = status === 'queued';
             let canStart = mirror.IsAlive && mirror.StreamKey && !isLive;
-            let aliveBadge = mirror.IsAlive ? '<span class="badge bg-success">Tiktok Host Online</span>' : `<span class="badge bg-secondary text-capitalize">Offline</span>`;
+            let hostStatusBadge = mirror.IsAlive 
+                ? '<span class="status-badge badge-online"><i class="fas fa-check-circle"></i> Room Online</span>'
+                : '<span class="status-badge badge-offline"><i class="fas fa-circle"></i> Room Offline</span>';
             let toggleBtn = isLive
                 ? `<button class="btn btn-danger btn-sm mirror-toggle w-100" data-id="${mirror.ID}" data-action="stop">Stop</button>`
                 : isQueued
@@ -127,6 +129,24 @@ $(function() {
             //     <script>window._mirrorHlsPlayers = window._mirrorHlsPlayers || {}; setTimeout(function() { try { if (window._mirrorHlsPlayers['${mirror.ID}']) { window._mirrorHlsPlayers['${mirror.ID}'].dispose && window._mirrorHlsPlayers['${mirror.ID}'].dispose(); delete window._mirrorHlsPlayers['${mirror.ID}']; } var video = document.getElementById('mirror-video-${mirror.ID}'); if (video) { var url = '${mirror.LiveUrl}'; if (url.endsWith('.m3u8') && window.Hls && Hls.isSupported()) { var hls = new Hls(); hls.loadSource(url); hls.attachMedia(video); window._mirrorHlsPlayers['${mirror.ID}'] = hls; } else if (url.endsWith('.flv') && window.flvjs && flvjs.isSupported()) { var flvPlayer = flvjs.createPlayer({ type: 'flv', url: url }); flvPlayer.attachMediaElement(video); flvPlayer.load(); window._mirrorHlsPlayers['${mirror.ID}'] = flvPlayer; } else { video.src = url; videojs(video); } } } catch(e){} }, 100);</script>
             // `;
             // use flv.js for preview
+            let statusBadge = isLive ? '<span class="badge bg-success">Live</span>' : `<span class="badge bg-secondary text-capitalize">Offline</span>`;
+            // Stream key input group
+            let streamKeyGroup = `
+                <div class="stream-key-group">
+                    <div class="stream-key-label">Stream Key</div>
+                    <div class="d-flex align-items-center">
+                        <input type="password" class="form-control form-control-sm stream-key-input mirror-streamkey" 
+                               id="mirror-streamkey-input-${mirror.ID}" value="${mirror.StreamKey || ''}" 
+                               placeholder="Enter stream key">
+                        <button class="btn btn-sm btn-link text-muted mirror-password-toggle" type="button" title="Toggle visibility">
+                            <i class="far fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-link text-success mirror-streamkey-save" data-id="${mirror.ID}" title="Save">
+                            <i class="far fa-save"></i>
+                        </button>
+                    </div>
+                </div>`;
+                
             let videoPlayer;
             if (mirror.LiveUrl && mirror.LiveUrl.includes('.flv?')) {
                 videoPlayer = `
@@ -190,34 +210,48 @@ $(function() {
                 </script>`;
             }
             cardContainer.append(`
-                <div class="col-md-4">
-                    <div class="card stream-card">
+                <div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-4">
+                    <div class="card stream-card h-100">
                         <div class="card-body">
-                            <div class="d-flex align-items-center mb-2">
-                                <span class="fw-bold fs-5 mirror-title-ellipsis" title="${mirror.DisplayName || ''}">${mirror.DisplayName || ''}</span>
+                            <!-- Header with title and status -->
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex flex-column">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-tv text-primary"></i>
+                                        <span class="mirror-title-ellipsis" title="${mirror.DisplayName || 'Unnamed Mirror'}">
+                                            ${mirror.DisplayName || 'Unnamed Mirror'}
+                                        </span>
+                                    </h5>
+                                    <small class="text-muted" title="Mirror ID">
+                                        <i class="fas fa-fingerprint"></i> ${mirror.ID || 'N/A'}
+                                    </small>
+                                </div>
                             </div>
-                            <div class="mb-2">
+                            
+                            <!-- Video Player -->
+                            <div class="mb-3">
                                 ${videoPlayer}
                             </div>
-                            <div class="mb-2">
-                                ${aliveBadge}
+                            
+                            <!-- Status -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                ${hostStatusBadge} ${statusBadge}
                             </div>
-                            <div class="mb-2">
-                                Room ID: <span class="text-truncate">${mirror.RoomId || ''}</span>
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label mb-0">Stream Key:</label>
-                                ${streamKeyField}${streamKeySaveBtn}${showPasswordBtn}
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label mb-0">RTMP URL:</label>
+                            
+                            <!-- Stream Configuration -->
+                            <div class="mb-3">
                                 ${rtmpInputGroup}
+                                ${streamKeyGroup}
                             </div>
-                            <div class="mb-2 mt-3">
+                            
+                            <!-- Actions -->
+                            <div class="card-actions">
                                 ${toggleBtn}
+                                <div class="d-flex gap-2">
+                                    ${bindBtn}
+                                    ${logsBtn}
+                                </div>
                                 ${deleteBtn}
-                                ${logsBtn}
-                                ${bindBtn}
                             </div>
                         </div>
                     </div>
