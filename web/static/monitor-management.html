@@ -49,12 +49,198 @@
     });
     </script>
     <style>
+        /* Modern UI Enhancements */
+        :root {
+            --primary-color: #4361ee;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --warning-color: #f39c12;
+            --info-color: #3498db;
+            --light-bg: #f8f9fa;
+            --card-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        body {
+            background-color: #f5f7fb;
+            color: #333;
+        }
+
+        .dashboard-container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            transition: var(--transition);
+        }
+
+        .dashboard-container:hover {
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
         .monitor-title-ellipsis {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             display: block;
             max-width: 180px;
+            font-weight: 500;
+        }
+
+        /* Table Styling */
+        .table-container {
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: var(--card-shadow);
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table thead th {
+            background-color: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            color: #6c757d;
+            padding: 1rem 1.25rem;
+        }
+
+        .table tbody tr {
+            transition: var(--transition);
+        }
+
+        .table tbody tr:hover {
+            background-color: rgba(67, 97, 238, 0.03);
+        }
+
+        .table tbody td {
+            padding: 1rem 1.25rem;
+            vertical-align: middle;
+            border-color: #f1f3f9;
+        }
+
+        /* Form Controls */
+        .form-control, .form-select {
+            border: 1px solid #e0e6ed;
+            border-radius: 6px;
+            padding: 0.5rem 0.875rem;
+            font-size: 0.875rem;
+            transition: var(--transition);
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.15);
+        }
+
+        /* Buttons */
+        .btn {
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn i {
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            border-color: var(--danger-color);
+        }
+
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            color: #fff;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.35rem 0.65rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            gap: 0.35rem;
+        }
+
+        .status-badge i {
+            font-size: 0.65rem;
+        }
+
+        .status-online {
+            background-color: rgba(46, 204, 113, 0.1);
+            color: var(--success-color);
+        }
+
+        .status-offline {
+            background-color: rgba(108, 117, 125, 0.1);
+            color: #6c757d;
+        }
+
+        /* Card Header */
+        .card-header {
+            background-color: #fff;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 1.25rem 1.5rem;
+        }
+
+        .card-title {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .table-responsive {
+                border-radius: 8px;
+                border: 1px solid #e9ecef;
+            }
+            
+            .btn {
+                padding: 0.4rem 0.75rem;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
         }
     </style>
 </head>
@@ -143,74 +329,150 @@
         <div class="container-fluid">
             <div class="container-xl">
                 <div class="dashboard-container">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <span class="badge bg-info me-2">Monitor Count: <span id="countMonitor">-</span></span>
+            <div class="card mb-4 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                        <div class="d-flex align-items-center">
+                            <div class="d-flex align-items-center bg-primary bg-opacity-10 px-3 py-2 rounded-3">
+                                <i class="bi bi-graph-up text-primary me-2"></i>
+                                <span class="text-primary fw-medium">Active Monitors: <span id="countMonitor" class="fw-bold">0</span></span>
+                            </div>
+                        </div>
+                        <form id="add-monitor-form" class="d-flex flex-grow-1 flex-column flex-md-row gap-2" style="max-width: 600px;">
+                            <div class="flex-grow-1">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-person-badge text-muted"></i></span>
+                                    <input type="text" id="uniqueId" name="uniqueId" class="form-control border-start-0" placeholder="Enter TikTok username or ID" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="bi bi-plus-circle me-1"></i> Add Monitor
+                            </button>
+                        </form>
+                    </div>
                 </div>
-                <form id="add-monitor-form" class="d-flex gap-2">
-                    <input type="text" id="uniqueId" name="uniqueId" class="form-control" placeholder="TikTok Unique ID" required>
-                    <button type="submit" class="btn btn-success">Add Monitor</button>
-                </form>
             </div>
-            <section>
-                <h2>Monitored Users</h2>
-                <div class="table-responsive" style="max-height:60vh;overflow-y:auto;">
-                <table id="monitor-table" class="table table-striped align-middle">
-                    <thead>
-                        <tr>
-                            <th>Unique ID</th>
-                            <th>RTMP URL</th>
-                            <th>Stream Key</th>
-                            <th>Is Live</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Monitor rows will be injected here -->
-                        <tr data-monitor-id="monitor-1">
-                            <td>unique-id-1</td>
-                            <td>
-                                <input type="text" class="form-control form-control-sm" id="rtmp-url-1" value="rtmp://example.com/live/1">
-                                <button class="btn btn-sm btn-primary" id="save-rtmp-url-1">Save</button>
-                            </td>
-                            <td>
-                                <input type="text" class="form-control form-control-sm" id="stream-key-1" value="stream-key-1">
-                                <button class="btn btn-sm btn-primary" id="save-stream-key-1">Save</button>
-                            </td>
-                            <td>Yes</td>
-                            <td>
-                                <button class="btn btn-sm btn-danger" id="delete-monitor-1">Delete</button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0"><i class="bi bi-list-ul text-primary me-2"></i> Monitored Users</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="input-group input-group-sm" style="max-width: 200px;">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" class="form-control border-start-0" id="searchMonitors" placeholder="Search...">
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </section>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 60vh;">
+                        <table id="monitor-table" class="table table-hover align-middle mb-0">
+                            <thead class="sticky-top bg-white" style="z-index: 1;">
+                                <tr>
+                                    <th style="width: 20%; min-width: 150px;">TikTok User</th>
+                                    <th style="width: 30%; min-width: 250px;">RTMP URL</th>
+                                    <th style="width: 25%; min-width: 200px;">Stream Key</th>
+                                    <th style="width: 10%; min-width: 100px;">Status</th>
+                                    <th style="width: 15%; min-width: 120px;" class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monitorTableBody">
+                                <!-- Monitor rows will be injected here dynamically -->
+                                <tr class="fade-in">
+                                    <td colspan="5" class="text-center py-4 text-muted">
+                                        <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                                        <span>No monitors added yet. Add one to get started.</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center">
+                    <div class="text-muted small">
+                        Showing <span id="showingCount">0</span> of <span id="totalCount">0</span> monitors
+                    </div>
+                    <div class="pagination">
+                        <button class="btn btn-sm btn-outline-secondary me-1" id="prevPage" disabled>
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <span class="px-2 align-middle">Page <span id="currentPage">1</span></span>
+                        <button class="btn btn-sm btn-outline-secondary ms-1" id="nextPage" disabled>
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 
     <!-- Bind Channel Modal -->
     <div class="modal fade" id="bindChannelModal" tabindex="-1" aria-labelledby="bindChannelModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="bindChannelModalLabel">Bind Channel to Monitor</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <label for="channelSelect" class="form-label">Select Channel</label>
-            <select class="form-select" id="channelSelect"></select>
-            <label for="streamSelect" class="form-label mt-3">Select Live Stream</label>
-            <select class="form-select" id="streamSelect"></select>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary" id="bindChannelSaveBtn">Bind</button>
-          </div>
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-link-45deg me-2"></i>Bind Channel to Monitor
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label for="channelSelect" class="form-label fw-medium">Select Channel</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-collection-play"></i></span>
+                            <select class="form-select" id="channelSelect">
+                                <option value="" selected disabled>Loading channels...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="streamSelect" class="form-label fw-medium">Select Live Stream</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-cast"></i></span>
+                            <select class="form-select" id="streamSelect" disabled>
+                                <option value="" selected disabled>Select a channel first</option>
+                            </select>
+                        </div>
+                        <div class="form-text text-muted">Only active live streams are shown</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" id="bindChannelSaveBtn" disabled>
+                        <i class="bi bi-link-45deg me-1"></i> Bind Channel
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
     <div id="bindChannelModalBackdrop" class="modal-backdrop fade" style="display:none;"></div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteMonitorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this monitor? This action cannot be undone.</p>
+                    <p class="mb-0"><strong>Monitor ID:</strong> <span id="deleteMonitorId"></span></p>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-1"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteMonitor">
+                        <i class="bi bi-trash me-1"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
                 </div>
             </div>

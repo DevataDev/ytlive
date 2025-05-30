@@ -121,7 +121,7 @@ $(function() {
                   <button class="btn btn-outline-success mirror-rtmpurl-save" data-id="${mirror.ID}" title="Save RTMP URL"><i class="fa fa-save"></i></button>
                 </div>`;
             let bindBtn = `<button class='btn btn-outline-primary btn-sm w-100 mt-2 bind-channel-btn' data-id='${mirror.ID}'>Bind</button>`;
-            let deleteBtn = `<button class="btn btn-outline-danger btn-sm mirror-delete w-100 mt-2" data-id="${mirror.ID}"><i class="fa fa-trash"></i> Delete</button>`;
+            let deleteBtn = `<button class="btn btn-outline-danger btn-sm mirror-delete w-100 mt-2" data-id="${mirror.ID}" data-name="${mirror.DisplayName || mirror.ID}"><i class="fa fa-trash"></i> Delete</button>`;
             let logsBtn = `<button class="btn btn-outline-info btn-sm view-logs-btn w-100 mt-2 mirror-logs" data-id="${mirror.ID}"><i class="fa fa-info-circle"></i> Logs</button>`;
             // Use video.js + hls.js + flv.js for preview
             // let videoPlayer = `
@@ -162,6 +162,7 @@ $(function() {
                                 var video = document.getElementById('mirror-video-${mirror.ID}');
                                 if (video && window.flvjs && flvjs.isSupported()) {
                                     var flvPlayer = flvjs.createPlayer({ type: 'flv', url: '${mirror.LiveUrl}', "isLive": true });
+                                    flvjs.LoggingControl.enableAll = false;
                                     flvPlayer.attachMediaElement(video);
                                     flvPlayer.load();
                                     window._mirrorFlvPlayers['${mirror.ID}'] = flvPlayer;
@@ -294,23 +295,54 @@ $(function() {
         }
     });
 
-    // Handler for Delete button
-    $(document).on("click", ".mirror-delete", function(e) {
-        e.preventDefault();
+    let mirrorToDelete = null;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteMirrorModal'));
+    
+    $(document).on("click", ".mirror-delete", function() {
         const id = $(this).data("id");
-        if (!confirm("Are you sure you want to delete this mirror?")) return;
+        const name = $(this).data("name") || id;
+        mirrorToDelete = id;
+        
+        // Update modal content
+        $('#deleteMirrorId').text(name);
+        
+        // Show the modal
+        deleteModal.show();
+    });
+    
+    // Handle confirm delete button click
+    $('#confirmDeleteMirror').on('click', function() {
+        if (!mirrorToDelete) return;
+        
+        const deleteBtn = $(this);
+        const originalText = deleteBtn.html();
+        
+        // Show loading state
+        deleteBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Deleting...');
+        
         $.ajax({
-            url: `/api/mirrors/${id}`,
+            url: `/api/mirrors/${mirrorToDelete}`,
             type: 'DELETE',
-            headers: { Authorization: 'Bearer ' + localStorage.getItem("jwt_token") },
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem("jwt_token") },
             success: function() {
+                deleteModal.hide();
                 fetchMirrors();
-                showSnackbar("Mirror deleted successfully.", false);
+                showSnackbar("Mirror deleted successfully");
             },
             error: function(xhr) {
-                showSnackbar("Failed to delete mirror: " + (xhr.responseText || xhr.statusText), true);
+                showSnackbar("Failed to delete mirror: " + (xhr.responseJSON?.error || 'Unknown error'), true);
+            },
+            complete: function() {
+                deleteBtn.html(originalText).prop('disabled', false);
+                mirrorToDelete = null;
             }
         });
+    });
+    
+    // Reset modal when hidden
+    $('#deleteMirrorModal').on('hidden.bs.modal', function () {
+        mirrorToDelete = null;
+        $('#deleteMirrorId').text('');
     });
 
     // Snackbar notification helper
