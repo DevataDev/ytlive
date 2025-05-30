@@ -880,22 +880,84 @@ $(function() {
     });
 
     // Delete stream handler (trash/x button and main delete button)
+    let currentDeleteId = null;
+    let currentDeleteButton = null;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmationModal'));
+    
+    // Handle delete button click
     $(document).on("click", ".delete-btn, .stream-delete-x, .stream-delete", function(e) {
         e.preventDefault();
-        if (!confirm("Are you sure you want to delete this stream?")) return;
-        const id = $(this).data("id");
+        e.stopPropagation();
+        
+        const $button = $(this);
+        
+        // Check if we already showed the confirmation for this button
+        if ($button.data('showing-confirmation')) return;
+        
+        // Store the current delete ID and button for later use
+        currentDeleteId = $button.data("id");
+        currentDeleteButton = $button;
+        
+        // Show the confirmation modal
+        deleteModal.show();
+        
+        // Set a flag to prevent multiple confirmations
+        $button.data('showing-confirmation', true);
+        
+        // Reset the flag after a short delay to allow subsequent deletes
+        setTimeout(() => {
+            $button.data('showing-confirmation', false);
+        }, 1000);
+    });
+    
+    // Handle confirm delete button click
+    $('#confirmDeleteBtn').off('click').on('click', function() {
+        if (!currentDeleteId || !currentDeleteButton) return;
+        
+        const $button = $(currentDeleteButton);
         const token = localStorage.getItem("jwt_token");
+        
+        // Disable the button to prevent multiple clicks
+        $button.prop('disabled', true).addClass('disabled');
+        
+        // Hide the modal
+        deleteModal.hide();
+        
+        // Show loading state on the delete button
+        const $confirmBtn = $('#confirmDeleteBtn');
+        const originalBtnText = $confirmBtn.html();
+        $confirmBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...');
+        
+        // Make the delete request
         ajaxWithRefresh({
-            url: `/api/streams/${id}`,
+            url: `/api/streams/${currentDeleteId}`,
             method: "DELETE",
             headers: { Authorization: "Bearer " + token },
             success: function() {
                 fetchStreams();
+                // Show success toast
+                showToast('Stream deleted successfully', 'success');
             },
-            error: function() {
-                alert('Failed to delete stream.');
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON?.message || 'Failed to delete stream';
+                showToast(errorMsg, 'danger');
+                // Re-enable the button if there was an error
+                $button.prop('disabled', false).removeClass('disabled');
+            },
+            complete: function() {
+                // Reset the button state
+                $confirmBtn.prop('disabled', false).html(originalBtnText);
+                // Reset the current delete ID and button
+                currentDeleteId = null;
+                currentDeleteButton = null;
             }
         });
+    });
+    
+    // Reset state when modal is hidden
+    $('#deleteConfirmationModal').on('hidden.bs.modal', function() {
+        currentDeleteId = null;
+        currentDeleteButton = null;
     });
 
     // Schedule button handler
