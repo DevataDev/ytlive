@@ -891,23 +891,22 @@ $(function() {
         
         const $button = $(this);
         
-        // Check if we already showed the confirmation for this button
-        if ($button.data('showing-confirmation')) return;
+        // Reset any previous delete states
+        if (currentDeleteButton && currentDeleteButton !== $button[0]) {
+            $(currentDeleteButton).prop('disabled', false).removeClass('disabled');
+        }
+
+        // find confirm delete button
+        const $confirmBtn = $('#confirmDeleteBtn');
+        // reset the state always
+        $confirmBtn.prop('disabled', false).html("<i class='bi bi-trash me-1'></i> Delete");
         
         // Store the current delete ID and button for later use
         currentDeleteId = $button.data("id");
-        currentDeleteButton = $button;
+        currentDeleteButton = $button[0]; // Store the DOM element, not jQuery object
         
         // Show the confirmation modal
         deleteModal.show();
-        
-        // Set a flag to prevent multiple confirmations
-        $button.data('showing-confirmation', true);
-        
-        // Reset the flag after a short delay to allow subsequent deletes
-        setTimeout(() => {
-            $button.data('showing-confirmation', false);
-        }, 1000);
     });
     
     // Handle confirm delete button click
@@ -937,16 +936,30 @@ $(function() {
                 fetchStreams();
                 // Show success toast
                 showToast('Stream deleted successfully', 'success');
+                // Re-enable the button if there was an error
+                $button.prop('disabled', false).removeClass('disabled');
+                $confirmBtn.prop('disabled', false).html(originalBtnText);
+                // Reset the current delete ID and button
+                currentDeleteId = null;
+                currentDeleteButton = null;
             },
             error: function(xhr) {
                 const errorMsg = xhr.responseJSON?.message || 'Failed to delete stream';
                 showToast(errorMsg, 'danger');
                 // Re-enable the button if there was an error
                 $button.prop('disabled', false).removeClass('disabled');
+                $confirmBtn.prop('disabled', false).html(originalBtnText);
+                // Reset the current delete ID and button
+                currentDeleteId = null;
+                currentDeleteButton = null;
             },
             complete: function() {
                 // Reset the button state
                 $confirmBtn.prop('disabled', false).html(originalBtnText);
+                // Re-enable the original delete button
+                if ($button && $button.length) {
+                    $button.prop('disabled', false).removeClass('disabled');
+                }
                 // Reset the current delete ID and button
                 currentDeleteId = null;
                 currentDeleteButton = null;
