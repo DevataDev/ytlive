@@ -428,10 +428,7 @@
             <img src="/static/img/empty-state.svg" alt="No streams" class="img-fluid mb-3">
           </div>
           <h5 class="mb-2">No streams found</h5>
-          <p class="text-muted mb-4">Get started by adding your first stream</p>
-          <button class="btn btn-primary" id="addFirstStreamBtn">
-            <i class="bi bi-plus-lg me-1"></i> Add Stream
-          </button>
+          <p class="text-muted mb-4">Get started by adding your first stream with clicking button New Stream</p>
         </div>
       </div>
       
@@ -546,10 +543,16 @@
         const addStreamModal = new bootstrap.Modal(document.getElementById('addStreamModal'));
 
         if (uploadBtn) {
-          uploadBtn.addEventListener('click', () => addStreamModal.show());
+          uploadBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = '/upload';
+          });
         }
         if (addFirstStreamBtn) {
-          addFirstStreamBtn.addEventListener('click', () => addStreamModal.show());
+          addFirstStreamBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = '/upload';
+          });
         }
 
         // Handle form submission
@@ -1158,20 +1161,10 @@
   <script>
     // Set current year in footer
     document.addEventListener('DOMContentLoaded', function () {
-      document.getElementById('currentYear').textContent = new Date().getFullYear();
-
       // Set up the version info and load the script
       fetch('/api/version')
         .then(res => res.json())
         .then(data => {
-          if (data.version && data.commit) {
-            const versionInfo = document.getElementById('versionInfo');
-            if (versionInfo) {
-              versionInfo.textContent = `v${data.version} (${data.commit.slice(0, 7)})`;
-              versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
-            }
-          }
-
           // Load the main script
           const script = document.createElement('script');
           script.src = `/static/js/stream-list.js?v=${data.version ? data.version : '0.4.3'}`;

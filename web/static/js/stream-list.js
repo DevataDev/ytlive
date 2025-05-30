@@ -212,10 +212,7 @@ $(function() {
                         <div class="card-body text-center d-flex flex-column justify-content-center">
                             <i class="bi bi-broadcast fs-1 text-muted mb-3"></i>
                             <h5 class="text-muted mb-3">No streams found</h5>
-                            <p class="text-muted mb-0">Click the button below to add a new stream</p>
-                            <button class="btn btn-primary mt-3 mx-auto" id="uploadBtn">
-                                <i class="bi bi-plus-lg me-2"></i> Add Stream
-                            </button>
+                            <p class="text-muted mb-0">Click the button New Stream to create a new stream</p>
                         </div>
                     </div>
                 </div>
@@ -742,9 +739,10 @@ $(function() {
             data: JSON.stringify({ stream_key: newKey }),
             success: function() {
                 fetchStreams();
+                showStreamToast('Stream key updated successfully', 'success');
             },
             error: function() {
-                alert('Failed to update stream key.');
+                showStreamToast('Failed to update stream key.', 'danger');
             }
         });
     });
@@ -934,14 +932,14 @@ $(function() {
             headers: { Authorization: "Bearer " + token },
             success: function() {
                 fetchStreams();
-                // Show success toast
-                showToast('Stream deleted successfully', 'success');
                 // Re-enable the button if there was an error
                 $button.prop('disabled', false).removeClass('disabled');
                 $confirmBtn.prop('disabled', false).html(originalBtnText);
                 // Reset the current delete ID and button
                 currentDeleteId = null;
                 currentDeleteButton = null;
+                // Show success toast
+                showStreamToast('Stream deleted successfully', 'success');
             },
             error: function(xhr) {
                 const errorMsg = xhr.responseJSON?.message || 'Failed to delete stream';
@@ -1307,16 +1305,21 @@ $(function() {
     });
 
     // Toggle stream key password visibility
-    $(document).on('click', '.stream-password-toggle', function() {
-        // Find the input just before this button
-        var $input = $(this).closest('.d-flex').find('.stream-password');
+    $(document).on('click', '.stream-password-toggle', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const $button = $(this);
+        const $icon = $button.find('i');
+        const $input = $button.closest('.input-group').find('.stream-password');
+        
         if ($input.length) {
             if ($input.attr('type') === 'password') {
                 $input.attr('type', 'text');
-                $(this).find('i').removeClass('fa-eye').addClass('fa-eye-slash');
+                $icon.removeClass('bi-eye').addClass('bi-eye-slash');
             } else {
                 $input.attr('type', 'password');
-                $(this).find('i').removeClass('fa-eye-slash').addClass('fa-eye');
+                $icon.removeClass('bi-eye-slash').addClass('bi-eye');
             }
         }
     });
@@ -1844,5 +1847,11 @@ function startStream(streamId) {
             if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
             showStreamToast(msg, 'error');
         }
+    });
+
+    // add handler addFirstStreamBtn
+    $("#uploadBtn").off("click").on("click", function() {
+        // open upload
+        window.location.href = '/upload';
     });
 }
