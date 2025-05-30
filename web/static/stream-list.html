@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,7 +18,59 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="/static/css/header.css">
   <link rel="stylesheet" href="/static/css/footer.css">
+  <script>
+  // Initialize header active state
+  function setActiveNavItem() {
+      const currentPath = window.location.pathname;
+      const navLinks = document.querySelectorAll('.nav-link, .dropdown-item');
+      
+      navLinks.forEach(link => {
+          if (link.getAttribute('href') === currentPath) {
+              link.classList.add('active');
+              // If it's a dropdown item, also activate its parent dropdown
+              const dropdownItem = link.closest('.dropdown-item');
+              if (dropdownItem) {
+                  const parentDropdown = link.closest('.dropdown');
+                  if (parentDropdown) {
+                      parentDropdown.querySelector('.nav-link').classList.add('active');
+                  }
+              }
+          }
+      });
+  }
+
+  // Initialize when DOM is loaded
+  document.addEventListener('DOMContentLoaded', () => {
+      setActiveNavItem();
+      
+      // Handle logout
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (logoutBtn) {
+          logoutBtn.addEventListener('click', function() {
+              // Add your logout logic here
+              window.location.href = '/logout';
+          });
+      }
+  });
+  </script>
   <style>
+    .room-title-ellipsis {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      max-width: 180px;
+    }
+    
+    :root {
+      --bs-body-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    
+    body {
+      background-color: #f5f7fb;
+      color: #4a5568;
+    }
+    
     html, body {
       height: 100%;
     }
@@ -43,8 +94,7 @@
       border-top: 1px solid #dee2e6;
     }
   </style>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <script>
     // Initialize header active state
     function setActiveNavItem() {
@@ -116,8 +166,41 @@
       padding-bottom: 56px;
     }
 
-    #pagination {
-      margin-bottom: 80px;
+    /* Pagination Styles */
+    .pagination {
+      margin: 0;
+      gap: 4px;
+    }
+    
+    .page-item {
+      margin: 0 2px;
+    }
+    
+    .page-link {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px !important;
+      min-width: 36px;
+      text-align: center;
+      color: #4a5568;
+      border: 1px solid #dee2e6;
+    }
+    
+    .page-item.active .page-link {
+      background-color: #4361ee;
+      border-color: #4361ee;
+      color: white;
+    }
+    
+    .page-item:not(.active) .page-link:hover {
+      background-color: #f1f5f9;
+      border-color: #dee2e6;
+    }
+    
+    .page-item.disabled .page-link {
+      color: #6c757d;
+      pointer-events: none;
+      background-color: #fff;
+      border-color: #dee2e6;
     }
 
     .stream-header {
@@ -148,6 +231,36 @@
       border-radius: 0.25rem;
       color: white;
     }
+    
+    /* Stream Card Styles */
+    .stream-card {
+      background-color: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s ease-in-out;
+      height: 100%;
+    }
+    
+    .stream-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    .stream-card .card-body {
+      padding: 1.25rem;
+    }
+    
+    .stream-card .card-title {
+      color: #1a202c;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    
+    .stream-card .card-text {
+      color: #4a5568;
+      font-size: 0.875rem;
+    }
   </style>
 </head>
 
@@ -159,12 +272,12 @@
           <i class="bi bi-broadcast"></i>
           <span>YukLive!</span>
         </a>
-
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
-          aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" 
+                aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
-
+        
         <div class="collapse navbar-collapse" id="mainNavbar">
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             <li class="nav-item">
@@ -174,7 +287,7 @@
               </a>
             </li>
             <li class="nav-item">
-              <a href="/stream" class="nav-link">
+              <a href="/stream" class="nav-link active">
                 <i class="bi bi-camera-reels"></i>
                 <span>Stream</span>
               </a>
@@ -186,8 +299,7 @@
               </a>
             </li>
             <li class="nav-item dropdown" id="menuTikTok">
-              <a class="nav-link dropdown-toggle" href="#" id="tiktokDropdown" role="button" data-bs-toggle="dropdown"
-                aria-expanded="false">
+              <a class="nav-link dropdown-toggle" href="#" id="tiktokDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-tiktok"></i>
                 <span>TikTok</span>
               </a>
@@ -219,54 +331,270 @@
               </a>
             </li>
           </ul>
-
           <div class="d-flex align-items-center">
-            <div class="user-dropdown">
-              <div class="user-avatar" id="userInitials">U</div>
-              <button id="logoutBtn" class="btn btn-outline-primary btn-sm btn-logout">
-                <i class="bi bi-box-arrow-right"></i>
-                <span class="d-none d-sm-inline">Logout</span>
-              </button>
-            </div>
+              <div class="user-dropdown">
+                  <div class="user-avatar" id="userInitials">U</div>
+                  <button id="logoutBtn" class="btn btn-outline-primary btn-sm btn-logout">
+                      <i class="bi bi-box-arrow-right"></i>
+                      <span class="d-none d-sm-inline">Logout</span>
+                  </button>
+              </div>
           </div>
         </div>
       </div>
     </nav>
   </header>
-  <main class="flex-grow-1 py-3">
-    <div class="container-fluid">
-      <div class="container-xl">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <div>
-        <span class="badge bg-danger me-2">Live Started: <span id="countLive">-</span></span>
-        <span class="badge bg-primary">Live Scheduled: <span id="countScheduled">-</span></span>
+
+  <div id="app" class="d-flex flex-column" style="min-height: 100vh;">
+    <main class="flex-grow-1">
+      <div class="container-fluid px-3 px-lg-4 py-4">
+    <!-- Page Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+      <div class="mb-3 mb-md-0">
+        <h1 class="h3 mb-2">Stream Manager</h1>
+        <p class="text-muted mb-0">Manage your live streams and media content</p>
       </div>
-      <button class="btn btn-success" id="uploadBtn">Tambah Stream</button>
+      <div class="d-flex gap-2">
+        <div class="d-flex flex-column align-items-end me-3">
+          <div class="d-flex align-items-center mb-1">
+            <span class="live-indicator me-1"></span>
+            <span class="text-muted small">Live:</span>
+            <span class="ms-1 fw-semibold" id="countLive">0</span>
+          </div>
+          <div class="d-flex align-items-center">
+            <i class="bi bi-alarm text-primary me-1"></i>
+            <span class="text-muted small">Scheduled:</span>
+            <span class="ms-1 fw-semibold" id="countScheduled">0</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="uploadBtn">
+          <i class="bi bi-plus-lg me-1"></i> New Stream
+        </button>
+      </div>
     </div>
-    <!-- Stream List Cards -->
-    <div id="stream-list-cards" class="row g-3">
-      <!-- Stream cards will be dynamically inserted here -->
+
+    <!-- Filters and Search (Mobile) -->
+    <div class="d-lg-none mb-4">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" class="form-control border-start-0" placeholder="Search streams..." id="searchStreamsMobile">
+        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filtersCollapse" aria-expanded="false" aria-controls="filtersCollapse">
+          <i class="bi bi-funnel"></i>
+        </button>
+      </div>
+      <div class="collapse mt-2" id="filtersCollapse">
+        <div class="card card-body p-3">
+          <h6 class="mb-2">Filters</h6>
+          <div class="d-flex flex-wrap gap-2">
+            <select class="form-select form-select-sm" style="width: auto;">
+              <option selected>All Status</option>
+              <option>Live</option>
+              <option>Idle</option>
+              <option>Error</option>
+            </select>
+            <select class="form-select form-select-sm" style="width: auto;">
+              <option selected>All Types</option>
+              <option>RTMP</option>
+              <option>HLS</option>
+              <option>MP4</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-arrow-clockwise"></i> Reset
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- Stream List -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        <!-- Stream List Cards -->
+        <div id="stream-list-cards" class="row g-4 px-3 py-3">
+          <!-- Stream cards will be dynamically inserted here -->
+        </div>
+        
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center p-5 d-none">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2 text-muted">Loading streams...</p>
+        </div>
+        
+        <!-- Empty State -->
+        <div id="emptyState" class="text-center p-5 d-none">
+          <div class="mx-auto" style="width: 120px;">
+            <img src="/static/img/empty-state.svg" alt="No streams" class="img-fluid mb-3">
+          </div>
+          <h5 class="mb-2">No streams found</h5>
+          <p class="text-muted mb-4">Get started by adding your first stream with clicking button New Stream</p>
+        </div>
+      </div>
+      
+      <!-- Pagination -->
+      <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center">
+        <div class="text-muted small">
+          Showing <span id="showingFrom">1</span> to <span id="showingTo">10</span> of <span id="totalItems">0</span> streams
+        </div>
+        <nav aria-label="Stream pagination">
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item disabled">
+              <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+            </li>
+            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+            <li class="page-item"><a class="page-link" href="#">2</a></li>
+            <li class="page-item"><a class="page-link" href="#">3</a></li>
+            <li class="page-item">
+              <a class="page-link" href="#">Next</a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </div>
+    </main>
+    
     <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="deleteConfirmationModalLabel">Confirm Deletion</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>Are you sure you want to delete this stream? This action cannot be undone.</p>
+            <p class="text-muted small mb-0">All associated data and configurations will be permanently removed.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+              <i class="bi bi-trash me-1"></i> Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Stream Modal -->
+    <div class="modal fade" id="addStreamModal" tabindex="-1" aria-labelledby="addStreamModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addStreamModalLabel">Add New Stream</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="addStreamForm">
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label for="streamName" class="form-label">Stream Name</label>
+                  <input type="text" class="form-control" id="streamName" required>
+                </div>
+                <div class="col-md-6">
+                  <label for="streamType" class="form-label">Stream Type</label>
+                  <select class="form-select" id="streamType" required>
+                    <option value="rtmp">RTMP</option>
+                    <option value="hls">HLS</option>
+                    <option value="mp4">MP4</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="streamUrl" class="form-label">Source URL</label>
+                <input type="url" class="form-control" id="streamUrl" placeholder="rtmp://example.com/live/stream" required>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="enableLoop" checked>
+                <label class="form-check-label" for="enableLoop">Loop video when ended</label>
+              </div>
+              <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                <small>Make sure your stream source is properly configured before starting the stream.</small>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" form="addStreamForm" class="btn btn-primary">
+              <i class="bi bi-plus-lg me-1"></i> Add Stream
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      // Initialize tooltips
+      document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+          return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Handle add stream button clicks
+        const uploadBtn = document.getElementById('uploadBtn');
+        const addFirstStreamBtn = document.getElementById('addFirstStreamBtn');
+        const addStreamModal = new bootstrap.Modal(document.getElementById('addStreamModal'));
+
+        if (uploadBtn) {
+          uploadBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = '/upload';
+          });
+        }
+        if (addFirstStreamBtn) {
+          addFirstStreamBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = '/upload';
+          });
+        }
+
+        // Handle form submission
+        const addStreamForm = document.getElementById('addStreamForm');
+        if (addStreamForm) {
+          addStreamForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            // Add your stream creation logic here
+            console.log('Adding new stream:', {
+              name: document.getElementById('streamName').value,
+              type: document.getElementById('streamType').value,
+              url: document.getElementById('streamUrl').value,
+              loop: document.getElementById('enableLoop').checked
+            });
+            
+            // Close modal and reset form
+            addStreamModal.hide();
+            addStreamForm.reset();
+            
+            // Show success message
+            alert('Stream added successfully!');
+          });
+        }
+
+        // Initialize stream list
+        if (typeof loadStreams === 'function') {
+          loadStreams();
+        }
+      });
+    </script>
     <style>
-      /* Ensure delete confirmation modal appears on top of other modals */
-      #deleteMediaModal {
+      /* Minimal modal fix */
+      .modal {
         z-index: 1060;
-        /* Bootstrap's modal z-index is 1050 by default */
       }
-
-      #deleteMediaModal~.modal-backdrop {
-        z-index: 1059;
-        /* Just below our modal */
+      
+      .modal-backdrop {
+        z-index: 1050;
       }
-
-      /* Make sure the parent modal remains interactive */
-      .modal.show {
-        pointer-events: none;
-      }
-
-      .modal.show .modal-dialog {
-        pointer-events: auto;
+      
+      /* Ensure delete confirmation modal appears on top */
+      #deleteMediaModal {
+        z-index: 1061;
       }
     </style>
     <div class="modal fade" id="deleteMediaModal" tabindex="-1" aria-labelledby="deleteMediaModalLabel"
@@ -287,14 +615,7 @@
         </div>
       </div>
     </div>
-    <!-- Pagination Bar -->
-    <div class="d-flex justify-content-center mt-4 mb-5">
-      <nav>
-        <ul class="pagination justify-content-center" id="pagination">
-          <!-- Pagination will be injected here -->
-        </ul>
-      </nav>
-    </div>
+    <!-- Pagination is now handled in the card footer -->
     <!-- Bind Channel Modal -->
     <div class="modal fade" id="bindChannelModal" tabindex="-1" aria-labelledby="bindChannelModalLabel"
       aria-hidden="true">
@@ -324,27 +645,7 @@
     <div id="bindChannelModalBackdrop" class="modal-backdrop fade" style="display:none;"></div>
     <!-- End Bind Channel Modal -->
   </div>
-  <!-- Video Preview Modal -->
-  <div class="modal fade" id="videoPreviewModal" tabindex="-1" aria-labelledby="videoPreviewModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="videoPreviewModalLabel">Video Preview</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <div class="ratio ratio-16x9" style="max-width: 100%;">
-            <video id="videoPreview"
-              style="object-fit: contain; width: 100%; height: 100%; max-height: 70vh; background: #000" controls>
-              <source id="videoPreviewSource" src="" type="video/mp4">
-              Your browser does not support the video tag.
-            </video>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- Video Preview Modal (Removed as per request) -->
 
   <!-- Bootstrap Toast Container -->
   <div aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
@@ -421,7 +722,7 @@
   </div>
 
   <!-- Stream Settings Modal -->
-  <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+  <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
@@ -470,31 +771,6 @@
       </div>
     </div>
   </div>
-
-  <script>
-    // Show/hide scheduler fields based on mode
-    $('#settingsMode').on('change', function () {
-      if ($(this).val() === 'SCHEDULER') {
-        $('#schedulerFields').show();
-        $('#durationField').hide();
-        $('#loopCountGroup').hide();
-      } else if ($(this).val() === 'DURATION') {
-        $('#schedulerFields').hide();
-        $('#durationField').show();
-        $('#loopCountGroup').hide();
-      } else if ($(this).val() === 'LOOPCOUNT') {
-        $('#schedulerFields').hide();
-        $('#durationField').hide();
-        $('#loopCountGroup').show();
-      } else {
-        $('#schedulerFields').hide();
-        $('#durationField').hide();
-        $('#loopCountGroup').hide();
-      }
-    });
-    // Ensure default value
-    $('#settingsLoopCount').val('-1');
-  </script>
 
   <!-- FFmpeg Logs Modal -->
   <div class="modal fade" id="ffmpegLogsModal" tabindex="-1" aria-labelledby="ffmpegLogsModalLabel" aria-hidden="true">
@@ -561,89 +837,212 @@
 
   </div>
   <style>
-    /* Ensure the footer stays at the bottom */
-    html,
+    /* Base styles */
+    :root {
+      --primary-color: #4361ee;
+      --success-color: #06d6a0;
+      --danger-color: #ef476f;
+      --warning-color: #ffd166;
+      --info-color: #118ab2;
+      --light-color: #f8f9fa;
+      --dark-color: #212529;
+      --border-radius: 0.5rem;
+      --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.05);
+      --transition: all 0.2s ease-in-out;
+    }
+
     body {
-      height: 100%;
+      background-color: #f5f7fb;
+      color: #4a5568;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+    }
+
+    /* Card styles */
+    .card {
+      border: none;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      transition: var(--transition);
+      overflow: hidden;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.08);
+    }
+
+    .card-header {
+      background-color: #fff;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      padding: 1rem 1.25rem;
+      font-weight: 600;
+    }
+
+    .card-title {
+      color: #2d3748;
+      font-weight: 600;
       margin: 0;
-      padding: 0;
     }
 
-    body {
+    /* Form controls */
+    .form-control, .form-select {
+      border: 1px solid #e2e8f0;
+      border-radius: 0.375rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      transition: var(--transition);
+    }
+
+    .form-control:focus, .form-select:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.15);
+    }
+
+    .input-group-text {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #64748b;
+    }
+
+    /* Buttons */
+    .btn {
+      font-weight: 500;
+      border-radius: 0.375rem;
+      padding: 0.5rem 1rem;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn i, .btn .bi {
+      margin-right: 0.375rem;
+    }
+
+    .btn-sm {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .btn-success {
+      background-color: var(--success-color);
+      border-color: var(--success-color);
+    }
+
+    .btn-danger {
+      background-color: var(--danger-color);
+      border-color: var(--danger-color);
+    }
+
+    .btn-outline-secondary {
+      color: #64748b;
+      border-color: #e2e8f0;
+    }
+
+    .btn-outline-secondary:hover {
+      background-color: #f8fafc;
+      border-color: #cbd5e1;
+      color: #475569;
+    }
+
+    /* Badges */
+    .badge {
+      font-weight: 500;
+      padding: 0.35em 0.65em;
+      border-radius: 0.25rem;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    /* Live indicator animation */
+    .live-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--danger-color);
+      margin-right: 0.25rem;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.7; }
+      50% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.7; }
+    }
+
+    /* Empty state */
+    .border-dashed {
+      border: 2px dashed #e2e8f0;
+      border-radius: var(--border-radius);
+      background-color: #f8fafc;
+    }
+
+    /* Dropdown menu */
+    .dropdown-menu {
+      border: none;
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .dropdown-item {
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
       display: flex;
-      flex-direction: column;
-      min-height: 100vh;
+      align-items: center;
     }
 
-    .dashboard-container {
-      flex: 1;
-      padding-bottom: 2rem;
+    .dropdown-item i, .dropdown-item .bi {
+      margin-right: 0.5rem;
+      width: 1.25rem;
+      text-align: center;
     }
 
-    .app-footer {
-      background-color: #f8f9fa;
-      border-top: 1px solid #e9ecef;
-      padding: 1.5rem 0;
-      margin-top: 2rem;
+    /* Responsive adjustments */
+    @media (max-width: 767.98px) {
+      .card {
+        margin-bottom: 1rem;
+      }
+      
+      .btn {
+        padding: 0.375rem 0.75rem;
+      }
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
     }
   </style>
 
-  <script>
-    // Set current year in footer
-    document.addEventListener('DOMContentLoaded', function () {
-      document.getElementById('currentYear').textContent = new Date().getFullYear();
-
-      // Set up the version info and load the script
-      fetch('/api/version')
-        .then(res => res.json())
-        .then(data => {
-          if (data.version && data.commit) {
-            const versionInfo = document.getElementById('versionInfo');
-            if (versionInfo) {
-              versionInfo.textContent = `v${data.version} (${data.commit.slice(0, 7)})`;
-              versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
-            }
-          }
-
-          // Load the main script
-          const script = document.createElement('script');
-          script.src = `/static/js/stream-list.js?v=${data.version ? data.version : '0.4.3'}`;
-          document.body.appendChild(script);
-        })
-        .catch((err) => {
-          console.error("Error initializing app:", err);
-        });
-    });
-  </script>
-
       </div> <!-- Close container-xl -->
     </div> <!-- Close container-fluid -->
-  </main>
-  
-  <!-- Main Footer -->
-  <footer class="footer mt-auto border-top">
-    <div class="container py-3">
-      <div class="row align-items-center">
-        <div class="col-md-6 text-center text-md-start mb-2 mb-md-0">
-          <div class="d-flex align-items-center justify-content-center justify-content-md-start">
-            <div class="me-3 d-flex align-items-center">
-              <i class="bi bi-broadcast me-2 text-primary broadcast-icon"></i>
-              <span class="brand-text">Yuk Live!</span>
-            </div>
-            <div class="vr d-none d-md-block"></div>
-            <div class="ms-md-3">
-              <span id="versionInfo" class="version-badge"></span>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-6 text-center text-md-end">
-          <div class="copyright-text">
-            &copy; <span id="currentYear"></span> PT Jejaring Internet Bersama. All rights reserved.
-          </div>
-        </div>
       </div>
-    </div>
-  </footer>
+    </main>
+  </div> <!-- Close #app -->
   <style>
   @keyframes fadeInUp {
     from {
@@ -755,6 +1154,51 @@
     }
   }
   </style>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Set current year in footer
+    document.addEventListener('DOMContentLoaded', function () {
+      // Set up the version info and load the script
+      fetch('/api/version')
+        .then(res => res.json())
+        .then(data => {
+          // Load the main script
+          const script = document.createElement('script');
+          script.src = `/static/js/stream-list.js?v=${data.version ? data.version : '0.4.3'}`;
+          document.body.appendChild(script);
+        })
+        .catch((err) => {
+          console.error("Error initializing app:", err);
+        });
+    });
+  </script>
+
+  <script>
+    // Show/hide scheduler fields based on mode
+    $('#settingsMode').on('change', function () {
+      if ($(this).val() === 'SCHEDULER') {
+        $('#schedulerFields').show();
+        $('#durationField').hide();
+        $('#loopCountGroup').hide();
+      } else if ($(this).val() === 'DURATION') {
+        $('#schedulerFields').hide();
+        $('#durationField').show();
+        $('#loopCountGroup').hide();
+      } else if ($(this).val() === 'LOOPCOUNT') {
+        $('#schedulerFields').hide();
+        $('#durationField').hide();
+        $('#loopCountGroup').show();
+      } else {
+        $('#schedulerFields').hide();
+        $('#durationField').hide();
+        $('#loopCountGroup').hide();
+      }
+    });
+    // Ensure default value
+    $('#settingsLoopCount').val('-1');
+  </script>
 </body>
 
 </html>

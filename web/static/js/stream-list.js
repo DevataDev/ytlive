@@ -206,111 +206,184 @@ $(function() {
         const cardContainer = $("#stream-list-cards");
         cardContainer.empty();
         if (!data.streams || data.streams.length === 0) {
-            cardContainer.append('<div class="col-12 text-center text-muted">No streams found.</div>');
+            cardContainer.append(`
+                <div class="col-12">
+                    <div class="card border-dashed h-100 py-5">
+                        <div class="card-body text-center d-flex flex-column justify-content-center">
+                            <i class="bi bi-broadcast fs-1 text-muted mb-3"></i>
+                            <h5 class="text-muted mb-3">No streams found</h5>
+                            <p class="text-muted mb-0">Click the button New Stream to create a new stream</p>
+                        </div>
+                    </div>
+                </div>
+            `);
             return;
         }
+
+        // Update counters
+        const liveCount = data.streams.filter(s => s.Status === 'live').length;
+        const scheduledCount = data.streams.filter(s => s.Status === 'scheduled').length;
+        $('#countLive').text(liveCount);
+        $('#countScheduled').text(scheduledCount);
+
         data.streams.forEach(stream => {
-            let liveIndicator = stream.Status === 'live' ? '<span class="live-indicator"></span>' : '';
-            let stopDisabled = (stream.Status !== 'live') ? 'disabled' : '';
-            let loopChecked = stream.LoopVideo ? 'checked' : '';
-            let previewUrl = `/api/streams/${stream.ID}/preview`;
-            let streamKeyField = `<input type="password" class="form-control form-control-sm stream-password" id="streamkey-input-${stream.ID}" value="${stream.StreamKey || ''}" style="max-width:180px;display:inline-block;">`;
-            let streamKeySaveBtn = `<button class="btn btn-outline-success btn-sm ms-1 streamkey-save" data-id="${stream.ID}" title="Save Stream Key"><i class="fa fa-save"></i></button>`;
-            let showPasswordBtn = `<button class="btn btn-outline-secondary btn-sm ms-1 stream-password-toggle" title="Show/Hide"><i class="fa fa-eye"></i></button>`;
-            let rtmpUrlField = `<input type="text" class="form-control form-control-sm stream-rtmp-url w-100" id="rtmpurl-input-${stream.ID}" value="${stream.RTMPUrl || 'rtmp://a.rtmp.youtube.com/live2/'}" style="min-width:200px;max-width:100%;display:inline-block;" />`;
-            let rtmpUrlSaveBtn = `<button class="btn btn-outline-success btn-sm ms-2 rtmpurl-save" data-id="${stream.ID}" title="Save RTMP URL"><i class="fa fa-save"></i></button>`;
-            let streamKeyIsSet = !!(stream.StreamKey && stream.StreamKey.trim().length > 0);
-            let startDisabled = streamKeyIsSet ? '' : 'disabled';
-            let mainBtn = '';
-            if (stream.Status === 'live') {
-                mainBtn = `<button class="btn btn-danger btn-sm stream-stop" data-id="${stream.ID}">Stop</button>`;
+            const isLive = stream.Status === 'live';
+            const isScheduled = stream.Status === 'scheduled';
+            const streamKeyIsSet = !!(stream.StreamKey && stream.StreamKey.trim().length > 0);
+            
+            // Status badge
+            let statusBadge = '';
+            if (isLive) {
+                statusBadge = '<span class="badge bg-danger bg-opacity-10 text-danger"><span class="live-indicator"></span> Live</span>';
+            } else if (isScheduled) {
+                statusBadge = '<span class="badge bg-primary bg-opacity-10 text-primary"><i class="bi bi-alarm me-1"></i> Scheduled</span>';
             } else {
-                mainBtn = `<button class="btn btn-success btn-sm stream-start" data-id="${stream.ID}" ${startDisabled}>Start</button>`;
+                statusBadge = '<span class="badge bg-secondary bg-opacity-10 text-secondary">Idle</span>';
             }
-            let bindBtn = `<button class='btn btn-outline-primary btn-sm ms-2 bind-channel-btn' data-id='${stream.ID}'>Bind</button>`;
-            let mediaBtn = `<button class="btn btn-outline-warning btn-sm media-manage-btn ms-2" data-id="${stream.ID}" title="Kelola Media"><i class="fa fa-file-video"></i></button>`;
-            let deleteBtn = `<button class="btn btn-secondary btn-sm stream-delete ms-2" data-id="${stream.ID}">Hapus</button>`;
-            let cloneBtn = `<button class="btn btn-info btn-sm stream-clone ms-2" data-id="${stream.ID}" title="Clone"><i class="fa fa-clone"></i></button>`;
-            let logsBtn = `<button class="btn btn-info btn-sm view-logs-btn stream-logs ms-2" data-id="${stream.ID}" title="Logs"><i class="fa fa-info-circle"></i></button>`;
 
-            // --- File size formatting ---
-            let fileSizeStr = '';
-            if (stream.FileSizeBytes != null) {
-                const size = stream.FileSizeBytes;
-                if (size >= 1024 * 1024 * 1024) {
-                    fileSizeStr = (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-                } else if (size >= 1024 * 1024) {
-                    fileSizeStr = (size / (1024 * 1024)).toFixed(2) + ' MB';
-                } else if (size >= 1024) {
-                    fileSizeStr = (size / 1024).toFixed(2) + ' KB';
-                } else {
-                    fileSizeStr = size + ' bytes';
-                }
+            // Main action button
+            let mainBtn = '';
+            if (isLive) {
+                mainBtn = `
+                    <button class="btn btn-danger btn-sm stream-stop" data-id="${stream.ID}">
+                        <i class="bi bi-stop-fill me-1"></i> Stop
+                    </button>`;
+            } else {
+                mainBtn = `
+                    <button class="btn btn-success btn-sm stream-start" data-id="${stream.ID}" ${!streamKeyIsSet ? 'disabled' : ''}>
+                        <i class="bi bi-play-fill me-1"></i> Start
+                    </button>`;
             }
-            // --- Uploaded time formatting ---
-            let uploadedTimeStr = '';
+
+            // Secondary actions
+            const secondaryActions = `
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item stream-rename-btn" href="#" data-id="${stream.ID}" data-name="${stream.Name}" data-description="${stream.Description || ''}"><i class="bi bi-pencil me-2"></i>Rename</a></li>
+                        <li><a class="dropdown-item bind-channel-btn" href="#" data-id="${stream.ID}"><i class="bi bi-link-45deg me-2"></i>Bind Channel</a></li>
+                        <li><a class="dropdown-item media-manage-btn" href="#" data-id="${stream.ID}"><i class="bi bi-folder2-open me-2"></i>Media Files</a></li>
+                        <li><a class="dropdown-item view-logs-btn" href="#" data-id="${stream.ID}"><i class="bi bi-terminal me-2"></i>View Logs</a></li>
+                        <li><a class="dropdown-item stream-settings-btn" href="#" data-id="${stream.ID}"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item stream-delete text-danger" href="#" data-id="${stream.ID}"><i class="bi bi-trash me-2"></i>Delete</a></li>
+                    </ul>
+                </div>`;
+
+            // Stream info
+            const streamInfo = [];
             if (stream.CreatedAt) {
-                const uploadedDate = new Date(stream.CreatedAt);
-                uploadedTimeStr = uploadedDate.toLocaleString();
+                const date = new Date(stream.CreatedAt);
+                streamInfo.push(`<div class="text-muted small"><i class="bi bi-calendar3 me-1"></i> ${date.toLocaleString()}</div>`);
             }
-            let infoBlock = '';
-            if (fileSizeStr || uploadedTimeStr) {
-                infoBlock = `<div class="text-muted small mt-1">${fileSizeStr ? 'Size: ' + fileSizeStr : ''}${fileSizeStr && uploadedTimeStr ? ' | ' : ''}${uploadedTimeStr ? 'Uploaded: ' + uploadedTimeStr : ''}</div>`;
+            if (stream.FileSizeBytes) {
+                const size = formatFileSize(stream.FileSizeBytes);
+                streamInfo.push(`<div class="text-muted small"><i class="bi bi-file-earmark me-1"></i> ${size}</div>`);
             }
 
-            let liveBadge = stream.Status === 'live' ? '<span class="badge bg-danger ms-2">LIVE</span>' : '';
-            let title = `${stream.Name || 'Live Stream'}`;
-            let streamIdBadge = `<span class="stream-id-badge" title="Stream ID">ID: ${stream.ID}</span>`;
-            let renameBtn = `<button class="btn btn-link p-0 ms-2 stream-rename-btn" data-id="${stream.ID}" title="Rename Stream Name"><i class="fa fa-pencil-alt"></i></button>`;
-            let settingsBtn = `<button class="btn btn-outline-warning btn-sm stream-settings-btn position-absolute" style="bottom:16px;right:16px;z-index:10;" data-id="${stream.ID}" title="Stream Settings"><i class="fa fa-gear"></i></button>`;
-            let cardHeader = `
-                <div class="stream-header">
-                    ${streamIdBadge}
-                    <div class="d-flex justify-content-between align-items-center" style="width: 100%;">
-                        <div style="flex: 1; min-width: 0;">
-                            <span class="fw-bold fs-5 stream-title-ellipsis" title="${title}">${title}</span>
+            // Stream key input with toggle
+            const streamKeyField = `
+                <div class="input-group input-group-sm mb-3">
+                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                    <input type="password" 
+                           class="form-control form-control-sm stream-password" 
+                           id="streamkey-input-${stream.ID}" 
+                           value="${stream.StreamKey || ''}" 
+                           placeholder="Stream Key"
+                           aria-label="Stream Key">
+                    <button class="btn btn-outline-secondary stream-password-toggle" type="button" title="Show/Hide">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button class="btn btn-outline-success streamkey-save" type="button" data-id="${stream.ID}" title="Save Stream Key">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                </div>`;
+
+            // RTMP URL input
+            const rtmpUrlField = `
+                <div class="input-group input-group-sm mb-3">
+                    <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                    <input type="text" 
+                           class="form-control form-control-sm stream-rtmp-url" 
+                           id="rtmpurl-input-${stream.ID}" 
+                           value="${stream.RTMPUrl || 'rtmp://a.rtmp.youtube.com/live2/'}" 
+                           placeholder="RTMP URL"
+                           aria-label="RTMP URL">
+                    <button class="btn btn-outline-success rtmpurl-save" type="button" data-id="${stream.ID}" title="Save RTMP URL">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                </div>`;
+
+            // Loop toggle switch
+            const loopToggle = `
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input stream-loop-toggle" 
+                           type="checkbox" 
+                           id="loopSwitch${stream.ID}" 
+                           data-id="${stream.ID}" 
+                           ${stream.LoopVideo ? 'checked' : ''}>
+                    <label class="form-check-label" for="loopSwitch${stream.ID}">
+                        <i class="bi bi-arrow-repeat me-1"></i> Loop Video
+                    </label>
+                </div>`;
+
+            // Stream card
+            const card = `
+                <div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-4">
+                    <div class="card h-100 border-0 shadow-sm overflow-hidden">
+                        <!-- Card Header -->
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <h5 class="card-title mb-0 text-truncate" style="max-width: 180px;" title="${stream.Name || 'Untitled Stream'}">
+                                    ${stream.Name || 'Untitled Stream'}
+                                </h5>
+                                <span class="ms-2">${statusBadge}</span>
+                            </div>
+                            ${secondaryActions}
                         </div>
-                        <div class="d-flex align-items-center gap-1" style="flex-shrink: 0;">
-                            <button class="btn btn-sm btn-outline-primary stream-rename-btn" data-id="${stream.ID}" data-description="${stream.Description || ''}" title="Edit"><i class="fa fa-pencil-alt"></i></button>
-                            <button class="btn-close stream-delete-x" data-id="${stream.ID}" aria-label="Close"></button>
+                        
+                        <!-- Card Body -->
+                        <div class="card-body p-3">
+                            <!-- Stream Info -->
+                            <div class="d-flex flex-column gap-1 mb-3">
+                                ${streamInfo.join('')}
+                            </div>
+                            
+                            <!-- Stream Key -->
+                            <div class="mb-3">
+                                <label class="form-label small text-muted mb-1">Stream Key</label>
+                                ${streamKeyField}
+                            </div>
+                            
+                            <!-- RTMP URL -->
+                            <div class="mb-3">
+                                <label class="form-label small text-muted mb-1">RTMP URL</label>
+                                ${rtmpUrlField}
+                            </div>
+                            
+                            <!-- Loop Toggle -->
+                            ${loopToggle}
+                        </div>
+                        
+                        <!-- Card Footer -->
+                        <div class="card-footer bg-white border-top-0 pt-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                ${mainBtn}
+                                <div class="d-flex align-items-center">
+                                    <button class="btn btn-outline-secondary btn-sm me-2 view-logs-btn" data-id="${stream.ID}" title="View Logs">
+                                        <i class="bi bi-terminal"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm media-manage-btn" data-id="${stream.ID}" title="Media Files">
+                                        <i class="bi bi-folder2-open"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
-            let card = `
-            <div class="col-12 col-md-6 col-lg-4">
-                <div class="stream-card card shadow-sm rounded-4 p-3 position-relative mb-3">
-                    ${cardHeader}
-                    ${infoBlock}
-                    <div class="ratio ratio-16x9 mb-2">
-                        <video src="${previewUrl}" class="w-100 rounded-3" ${stream.LoopVideo ? 'loop' : ''} controls poster="/static/img/preview.jpg" style="background:#000;"></video>
-                    </div>
-                    <div class="mb-2 d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center">
-                            ${streamKeyField}
-                            ${streamKeySaveBtn}
-                            ${showPasswordBtn}
-                        </div>
-                        <div class="form-check form-switch ms-2">
-                            <input class="form-check-input stream-loop-toggle" type="checkbox" id="loopSwitch${stream.ID}" data-id="${stream.ID}" ${loopChecked}>
-                            <label class="form-check-label" for="loopSwitch${stream.ID}">Loop Video</label>
-                        </div>
-                    </div>
-                    <div class="mb-2 d-flex align-items-center">
-                        ${rtmpUrlField}
-                        ${rtmpUrlSaveBtn}
-                    </div>
-                    <div class="d-flex align-items-center">
-                        ${mainBtn}
-                        ${deleteBtn}
-                        ${bindBtn}
-                        ${mediaBtn}
-                        ${logsBtn}
-                        ${liveBadge}
-                    </div>
-                    ${settingsBtn}
-                </div>
-            </div>`;
+                </div>`;
+                
             cardContainer.append(card);
         });
     }
@@ -404,33 +477,70 @@ $(function() {
     }
 
     function renderPagination(data) {
-        const pag = $("#pagination");
+        const pag = $(".pagination");
         pag.empty();
         const page = data.page || 1;
         const perPage = data.per_page || 6;
         const total = data.total || 0;
         const totalPages = Math.ceil(total / perPage);
-        if (totalPages <= 1) return;
 
-        // Total items info
-        pag.append(`<li class="page-item disabled"><span class="page-link">Total: ${total} items</span></li>`);
+        // Update showing X to Y of Z
+        const from = Math.min((page - 1) * perPage + 1, total);
+        const to = Math.min(page * perPage, total);
+        $("#showingFrom").text(from);
+        $("#showingTo").text(to);
+        $("#totalItems").text(total);
 
-        // First & Prev
-        pag.append(`<li class="page-item${page === 1 ? ' disabled' : ''}"><a class="page-link" href="#" data-page="1">First</a></li>`);
-        pag.append(`<li class="page-item${page === 1 ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${page - 1}">Prev</a></li>`);
-        
+        if (totalPages <= 1) {
+            $(".card-footer").hide();
+            return;
+        } else {
+            $(".card-footer").show();
+        }
+
+
+        // Previous button
+        const prevDisabled = page === 1 ? 'disabled' : '';
+        pag.append(`
+            <li class="page-item ${prevDisabled}">
+                <a class="page-link" href="#" data-page="${page - 1}" ${prevDisabled ? 'tabindex="-1" aria-disabled="true"' : ''}>Previous</a>
+            </li>
+        `);
+
         // Numbered pages (show up to 5 pages around current)
         let start = Math.max(1, page - 2);
         let end = Math.min(totalPages, page + 2);
+
+        // Adjust if we're at the start or end
+        if (end - start < 4) {
+            if (page < 3) {
+                end = Math.min(5, totalPages);
+            } else {
+                start = Math.max(1, totalPages - 4);
+            }
+        }
         if (page <= 3) end = Math.min(5, totalPages);
         if (page >= totalPages - 2) start = Math.max(1, totalPages - 4);
         for (let i = start; i <= end; i++) {
             pag.append(`<li class="page-item${i === page ? ' active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`);
         }
 
-        // Next & Last
-        pag.append(`<li class="page-item${page === totalPages ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${page + 1}">Next</a></li>`);
-        pag.append(`<li class="page-item${page === totalPages ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${totalPages}">Last</a></li>`);
+        // Next button
+        const nextDisabled = page === totalPages ? 'disabled' : '';
+        pag.append(`
+            <li class="page-item ${nextDisabled}">
+                <a class="page-link" href="#" data-page="${page + 1}" ${nextDisabled ? 'tabindex="-1" aria-disabled="true"' : ''}>Next</a>
+            </li>
+        `);
+        
+        // Add click handler for page numbers
+        $(".page-link").on("click", function(e) {
+            e.preventDefault();
+            const newPage = $(this).data("page");
+            if (newPage && newPage > 0 && newPage <= totalPages && !$(this).parent().hasClass("disabled")) {
+                fetchStreams(newPage);
+            }
+        });
     }
 
     function fetchStreams(page = 1, per_page = 6) {
@@ -509,6 +619,108 @@ $(function() {
         tooltip.css({ top: btnOffset.top + $(this).outerHeight() + 8, left: btnOffset.left });
     });
 
+    // Settings modal logic
+    $(document).on('click', '.stream-settings-btn', function() {
+        // Get the modal element and check if it's already open
+        const modalElement = document.getElementById('settingsModal');
+        let modal = bootstrap.Modal.getInstance(modalElement);
+        
+        // If modal is already open, close it first to ensure clean state
+        if (modal) {
+            modal.hide();
+            modal.dispose();
+        }
+        
+        // Use the global stream list for modal population
+        const streamId = $(this).data('id');
+        const streams = window.lastStreams || [];
+        const stream = streams.find(s => s.ID === streamId);
+        if (!stream) return;
+        
+        // Reset form first
+        $('#settingsForm')[0].reset();
+        
+        // Set stream ID
+        $('#settingsStreamId').val(streamId);
+        
+        // Handle schedule settings
+        let scheduleStartAt = null;
+        let scheduleEndAt = null;
+        let durationHours = 0;
+        
+        if (stream.ScheduledStartAt) { 
+            scheduleStartAt = stream.ScheduledStartAt; 
+            $('#settingsStart').val(toDatetimeLocal(scheduleStartAt));
+        } else {
+            $('#settingsStart').val('');
+        }
+        
+        if (stream.ScheduledEndAt) { 
+            scheduleEndAt = stream.ScheduledEndAt;
+            $('#settingsEnd').val(toDatetimeLocal(scheduleEndAt));
+        } else {
+            $('#settingsEnd').val('');
+        }
+        if (stream.ScheduledStartAt == null && stream.ScheduledEndAt) {
+            $('#settingsStart').val('');
+            $('#settingsEnd').val('');
+            let scheduleAt = null;
+            let scheduleEndAt = null;
+            let durationHours = 0;
+            if (stream.ScheduledEndAt) {
+                scheduleAt = stream.ScheduledAt ? stream.ScheduledAt : new Date();
+                scheduleEndAt = stream.ScheduledEndAt;
+                scheduleAtMilliseconds = new Date(scheduleAt).getTime();
+                scheduleEndAtMilliseconds = new Date(scheduleEndAt).getTime();
+                let gapHour = scheduleEndAtMilliseconds - scheduleAtMilliseconds;
+                durationHours = gapHour / (1000 * 60 * 60);
+                $('#settingsDuration').val(durationHours);
+            } else {
+                $('#settingsDuration').val(0);
+            }
+        }
+        if (window.console && typeof window.console.log === 'function') {
+            console.log('Schedule settings:', { start: scheduleStartAt, end: scheduleEndAt, loopCount: stream.LoopCount });
+        }
+        if (scheduleStartAt) {
+            $('#settingsMode').val('SCHEDULER');
+        } else if (scheduleEndAt && scheduleStartAt == null && stream.LoopCount !== undefined && stream.LoopCount !== null && parseInt(stream.LoopCount) < 0) {
+            $('#settingsMode').val('DURATION');
+        }  else if (stream.LoopCount !== undefined && stream.LoopCount !== null && parseInt(stream.LoopCount) > 0) {
+            $('#settingsMode').val('LOOPCOUNT');
+        } else {
+            $('#settingsMode').val('LIVE');
+        }
+
+        // Initialize and show the modal
+        const newModal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true
+        });
+        
+        // Store the modal instance for later use
+        $(modalElement).data('bs.modal', newModal);
+        
+        // Show the modal
+        newModal.show();
+        
+        // Trigger change event for mode
+        $('#settingsMode').trigger('change');
+        
+        // Add event listener for hidden event to clean up
+        $(modalElement).off('hidden.bs.modal').on('hidden.bs.modal', function() {
+            // Clean up the modal instance when hidden
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.dispose();
+            }
+            // Remove any lingering backdrop
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open');
+            $('body').css('padding-right', '');
+        });
+    });
+
     // Cancel tooltip
     $(document).on("click", ".streamkey-cancel", function() {
         $('.streamkey-tooltip').remove();
@@ -527,9 +739,10 @@ $(function() {
             data: JSON.stringify({ stream_key: newKey }),
             success: function() {
                 fetchStreams();
+                showStreamToast('Stream key updated successfully', 'success');
             },
             error: function() {
-                alert('Failed to update stream key.');
+                showStreamToast('Failed to update stream key.', 'danger');
             }
         });
     });
@@ -665,43 +878,103 @@ $(function() {
     });
 
     // Delete stream handler (trash/x button and main delete button)
+    let currentDeleteId = null;
+    let currentDeleteButton = null;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmationModal'));
+    
+    // Handle delete button click
     $(document).on("click", ".delete-btn, .stream-delete-x, .stream-delete", function(e) {
         e.preventDefault();
-        if (!confirm("Are you sure you want to delete this stream?")) return;
-        const id = $(this).data("id");
+        e.stopPropagation();
+        
+        const $button = $(this);
+        
+        // Reset any previous delete states
+        if (currentDeleteButton && currentDeleteButton !== $button[0]) {
+            $(currentDeleteButton).prop('disabled', false).removeClass('disabled');
+        }
+
+        // find confirm delete button
+        const $confirmBtn = $('#confirmDeleteBtn');
+        // reset the state always
+        $confirmBtn.prop('disabled', false).html("<i class='bi bi-trash me-1'></i> Delete");
+        
+        // Store the current delete ID and button for later use
+        currentDeleteId = $button.data("id");
+        currentDeleteButton = $button[0]; // Store the DOM element, not jQuery object
+        
+        // Show the confirmation modal
+        deleteModal.show();
+    });
+    
+    // Handle confirm delete button click
+    $('#confirmDeleteBtn').off('click').on('click', function() {
+        if (!currentDeleteId || !currentDeleteButton) return;
+        
+        const $button = $(currentDeleteButton);
         const token = localStorage.getItem("jwt_token");
+        const $modal = $('#deleteConfirmationModal');
+        
+        // Disable the button to prevent multiple clicks
+        $button.prop('disabled', true).addClass('disabled');
+        
+        // Show loading state on the delete button
+        const $confirmBtn = $(this);
+        const originalBtnText = $confirmBtn.html();
+        $confirmBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...');
+        
+        // Make the delete request
         ajaxWithRefresh({
-            url: `/api/streams/${id}`,
+            url: `/api/streams/${currentDeleteId}`,
             method: "DELETE",
             headers: { Authorization: "Bearer " + token },
             success: function() {
                 fetchStreams();
+                showStreamToast('Stream deleted successfully', 'success');
             },
-            error: function() {
-                alert('Failed to delete stream.');
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON?.message || 'Failed to delete stream';
+                showStreamToast(errorMsg, 'danger');
+            },
+            complete: function() {
+                // Reset button states
+                $button.prop('disabled', false).removeClass('disabled');
+                $confirmBtn.prop('disabled', false).html(originalBtnText);
+                
+                // Reset the current delete ID and button
+                currentDeleteId = null;
+                currentDeleteButton = null;
+                
+                // Hide and reset the modal
+                if ($modal.length) {
+                    // Hide the modal using Bootstrap's method
+                    const bsModal = bootstrap.Modal.getInstance($modal[0]);
+                    if (bsModal) {
+                        bsModal.hide();
+                    } else {
+                        // Fallback in case the modal instance isn't available
+                        $modal.modal('hide');
+                        $('body').removeClass('modal-open');
+                        $('.modal-backdrop').remove();
+                    }
+                }
             }
         });
     });
-
-    // Clone stream handler
-    $(document).on("click", ".stream-clone", function(e) {
-        e.preventDefault();
-        const id = $(this).data("id");
-        const token = localStorage.getItem("jwt_token");
-        ajaxWithRefresh({
-            url: `/api/streams/${id}/clone`,
-            method: "POST",
-            headers: { Authorization: "Bearer " + token },
-            success: function() {
-                showStreamToast('Stream cloned successfully!', 'success');
-                fetchStreams();
-            },
-            error: function(xhr) {
-                let msg = 'Failed to clone stream.';
-                if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
-                showStreamToast(msg, 'error');
-            }
-        });
+    
+    // Clean up when modal is hidden
+    $('#deleteConfirmationModal').on('hidden.bs.modal', function() {
+        // Reset any modal state if needed
+        const $confirmBtn = $('#confirmDeleteBtn');
+        $confirmBtn.prop('disabled', false).html("<i class='bi bi-trash me-1'></i> Delete");
+        
+        // Reset the current delete ID and button
+        currentDeleteId = null;
+        currentDeleteButton = null;
+        
+        // Ensure backdrop is removed
+        $('body').removeClass('modal-open');
+        $('.modal-backdrop').remove();
     });
 
     // Schedule button handler
@@ -738,7 +1011,10 @@ $(function() {
             headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
             data: JSON.stringify({ ScheduledAt: start, StoppedAt: end, Timezone: timezone }),
             success: function() {
-                $('#scheduleModal').modal('hide');
+                const scheduleModal = bootstrap.Modal.getInstance(document.getElementById('scheduleModal'));
+                if (scheduleModal) scheduleModal.hide();
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
                 showStreamToast('Stream scheduled successfully!', 'success');
                 fetchStreams();
             },
@@ -762,6 +1038,7 @@ $(function() {
     // Save rename
     $('#saveRenameBtn').on('click', function(e) {
         e.preventDefault();
+
         const streamId = $('#renameStreamId').val();
         const newName = $('#renameFileName').val().trim();
         const token = localStorage.getItem('jwt_token');
@@ -775,7 +1052,10 @@ $(function() {
             headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
             data: JSON.stringify({ FileName: newName }),
             success: function() {
-                $('#renameModal').modal('hide');
+                const renameModal = bootstrap.Modal.getInstance(document.getElementById('renameModal'));
+                if (renameModal) renameModal.hide();
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
                 showStreamToast('File renamed successfully!', 'success');
                 fetchStreams();
             },
@@ -787,95 +1067,156 @@ $(function() {
 
     // Rename handler (modal)
     let renameStreamId = null;
-    $(document).on("click", ".stream-rename-btn", function() {
-        renameStreamId = $(this).data("id");
-        const $card = $(this).closest('.stream-card');
-        const currentTitle = $card.find('.fw-bold.fs-5').text();
-        const currentDescription = $(this).data('description') || '';
+    $(document).on("click", ".stream-rename-btn", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         
-        // Add modal markup if not present
-        if ($('#renameModal').length === 0) {
-            $('body').append(`
-            <div class="modal fade" id="renameModal" tabindex="-1" aria-labelledby="renameModalLabel" aria-hidden="true">
-              <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h5 class="modal-title" id="renameModalLabel">Edit Stream Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                  </div>
-                  <div class="modal-body">
-                    <div class="mb-3">
-                      <label for="renameModalInput" class="form-label">Stream Name</label>
-                      <input type="text" class="form-control" id="renameModalInput" required />
-                    </div>
-                    <div class="mb-3">
-                      <label for="streamDescriptionInput" class="form-label">Description <small class="text-muted">(optional)</small></label>
-                      <textarea class="form-control" id="streamDescriptionInput" rows="3" placeholder="Add a description for this stream"></textarea>
-                    </div>
-                  </div>
-                  <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="renameModalSave">Save Changes</button>
-                  </div>
-                </div>
-              </div>
-            </div>`);
-        }
+        renameStreamId = $(this).data("id");
+        const currentTitle = $(this).data('name') || '';
+        const currentDescription = $(this).data('description') || '';
         
         // Set current values
         $('#renameModalInput').val(currentTitle);
         $('#streamDescriptionInput').val(currentDescription);
+                
+        // Get the modal element
+        const modalElement = document.getElementById('renameModal');
         
-        const renameModal = new bootstrap.Modal(document.getElementById('renameModal'));
-        renameModal.show();
+        // Hide any existing modals first
+        $('.modal').modal('hide');
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open');
+        $('body').css('padding-right', '');
+        
+        // Initialize a new modal instance
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true
+        });
+        
+        // Show the modal
+        $(modalElement).modal('show');
+        
+        // Add one-time event listener for hidden event
+        const onModalHidden = function() {
+            try {
+                // Clean up the modal
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.dispose();
+                }
+                
+                // Remove backdrop and reset styles
+                $('.modal-backdrop').remove();
+                
+                // Reset body styles
+                $('body')
+                    .removeClass('modal-open')
+                    .css('padding-right', '')
+                    .css('overflow', '');
+                
+                // Reset html styles (Bootstrap might have added overflow: hidden here too)
+                $('html').css('overflow', '');
+                
+                // Clean up modal element
+                $(modalElement)
+                    .removeData('bs.modal')
+                    .removeAttr('style')
+                    .removeClass('show')
+                    .css('display', 'none');
+                
+                // Remove the event listener to prevent memory leaks
+                $(modalElement).off('hidden.bs.modal', onModalHidden);
+            } catch (e) {
+                console.error('Error during modal cleanup:', e);
+            }
+        };
+        
+        // Set up the hidden event handler
+        $(modalElement).off('hidden.bs.modal').on('hidden.bs.modal', onModalHidden);
+        
+        // Also set up a one-time handler for show.bs.modal to ensure proper initialization
+        $(modalElement).one('show.bs.modal', function() {
+            // Make sure body has proper overflow
+            $('body').css('overflow', 'hidden');
+        });
     });
 
     $(document).on("click", "#renameModalSave", function() {
+        const $saveBtn = $(this);
         const newTitle = $('#renameModalInput').val().trim();
         const newDescription = $('#streamDescriptionInput').val().trim();
+        const modalElement = document.getElementById('renameModal');
+        const token = localStorage.getItem('jwt_token');
         
-        if (!renameStreamId) return;
-        const $card = $(`button[data-id='${renameStreamId}'].stream-rename-btn`).closest('.stream-card');
-        const currentTitle = $card.find('.fw-bold.fs-5').text();
-        const currentDescription = $card.data('description') || '';
-        
-        // Only proceed if there are changes
-        if ((newTitle && newTitle !== currentTitle) || newDescription !== currentDescription) {
-            const token = localStorage.getItem("jwt_token");
-            ajaxWithRefresh({
-                url: `/api/streams/${renameStreamId}/rename`,
-                method: "PUT",
-                headers: { Authorization: "Bearer " + token },
-                contentType: "application/json",
-                data: JSON.stringify({ 
-                    name: newTitle,
-                    description: newDescription 
-                }),
-                success: function(response) {
-                    // Update the card with the new description
-                    const $descriptionEl = $card.find('.stream-description');
-                    if (newDescription) {
-                        if ($descriptionEl.length) {
-                            $descriptionEl.text(newDescription);
-                        } else {
-                            $(`<div class="text-muted small mt-1 stream-description">${newDescription}</div>`)
-                                .insertAfter($card.find('.fw-bold.fs-5'));
-                        }
-                        $card.data('description', newDescription);
-                    } else if ($descriptionEl.length) {
-                        $descriptionEl.remove();
-                        $card.removeData('description');
-                    }
-                    
-                    fetchStreams();
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('renameModal'));
-                    modal.hide();
-                },
-                error: function() {
-                    alert('Failed to rename file.');
-                }
-            });
+        if (!newTitle) {
+            alert('Please enter a file name.');
+            return;
         }
+        
+        const $card = $(`#stream-${renameStreamId}`);
+        const oldTitle = $card.find('.fw-bold.fs-5').text().trim();
+        
+        // Show loading state
+        const originalBtnText = $saveBtn.html();
+        $saveBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...');
+        
+        // Send rename request
+        $.ajax({
+            url: `/api/streams/${renameStreamId}/rename`,
+            type: 'PUT',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            contentType: 'application/json',
+            data: JSON.stringify({ 
+                name: newTitle,
+                description: newDescription 
+            }),
+            success: function(response) {
+                // Update the card with the new description
+                const $descriptionEl = $card.find('.stream-description');
+                if (newDescription) {
+                    if ($descriptionEl.length) {
+                        $descriptionEl.text(newDescription);
+                    } else {
+                        $(`<div class="text-muted small mt-1 stream-description">${newDescription}</div>`)
+                            .insertAfter($card.find('.fw-bold.fs-5'));
+                    }
+                    $card.data('description', newDescription);
+                } else if ($descriptionEl.length) {
+                    $descriptionEl.remove();
+                    $card.removeData('description');
+                }
+                
+                // Close the modal and clean up
+                if (modalElement) {
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
+                        // Let the hidden.bs.modal event handle the cleanup
+                        $(modalElement).one('hidden.bs.modal', function() {
+                            // Refresh the streams after a short delay
+                            setTimeout(fetchStreams, 100);
+                        });
+                    } else {
+                        // Fallback cleanup if we can't get the modal instance
+                        $('.modal-backdrop').remove();
+                        $('body').removeClass('modal-open');
+                        $('body').css('padding-right', '');
+                        $(modalElement).removeClass('show').css('display', 'none');
+                        fetchStreams();
+                    }
+                } else {
+                    fetchStreams();
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error renaming stream:', error);
+                alert('Failed to rename file. ' + (xhr.responseJSON?.message || ''));
+            },
+            complete: function() {
+                $saveBtn.prop('disabled', false).html(originalBtnText);
+            }
+        });
     });
 
     // Duration button handler (gear icon)
@@ -973,77 +1314,25 @@ $(function() {
     });
 
     // Toggle stream key password visibility
-    $(document).on('click', '.stream-password-toggle', function() {
-        // Find the input just before this button
-        var $input = $(this).closest('.d-flex').find('.stream-password');
+    $(document).on('click', '.stream-password-toggle', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const $button = $(this);
+        const $icon = $button.find('i');
+        const $input = $button.closest('.input-group').find('.stream-password');
+        
         if ($input.length) {
             if ($input.attr('type') === 'password') {
                 $input.attr('type', 'text');
-                $(this).find('i').removeClass('fa-eye').addClass('fa-eye-slash');
+                $icon.removeClass('bi-eye').addClass('bi-eye-slash');
             } else {
                 $input.attr('type', 'password');
-                $(this).find('i').removeClass('fa-eye-slash').addClass('fa-eye');
+                $icon.removeClass('bi-eye-slash').addClass('bi-eye');
             }
         }
     });
 
-    // Settings modal logic
-    $(document).on('click', '.stream-settings-btn', function() {
-        // Always show modal using Bootstrap's JS API for reliability
-        // Use the global stream list for modal population
-        const streamId = $(this).data('id');
-        const streams = window.lastStreams || [];
-        const stream = streams.find(s => s.ID === streamId);
-        if (!stream) return;
-        $('#settingsStreamId').val(streamId);
-        let scheduleStartAt = null;
-        let scheduleEndAt = null;
-        let durationHours = 0;
-        if (stream.ScheduledStartAt) { 
-            scheduleStartAt = stream.ScheduledStartAt; 
-            $('#settingsStart').val(toDatetimeLocal(scheduleStartAt));
-        } else {
-            $('#settingsStart').val('');
-        }
-        if (stream.ScheduledEndAt) { 
-            scheduleEndAt = stream.ScheduledEndAt;
-            $('#settingsEnd').val(toDatetimeLocal(scheduleEndAt));
-        } else {
-            $('#settingsEnd').val('');
-        }
-        if (stream.ScheduledStartAt == null && stream.ScheduledEndAt) {
-            $('#settingsStart').val('');
-            $('#settingsEnd').val('');
-            let scheduleAt = null;
-            let scheduleEndAt = null;
-            let durationHours = 0;
-            if (stream.ScheduledEndAt) {
-                scheduleAt = stream.ScheduledAt ? stream.ScheduledAt : new Date();
-                scheduleEndAt = stream.ScheduledEndAt;
-                scheduleAtMilliseconds = new Date(scheduleAt).getTime();
-                scheduleEndAtMilliseconds = new Date(scheduleEndAt).getTime();
-                let gapHour = scheduleEndAtMilliseconds - scheduleAtMilliseconds;
-                durationHours = gapHour / (1000 * 60 * 60);
-                $('#settingsDuration').val(durationHours);
-            } else {
-                $('#settingsDuration').val(0);
-            }
-        }
-        console.log(scheduleStartAt, scheduleEndAt, stream.LoopCount);
-        if (scheduleStartAt) {
-            $('#settingsMode').val('SCHEDULER');
-        } else if (scheduleEndAt && scheduleStartAt == null && stream.LoopCount !== undefined && stream.LoopCount !== null && parseInt(stream.LoopCount) < 0) {
-            $('#settingsMode').val('DURATION');
-        }  else if (stream.LoopCount !== undefined && stream.LoopCount !== null && parseInt(stream.LoopCount) > 0) {
-            $('#settingsMode').val('LOOPCOUNT');
-        } else {
-            $('#settingsMode').val('LIVE');
-        }
-
-        var modal = new bootstrap.Modal(document.getElementById('settingsModal'));
-        modal.show();
-        $('#settingsMode').trigger('change');
-    });
 
     // Show/hide modal fields based on mode
     $('#settingsMode').off('change').on('change', function() {
@@ -1083,6 +1372,8 @@ $(function() {
         const streamId = $('#settingsStreamId').val();
         const mode = $('#settingsMode').val();
         const token = localStorage.getItem('jwt_token');
+    
+        
         if (mode === 'LIVE') {
             $.ajax({
                 url: `/api/streams/${streamId}/schedule`,
@@ -1091,7 +1382,10 @@ $(function() {
                 headers: { Authorization: `Bearer ${token}` },
                 data: JSON.stringify({ ScheduledAt: null, StoppedAt: null, Timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
                 success: function() { 
-                    $('#settingsModal').modal('hide'); 
+                    const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+                    if (settingsModal) settingsModal.hide();
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open');
                     showStreamToast("Stream mode set to live", "success");
                     fetchStreams(); 
                 },
@@ -1117,7 +1411,10 @@ $(function() {
                 headers: { Authorization: 'Bearer ' + token },
                 data: JSON.stringify({ ScheduledAt: start, StoppedAt: end || null, Timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
                 success: function() { 
-                    $('#settingsModal').modal('hide'); 
+                    const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+                    if (settingsModal) settingsModal.hide();
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open');
                     showStreamToast("Stream schedule set successfully", "success");
                     fetchStreams(); 
                 },
@@ -1136,7 +1433,10 @@ $(function() {
                     headers: { Authorization: `Bearer ${token}` },
                     data: JSON.stringify({ ScheduledAt: null, StoppedAt: null, Timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
                     success: function() { 
-                        $('#settingsModal').modal('hide'); 
+                        const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+                        if (settingsModal) settingsModal.hide();
+                        $('.modal-backdrop').remove();
+                        $('body').removeClass('modal-open');
                         showStreamToast("Stream mode set to live", "success");
                         fetchStreams(); 
                     },
@@ -1152,7 +1452,10 @@ $(function() {
                     headers: { Authorization: `Bearer ${token}` },
                     data: JSON.stringify({ DurationHours: duration }),
                     success: function() {       
-                        $('#settingsModal').modal('hide'); 
+                        const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+                        if (settingsModal) settingsModal.hide();
+                        $('.modal-backdrop').remove();
+                        $('body').removeClass('modal-open');
                         showStreamToast("Stream duration set successfully", "success");
                         startStream(streamId);
                     },
@@ -1172,7 +1475,10 @@ $(function() {
                 headers: { Authorization: `Bearer ${token}` },
                 data: JSON.stringify({ LoopCount: loopCount }),
                 success: function() {
-                    $('#settingsModal').modal('hide');
+                    const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+                    if (settingsModal) settingsModal.hide();
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open');
                     showStreamToast("Stream loop count set successfully", "success");
                     fetchStreams();
                 },
@@ -1185,14 +1491,50 @@ $(function() {
 
     // Global settings button (bottom right)
     $('#globalSettingsBtn').off('click').on('click', function() {
+        const modalElement = document.getElementById('settingsModal');
+        let modal = bootstrap.Modal.getInstance(modalElement);
+        
+        // If modal is already open, close it first to ensure clean state
+        if (modal) {
+            modal.hide();
+            modal.dispose();
+        }
+        
+        // Reset form
+        $('#settingsForm')[0].reset();
         $('#settingsStreamId').val('');
         $('#settingsMode').val('LIVE');
         $('#settingsStart').val('');
         $('#settingsEnd').val('');
         $('#settingsDuration').val(0);
-        var modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+        
+        // Initialize and show the modal
+        modal = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true
+        });
+        
+        // Store the modal instance for later use
+        $(modalElement).data('bs.modal', modal);
+        
+        // Show the modal
         modal.show();
+        
+        // Trigger change event for mode
         $('#settingsMode').trigger('change');
+        
+        // Add event listener for hidden event to clean up
+        $(modalElement).off('hidden.bs.modal').on('hidden.bs.modal', function() {
+            // Clean up the modal instance when hidden
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.dispose();
+            }
+            // Remove any lingering backdrop
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open');
+            $('body').css('padding-right', '');
+        });
     });
 
     // --- WebSocket for stream list updates ---
@@ -1514,5 +1856,11 @@ function startStream(streamId) {
             if (xhr.responseJSON && xhr.responseJSON.error) msg = xhr.responseJSON.error;
             showStreamToast(msg, 'error');
         }
+    });
+
+    // add handler addFirstStreamBtn
+    $("#uploadBtn").off("click").on("click", function() {
+        // open upload
+        window.location.href = '/upload';
     });
 }
