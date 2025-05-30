@@ -166,8 +166,41 @@
       padding-bottom: 56px;
     }
 
-    #pagination {
-      margin-bottom: 80px;
+    /* Pagination Styles */
+    .pagination {
+      margin: 0;
+      gap: 4px;
+    }
+    
+    .page-item {
+      margin: 0 2px;
+    }
+    
+    .page-link {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px !important;
+      min-width: 36px;
+      text-align: center;
+      color: #4a5568;
+      border: 1px solid #dee2e6;
+    }
+    
+    .page-item.active .page-link {
+      background-color: #4361ee;
+      border-color: #4361ee;
+      color: white;
+    }
+    
+    .page-item:not(.active) .page-link:hover {
+      background-color: #f1f5f9;
+      border-color: #dee2e6;
+    }
+    
+    .page-item.disabled .page-link {
+      color: #6c757d;
+      pointer-events: none;
+      background-color: #fff;
+      border-color: #dee2e6;
     }
 
     .stream-header {
@@ -345,17 +378,8 @@
     <!-- Stream List -->
     <div class="card border-0 shadow-sm">
       <div class="card-body p-0">
-        <!-- Desktop Table Header -->
-        <div class="d-none d-lg-flex align-items-center bg-light px-3 py-2 border-bottom">
-          <div class="col-3"><span class="small text-muted text-uppercase fw-semibold">Stream Name</span></div>
-          <div class="col-2"><span class="small text-muted text-uppercase fw-semibold">Status</span></div>
-          <div class="col-3"><span class="small text-muted text-uppercase fw-semibold">RTMP URL</span></div>
-          <div class="col-2"><span class="small text-muted text-uppercase fw-semibold">Last Active</span></div>
-          <div class="col-2 text-end"><span class="small text-muted text-uppercase fw-semibold">Actions</span></div>
-        </div>
-        
         <!-- Stream List Cards -->
-        <div id="stream-list-cards" class="row g-0">
+        <div id="stream-list-cards" class="row g-4 px-3 py-3">
           <!-- Stream cards will be dynamically inserted here -->
         </div>
         
