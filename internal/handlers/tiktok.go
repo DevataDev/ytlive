@@ -126,8 +126,8 @@ func (h *TiktokHandler) GetLiveFeed(c *gin.Context) {
 		}
 	} else {
 		cacheData, err := h.Cache.Get("live_feed")
-		feedQueryResponse := cacheData.(FeedQueryResponse)
 		if err == nil {
+			feedQueryResponse := cacheData.(FeedQueryResponse)
 			feedRoomData = feedQueryResponse.Rooms
 		}
 	}
