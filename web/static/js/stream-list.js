@@ -497,10 +497,10 @@ $(function() {
         $("#totalItems").text(total);
 
         if (totalPages <= 1) {
-            $(".card-footer").hide();
+            $(".pagination .card-footer").hide();
             return;
         } else {
-            $(".card-footer").show();
+            $(".pagination .card-footer").show();
         }
 
 
