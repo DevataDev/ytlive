@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,39 +16,39 @@
   <link rel="stylesheet" href="/static/css/header.css">
   <link rel="stylesheet" href="/static/css/footer.css">
   <script>
-  // Initialize header active state
-  function setActiveNavItem() {
+    // Initialize header active state
+    function setActiveNavItem() {
       const currentPath = window.location.pathname;
       const navLinks = document.querySelectorAll('.nav-link, .dropdown-item');
-      
-      navLinks.forEach(link => {
-          if (link.getAttribute('href') === currentPath) {
-              link.classList.add('active');
-              // If it's a dropdown item, also activate its parent dropdown
-              const dropdownItem = link.closest('.dropdown-item');
-              if (dropdownItem) {
-                  const parentDropdown = link.closest('.dropdown');
-                  if (parentDropdown) {
-                      parentDropdown.querySelector('.nav-link').classList.add('active');
-                  }
-              }
-          }
-      });
-  }
 
-  // Initialize when DOM is loaded
-  document.addEventListener('DOMContentLoaded', () => {
+      navLinks.forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+          link.classList.add('active');
+          // If it's a dropdown item, also activate its parent dropdown
+          const dropdownItem = link.closest('.dropdown-item');
+          if (dropdownItem) {
+            const parentDropdown = link.closest('.dropdown');
+            if (parentDropdown) {
+              parentDropdown.querySelector('.nav-link').classList.add('active');
+            }
+          }
+        }
+      });
+    }
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
       setActiveNavItem();
-      
+
       // Handle logout
       const logoutBtn = document.getElementById('logoutBtn');
       if (logoutBtn) {
-          logoutBtn.addEventListener('click', function() {
-              // Add your logout logic here
-              window.location.href = '/logout';
-          });
+        logoutBtn.addEventListener('click', function () {
+          // Add your logout logic here
+          window.location.href = '/logout';
+        });
       }
-  });
+    });
   </script>
   <style>
     .room-title-ellipsis {
@@ -55,10 +56,178 @@
       overflow: hidden;
       text-overflow: ellipsis;
       display: block;
-      max-width: 180px;
+      max-width: 100%;
+    }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%;
+      /* 16:9 Aspect Ratio */
+      background: #000;
+      border-radius: var(--border-radius) var(--border-radius) 0 0;
+      overflow: hidden;
+    }
+
+    .video-container video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .video-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f8f9fa;
+      border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .stream-card {
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stream-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .room-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .room-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #e9ecef;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #6c757d;
+      flex-shrink: 0;
+    }
+
+    .room-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .room-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .room-username {
+      font-size: 0.85rem;
+      color: #6c757d;
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .viewers-count {
+      font-size: 0.85rem;
+      color: #6c757d;
+    }
+
+    .action-buttons {
+      margin-top: 12px;
+    }
+
+    .search-container {
+      position: relative;
+      max-width: 600px;
+      margin: 0 auto 2rem;
+    }
+
+    .search-input-group {
+      position: relative;
+      box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+      border-radius: 50px;
+      overflow: hidden;
+    }
+
+    .search-input {
+      height: 50px;
+      padding-left: 20px;
+      padding-right: 120px;
+      border: none;
+      border-radius: 50px 0 0 50px;
+      font-size: 1rem;
+    }
+
+    .search-button {
+      position: absolute;
+      right: 0;
+      top: 0;
+      height: 100%;
+      border-radius: 0 50px 50px 0;
+      padding: 0 25px;
+      font-weight: 500;
+    }
+
+    .search-filters {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 15px;
+    }
+
+    .filter-btn {
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      transition: all 0.2s;
+    }
+
+    .filter-btn.active {
+      background: #0d6efd;
+      color: white;
+      border-color: #0d6efd;
+    }
+
+    .filter-btn:hover {
+      background: #e9ecef;
+    }
+
+    .filter-btn.active:hover {
+      background: #0b5ed7;
+    }
+
+    @media (max-width: 768px) {
+      .search-input {
+        padding-right: 100px;
+      }
+
+      .search-button {
+        padding: 0 15px;
+      }
     }
   </style>
 </head>
+
 <body class="d-flex flex-column min-vh-100">
   <header class="app-header">
     <nav class="navbar navbar-expand-lg">
@@ -67,12 +236,12 @@
           <i class="bi bi-broadcast"></i>
           <span>YukLive!</span>
         </a>
-        
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" 
-                aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+          aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
-        
+
         <div class="collapse navbar-collapse" id="mainNavbar">
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             <li class="nav-item">
@@ -94,7 +263,8 @@
               </a>
             </li>
             <li class="nav-item dropdown" id="menuTikTok">
-              <a class="nav-link dropdown-toggle active" href="#" id="tiktokDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <a class="nav-link dropdown-toggle active" href="#" id="tiktokDropdown" role="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-tiktok"></i>
                 <span>TikTok</span>
               </a>
@@ -127,72 +297,65 @@
             </li>
           </ul>
           <div class="d-flex align-items-center">
-              <div class="user-dropdown">
-                  <div class="user-avatar" id="userInitials">U</div>
-                  <button id="logoutBtn" class="btn btn-outline-primary btn-sm btn-logout">
-                      <i class="bi bi-box-arrow-right"></i>
-                      <span class="d-none d-sm-inline">Logout</span>
-                  </button>
-              </div>
+            <div class="user-dropdown">
+              <div class="user-avatar" id="userInitials">U</div>
+              <button id="logoutBtn" class="btn btn-outline-primary btn-sm btn-logout">
+                <i class="bi bi-box-arrow-right"></i>
+                <span class="d-none d-sm-inline">Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </nav>
   </header>
-  <main class="flex-grow-1 py-3">
-    <div class="container-fluid">
-      <div class="container-xl">
-        <div class="dashboard-container">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <span class="badge bg-info me-2">Search Result Count: <span id="countRoom">-</span></span>
-        </div>
+  <main class="flex-grow-1 py-4">
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-12">
+          <!-- Search Section -->
+          <div class="search-container mb-4">
+            <div class="search-input-group">
+              <input type="text" id="searchInput" class="form-control search-input"
+                placeholder="Search for TikTok users or hashtags...">
+              <button class="btn btn-primary search-button" id="searchButton">
+                <i class="bi bi-search me-2"></i>Search
+              </button>
+            </div>
+            <div class="search-filters">
+              <button class="filter-btn active" data-type="user">Users</button>
+              <button class="filter-btn" data-type="hashtag">Hashtags</button>
+              <button class="filter-btn" data-type="live">Live Only</button>
+            </div>
+          </div>
 
-        <div class="d-flex align-items-center">
-          <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search...">
-          <button id="searchBtn" class="btn btn-primary btn-sm ms-2">Search</button>
-        </div>
-      </div>
-      <!-- Room List Cards -->
-      <div id="room-list-cards" class="row g-3">
-        <!-- Room cards will be dynamically inserted here -->
-      </div>
+          <!-- Results Count -->
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">Search Results</h4>
+            <span class="badge bg-primary" id="countRoom">0</span>
+          </div>
 
-      <!-- Room Card Template (for reference)
-      <div class="col-md-4">
-        <div class="card stream-card">
-          <div class="card-body">
-            <div class="d-flex align-items-center mb-2">
-              <span class="fw-bold fs-5 mirror-title-ellipsis" title="DisplayName">DisplayName</span>
+          <!-- Loading Indicator -->
+          <div id="loadingIndicator" class="text-center my-5" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
             </div>
-            <div class="mb-2">
-              <video src="LiveUrl" controls class="w-100" style="max-height:180px;background:#000;"></video>
-            </div>
-            <div class="mb-2">
-              <span class="badge bg-secondary">Offline</span>
-              <span class="badge bg-success">Alive</span>
-            </div>
-            <div class="mb-2">
-              Room ID: <span class="text-truncate">RoomId</span>
-            </div>
-            <div class="mb-2">
-              <button class="btn btn-success btn-sm mirror-toggle" data-id="ID">Start</button>
-            </div>
-            <div class="mb-2">
-              <label class="form-label mb-0">RTMP URL:</label>
-              <input type="text" class="form-control form-control-sm mirror-rtmp-url w-100" id="mirror-rtmpurl-input-ID" value="RtmpUrl" style="min-width:200px;max-width:100%;display:inline-block;" />
-              <button class="btn btn-outline-success btn-sm ms-2 mirror-rtmpurl-save" data-id="ID" title="Save RTMP URL"><i class="fa fa-save"></i></button>
-            </div>
-            <div class="mb-2">
-              <label class="form-label mb-0">Stream Key:</label>
-              <input type="password" class="form-control form-control-sm mirror-streamkey" id="mirror-streamkey-input-ID" value="StreamKey" style="max-width:180px;display:inline-block;">
-              <button class="btn btn-outline-success btn-sm ms-1 mirror-streamkey-save" data-id="ID" title="Save Stream Key"><i class="fa fa-save"></i></button>
-              <button class="btn btn-outline-secondary btn-sm ms-1 mirror-password-toggle" title="Show/Hide"><i class="fa fa-eye"></i></button>
-            </div>
+            <p class="mt-2 text-muted">Finding live streams...</p>
+          </div>
+
+          <!-- Results Grid -->
+          <div class="row g-4" id="room-list-cards">
+            <!-- Results will be loaded here -->
+          </div>
+
+          <!-- Load More Button -->
+          <div id="loadMoreBtnWrapper" class="text-center my-4">
+            <button id="loadMoreBtn" class="btn btn-outline-primary" style="display: none;">
+              <i class="bi bi-arrow-down-circle me-2"></i>Load More
+            </button>
           </div>
         </div>
       </div>
-      -->
     </div>
   </main>
 
@@ -220,124 +383,150 @@
     </div>
   </footer>
   <style>
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
 
-  @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-  }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
-  .footer {
-    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    opacity: 0;
-    animation: fadeInUp 0.6s ease-out forwards;
-  }
-  .footer:hover {
-    background: linear-gradient(135deg, #f1f3f5 0%, #f8f9fa 100%);
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
-  }
-  .vr {
-    width: 1px;
-    height: 1.5rem;
-    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.1), transparent);
-    opacity: 0.7;
-    transition: all 0.3s ease;
-  }
-  .broadcast-icon {
-    transition: all 0.3s ease;
-    display: inline-block;
-  }
-  .broadcast-icon:hover {
-    animation: pulse 1.5s infinite;
-    color: #0d6efd !important;
-  }
-  .brand-text {
-    color: #6c757d;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    position: relative;
-  }
-  .brand-text::after {
-    content: '';
-    position: absolute;
-    width: 0;
-    height: 2px;
-    bottom: -2px;
-    left: 0;
-    background-color: #0d6efd;
-    transition: width 0.3s ease;
-  }
-  .brand-text:hover::after {
-    width: 100%;
-  }
-  .version-badge {
-    display: inline-block;
-    padding: 0.3rem 0.7rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    line-height: 1;
-    color: #fff;
-    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
-    border-radius: 50rem;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-  }
-  .version-badge::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: 0.5s;
-  }
-  .version-badge:hover {
-    transform: translateY(-2px) scale(1.03);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-  }
-  .version-badge:hover::before {
-    left: 100%;
-  }
-  .copyright-text {
-    color: #6c757d;
-    font-size: 0.85rem;
-    transition: all 0.3s ease;
-  }
-  .copyright-text:hover {
-    color: #495057;
-    text-shadow: 0 0 1px rgba(0, 0, 0, 0.1);
-  }
-  @media (max-width: 767.98px) {
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.05);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
     .footer {
-      text-align: center;
+      background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      opacity: 0;
+      animation: fadeInUp 0.6s ease-out forwards;
     }
+
+    .footer:hover {
+      background: linear-gradient(135deg, #f1f3f5 0%, #f8f9fa 100%);
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+    }
+
     .vr {
-      display: none !important;
+      width: 1px;
+      height: 1.5rem;
+      background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.1), transparent);
+      opacity: 0.7;
+      transition: all 0.3s ease;
     }
-  }
+
+    .broadcast-icon {
+      transition: all 0.3s ease;
+      display: inline-block;
+    }
+
+    .broadcast-icon:hover {
+      animation: pulse 1.5s infinite;
+      color: #0d6efd !important;
+    }
+
+    .brand-text {
+      color: #6c757d;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .brand-text::after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 2px;
+      bottom: -2px;
+      left: 0;
+      background-color: #0d6efd;
+      transition: width 0.3s ease;
+    }
+
+    .brand-text:hover::after {
+      width: 100%;
+    }
+
+    .version-badge {
+      display: inline-block;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1;
+      color: #fff;
+      background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+      border-radius: 50rem;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .version-badge::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: 0.5s;
+    }
+
+    .version-badge:hover {
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .version-badge:hover::before {
+      left: 100%;
+    }
+
+    .copyright-text {
+      color: #6c757d;
+      font-size: 0.85rem;
+      transition: all 0.3s ease;
+    }
+
+    .copyright-text:hover {
+      color: #495057;
+      text-shadow: 0 0 1px rgba(0, 0, 0, 0.1);
+    }
+
+    @media (max-width: 767.98px) {
+      .footer {
+        text-align: center;
+      }
+
+      .vr {
+        display: none !important;
+      }
+    }
   </style>
   <!-- Bootstrap Toast Container -->
   <div aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
-    <div id="streamToast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div id="streamToast" class="toast align-items-center border-0" role="alert" aria-live="assertive"
+      aria-atomic="true">
       <div class="d-flex">
         <div class="toast-body" id="streamToastBody">
           <!-- Toast message will be injected here -->
         </div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+          aria-label="Close"></button>
       </div>
     </div>
   </div>
@@ -346,32 +535,33 @@
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/flv.js@1.6.2/dist/flv.min.js"></script>
-<script>
-const sinceYear = 2025;
-const nowYear = new Date().getFullYear();
-let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
-// Set current year in footer
-document.getElementById('currentYear').textContent = new Date().getFullYear();
+  <script>
+    const sinceYear = 2025;
+    const nowYear = new Date().getFullYear();
+    let yearStr = sinceYear === nowYear ? `${sinceYear}` : `${sinceYear} - ${nowYear}`;
+    // Set current year in footer
+    document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-// Set up the version info and load the script
-fetch('/api/version')
-  .then(res => res.json())
-  .then(data => {
-    if (data.version && data.commit) {
-      const versionInfo = document.getElementById('versionInfo');
-      versionInfo.textContent = `v${data.version} (${data.commit.slice(0,7)})`;
-      versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
-    }
-    const script = document.createElement('script');
-    script.src = `/static/js/search-list.js?v=${data.version ? data.version : '0.4.3'}`;
-    document.body.appendChild(script);
-  })
-  .catch((err) => {
-    console.error("Error initializing app:", err);
-    const script = document.createElement('script');
-    script.src = '/static/js/search-list.js?v=0.4.3';
-    document.body.appendChild(script);
-  });
-</script>
+    // Set up the version info and load the script
+    fetch('/api/version')
+      .then(res => res.json())
+      .then(data => {
+        if (data.version && data.commit) {
+          const versionInfo = document.getElementById('versionInfo');
+          versionInfo.textContent = `v${data.version} (${data.commit.slice(0, 7)})`;
+          versionInfo.title = `Build: ${data.commit}\nDate: ${new Date(data.buildTime).toLocaleString()}`;
+        }
+        const script = document.createElement('script');
+        script.src = `/static/js/search-list.js?v=${data.version ? data.version : '0.4.3'}`;
+        document.body.appendChild(script);
+      })
+      .catch((err) => {
+        console.error("Error initializing app:", err);
+        const script = document.createElement('script');
+        script.src = '/static/js/search-list.js?v=0.4.3';
+        document.body.appendChild(script);
+      });
+  </script>
 </body>
+
 </html>

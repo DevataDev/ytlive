@@ -1,148 +1,508 @@
-$(function() {
+$(function () {
+    // Initialize variables
+    let isLoadMore = false;
+    let searchID = "";
+    let searchFeeds = [];
+    let currentPage = 1;
+    let hasMore = true;
+    let isLoading = false;
+    let searchType = 'user'; // 'user', 'hashtag', or 'live'
+    let currentSearchQuery = '';
+
     // Auth check and logout
     if (!localStorage.getItem("jwt_token")) {
         window.location.href = "/";
         return;
     }
-    $("#logoutBtn").click(function() {
+    
+    $("#logoutBtn").click(function () {
         localStorage.removeItem("jwt_token");
         $.post("/api/logout");
         window.location.href = "/";
     });
 
-    function fetchLiveFeeds() {
+    // Initialize search filters
+    $(".filter-btn").on("click", function() {
+        $(".filter-btn").removeClass("active");
+        $(this).addClass("active");
+        searchType = $(this).data("type");
+        currentPage = 1;
+        hasMore = true;
+        performSearch(currentSearchQuery, false);
+    });
+
+    // Search button click handler
+    $("#searchButton").on("click", function() {
+        const query = $("#searchInput").val().trim();
+        if (query) {
+            currentSearchQuery = query;
+            currentPage = 1;
+            hasMore = true;
+            performSearch(query, false);
+        }
+    });
+
+    // Handle Enter key in search input
+    $("#searchInput").on("keypress", function(e) {
+        if (e.which === 13) { // Enter key
+            const query = $(this).val().trim();
+            if (query) {
+                currentSearchQuery = query;
+                currentPage = 1;
+                hasMore = true;
+                performSearch(query, false);
+            }
+        }
+    });
+
+    // Load more button click handler
+    $(document).on("click", "#loadMoreBtn", function() {
+        if (!isLoading && hasMore) {
+            currentPage++;
+            performSearch(currentSearchQuery, true);
+        }
+    });
+
+    function performSearch(query, isLoadMore = false) {
+        if (!query && !isLoadMore) {
+            // If no query and not loading more, show suggested feeds
+            fetchSuggestedFeeds();
+            return;
+        }
+
         const token = localStorage.getItem("jwt_token");
+        const $loadingIndicator = $("#loadingIndicator");
+        const $roomList = $("#room-list-cards");
+        const $loadMoreBtn = $("#loadMoreBtn");
+
+        if (!isLoadMore) {
+            $loadingIndicator.show();
+            $loadMoreBtn.hide();
+            if (window._flvPlayers) {
+                cleanupPlayers();
+            }
+        } else {
+            $loadMoreBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...');
+        }
+
+        isLoading = true;
+
+        let apiUrl = '/api/tiktok/search';
+        const params = {
+            query: query,
+            type: searchType,
+            page: currentPage,
+            is_load_more: isLoadMore,
+            search_id: searchID
+        };
+
+        $.ajax({
+            url: apiUrl,
+            method: 'GET',
+            data: params,
+            headers: { Authorization: 'Bearer ' + token },
+            success: function(data) {
+                if (data && data.rooms && data.rooms.length > 0) {
+                    // Update search ID for pagination
+                    if (data.pagination && data.pagination.search_id) {
+                        searchID = data.pagination.search_id;
+                    }
+                    
+                    // Update hasMore flag
+                    hasMore = data.pagination ? data.pagination.has_more : false;
+                    
+                    // Update UI
+                    if (isLoadMore) {
+                        // Append new results
+                        searchFeeds = [...searchFeeds, ...data.rooms];
+                    } else {
+                        // Replace results
+                        searchFeeds = data.rooms;
+                    }
+                    
+                    // Update count
+                    $("#countRoom").text(searchFeeds.length);
+                    
+                    // Render the results
+                    renderLiveFeedsTable({
+                        rooms: searchFeeds,
+                        pagination: data.pagination || { has_more: false }
+                    });
+                    
+                    // Show/hide load more button
+                    if (hasMore) {
+                        $loadMoreBtn.show();
+                    } else if (searchFeeds.length === 0) {
+                        $roomList.html('<div class="col-12 text-center py-5"><div class="empty-state"><i class="bi bi-search fs-1 text-muted mb-3"></i><h5 class="mb-2">No results found</h5><p class="text-muted">Try different keywords or check back later.</p></div></div>');
+                    }
+                } else if (!isLoadMore) {
+                    // No results for initial search
+                    $roomList.html('<div class="col-12 text-center py-5"><div class="empty-state"><i class="bi bi-search fs-1 text-muted mb-3"></i><h5 class="mb-2">No results found</h5><p class="text-muted">Try different keywords or check back later.</p></div></div>');
+                    $("#countRoom").text('0');
+                }
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON?.message || "Failed to perform search. Please try again.";
+                if (!isLoadMore) {
+                    $roomList.html(`
+                        <div class="col-12 text-center py-5">
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                ${errorMsg}
+                            </div>
+                            <button class="btn btn-primary mt-3" id="retrySearchBtn">
+                                <i class="bi bi-arrow-repeat me-2"></i>Retry
+                            </button>
+                        </div>
+                    `);
+                }
+                console.error('Search error:', errorMsg);
+            },
+            complete: function() {
+                $loadingIndicator.hide();
+                $loadMoreBtn.prop('disabled', false).html('<i class="bi bi-arrow-down-circle me-2"></i>Load More');
+                isLoading = false;
+            }
+        });
+    }
+
+    function fetchSuggestedFeeds() {
+        const token = localStorage.getItem("jwt_token");
+        const $loadingIndicator = $("#loadingIndicator");
+        const $roomList = $("#room-list-cards");
+        
+        $loadingIndicator.show();
+        $roomList.empty();
+        
         $.ajax({
             url: '/api/tiktok/suggested-feed',
             method: 'GET',
             headers: { Authorization: 'Bearer ' + token },
             success: function(data) {
-                $("#countRoom").text(data.rooms ? data.rooms.length : 0);
-                renderLiveFeedsTable(data.rooms || []);
+                if (data && data.rooms && data.rooms.length > 0) {
+                    searchFeeds = data.rooms;
+                    $("#countRoom").text(searchFeeds.length);
+                    renderLiveFeedsTable({
+                        rooms: searchFeeds,
+                        pagination: { has_more: false }
+                    });
+                } else {
+                    $roomList.html('<div class="col-12 text-center py-5"><div class="empty-state"><i class="bi bi-broadcast fs-1 text-muted mb-3"></i><h5 class="mb-2">No live streams found</h5><p class="text-muted">There are no live streams available at the moment.</p></div></div>');
+                }
             },
             error: function() {
-                $("#room-list-cards").html('<div class="col-12 text-center text-danger">Failed to load rooms.</div>');
+                $roomList.html('<div class="col-12 text-center text-danger py-5">Failed to load suggested streams.</div>');
+            },
+            complete: function() {
+                $loadingIndicator.hide();
             }
         });
+    }
+
+    function cleanupPlayers() {
+        // Clean up FLV players
+        if (window._flvPlayers) {
+            Object.entries(window._flvPlayers).forEach(([id, player]) => {
+                try {
+                    if (player) {
+                        player.pause();
+                        player.unload();
+                        player.detachMediaElement();
+                        player.destroy();
+                    }
+                } catch (e) {
+                    console.warn('Error cleaning up FLV player:', e);
+                }
+            });
+            window._flvPlayers = {};
+        }
+
+        // Clean up video.js players
+        if (window._videoJsPlayers) {
+            window._videoJsPlayers.forEach(player => {
+                try {
+                    if (player && typeof player.dispose === 'function') {
+                        player.dispose();
+                    }
+                } catch (e) {
+                    console.warn('Error cleaning up video.js player:', e);
+                }
+            });
+            window._videoJsPlayers = [];
+        }
     }
 
     function renderLiveFeedsTable(liveFeeds) {
         const cardContainer = $("#room-list-cards");
-        cardContainer.empty();
-        if (!liveFeeds || liveFeeds.length === 0) {
-            cardContainer.append('<div class="col-12 text-center text-muted">No rooms found.</div>');
+        
+        // Only clear existing cards if not loading more
+        if (!isLoadMore) {
+            cleanupPlayers();
+            cardContainer.empty();
+        }
+        
+        // Check if we have rooms to display
+        const hasRooms = liveFeeds?.rooms?.length > 0;
+        const hasMore = liveFeeds?.pagination?.has_more === true;
+        
+        // If no rooms and not loading more, show empty state
+        if (!hasRooms && !isLoadMore) {
+            cardContainer.html(`
+                <div class="col-12 text-center py-5">
+                    <div class="empty-state">
+                        <i class="bi bi-broadcast fs-1 text-muted mb-3"></i>
+                        <h5 class="mb-2">No live streams found</h5>
+                        <p class="text-muted mb-4">There are no live streams available at the moment.</p>
+                        <button class="btn btn-primary" id="refreshListBtn">
+                            <i class="bi bi-arrow-repeat me-2"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+            `);
             return;
         }
-        liveFeeds.forEach(liveFeed => {
-            let canStart = false;
-            let isLive = false;
-            let viewCount = formatNumber(liveFeed.stats.total_user);
-            let aliveBadge = '<span class="badge bg-success">Tiktok Host Online</span>';
-            let addToMirrorBtn = `<button class="btn btn-success btn-sm live-add-mirror w-100" data-id="${liveFeed.id_str}" data-title="${liveFeed.title}" data-action="addMirror">Add to Mirror</button>`;
-            // Use video.js + hls.js + flv.js for preview
-            // let videoPlayer = `
-            //     <video id="mirror-video-${mirror.ID}" class="video-js vjs-default-skin vjs-fluid" controls preload="auto" style="max-height:180px;background:#000;width:100%;"></video>
-            //     <script>window._mirrorHlsPlayers = window._mirrorHlsPlayers || {}; setTimeout(function() { try { if (window._mirrorHlsPlayers['${mirror.ID}']) { window._mirrorHlsPlayers['${mirror.ID}'].dispose && window._mirrorHlsPlayers['${mirror.ID}'].dispose(); delete window._mirrorHlsPlayers['${mirror.ID}']; } var video = document.getElementById('mirror-video-${mirror.ID}'); if (video) { var url = '${mirror.LiveUrl}'; if (url.endsWith('.m3u8') && window.Hls && Hls.isSupported()) { var hls = new Hls(); hls.loadSource(url); hls.attachMedia(video); window._mirrorHlsPlayers['${mirror.ID}'] = hls; } else if (url.endsWith('.flv') && window.flvjs && flvjs.isSupported()) { var flvPlayer = flvjs.createPlayer({ type: 'flv', url: url }); flvPlayer.attachMediaElement(video); flvPlayer.load(); window._mirrorHlsPlayers['${mirror.ID}'] = flvPlayer; } else { video.src = url; videojs(video); } } } catch(e){} }, 100);</script>
-            // `;
-            // use flv.js for preview
-            let videoPlayer;
-            let liveUrl = liveFeed.live_url;
-            if (liveUrl && liveUrl.includes('.flv?')) {
-                videoPlayer = `
-                    <video id="live-video-${liveFeed.id}" controls preload="auto" style="max-height:180px;background:#000;width:100%;"></video>
-                    <script>
-                        window._liveFlvPlayers = window._liveFlvPlayers || {};
-                        setTimeout(function() {
-                            try {
-                                if (window._liveFlvPlayers['${liveFeed.id}']) {
-                                    window._liveFlvPlayers['${liveFeed.id}'].destroy();
-                                    delete window._liveFlvPlayers['${liveFeed.id}'];
+        
+        // If we're loading more but got no new rooms, just return without doing anything
+        if (isLoadMore && !hasRooms) {
+            return;
+        }
+
+        liveFeeds.rooms.forEach((liveFeed) => {
+            const viewCount = formatNumber(liveFeed.stats?.total_user || 0);
+            const roomTitle = liveFeed.title || "Untitled Stream";
+            const username = liveFeed.owner?.display_id || "unknown";
+            const roomId = liveFeed.id_str || "";
+            const liveUrl = liveFeed.live_url || "";
+            const avatarText = username.charAt(0).toUpperCase();
+
+            // Create video player HTML based on stream type
+            let videoPlayerHtml = "";
+            if (liveUrl) {
+                if (liveUrl.includes(".flv?")) {
+                    // For FLV streams, use flv.js
+                    videoPlayerHtml = `
+                        <div class="video-container">
+                            <video id="live-video-${liveFeed.id}" 
+                                   controls 
+                                   playsinline
+                                   style="width:100%; height:100%; background:#000;"></video>
+                        </div>
+                        <script>
+                            (function() {
+                                function initFLVPlayer() {
+                                    try {
+                                        const videoId = 'live-video-${liveFeed.id}';
+                                        const video = document.getElementById(videoId);
+                                        
+                                        if (!video) {
+                                            console.warn('Video element not found:', videoId);
+                                            return;
+                                        }
+                                        
+                                        // Clean up any existing player for this video
+                                        if (window._flvPlayers && window._flvPlayers['${liveFeed.id}']) {
+                                            try {
+                                                const oldPlayer = window._flvPlayers['${liveFeed.id}'];
+                                                oldPlayer.pause();
+                                                oldPlayer.unload();
+                                                oldPlayer.detachMediaElement();
+                                                oldPlayer.destroy();
+                                                delete window._flvPlayers['${liveFeed.id}'];
+                                            } catch (e) {
+                                                console.warn('Error cleaning up existing FLV player:', e);
+                                            }
+                                        }
+                                        
+                                        if (typeof flvjs === 'undefined' || !flvjs.isSupported()) {
+                                            console.warn('flv.js is not supported or not loaded');
+                                            video.poster = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvbj0ibm9uZSI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzAwMDAwMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjZmZmIj5Ccm93c2VyIG9yIHN0cmVhbSB0eXBlIG5vdCBzdXBwb3J0ZWQ8L3RleHQ+PC9zdmc+';
+                                            return;
+                                        }
+                                        
+                                        try {
+                                            flvjs.LoggingControl.enableAll = false;
+                                            const flvPlayer = flvjs.createPlayer({
+                                                type: 'flv',
+                                                url: '${liveUrl}',
+                                                isLive: true,
+                                                hasAudio: true,
+                                                hasVideo: true,
+                                                enableStashBuffer: false,
+                                                stashInitialSize: 128
+                                            });
+                                            
+                                            flvPlayer.attachMediaElement(video);
+                                            flvPlayer.load();
+                                            
+                                            // Store reference for cleanup
+                                            if (!window._flvPlayers) window._flvPlayers = {};
+                                            window._flvPlayers['${liveFeed.id}'] = flvPlayer;
+                                            
+                                            // Handle player errors
+                                            flvPlayer.on('error', function(error) {
+                                                console.error('FLV Player Error:', error);
+                                                video.poster = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvbj0ibm9uZSI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzAwMDAwMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjZmZmIj5FcnJvciBsb2FkaW5nIHN0cmVhbTwvdGV4dD48L3N2Zz4=';
+                                                
+                                                // Attempt to recover from errors
+                                                try {
+                                                    flvPlayer.unload();
+                                                    flvPlayer.detachMediaElement();
+                                                    flvPlayer.attachMediaElement(video);
+                                                    flvPlayer.load();
+                                                } catch (e) {
+                                                    console.error('Error recovering player:', e);
+                                                }
+                                            });
+                                            
+                                        } catch (e) {
+                                            console.error('Error creating FLV player:', e);
+                                            video.poster = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvbj0ibm9uZSI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzAwMDAwMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjZmZmIj5VbmFibGUgdG8gaW5pdGlhbGl6ZSBwbGF5ZXI8L3RleHQ+PC9zdmc+';
+                                        }
+                                    } catch (e) {
+                                        console.error('Error in FLV player initialization:', e);
+                                    }
                                 }
-                                var video = document.getElementById('live-video-${liveFeed.id}');
-                                if (video && window.flvjs && flvjs.isSupported()) {
-                                    var flvPlayer = flvjs.createPlayer({ type: 'flv', url: '${liveUrl}', "isLive": true });
-                                    flvPlayer.attachMediaElement(video);
-                                    flvPlayer.load();
-                                    window._mirrorFlvPlayers['${liveFeed.id}'] = flvPlayer;
+                                
+                                // Wait for flvjs to be available
+                                if (typeof flvjs !== 'undefined' && flvjs.isSupported()) {
+                                    initFLVPlayer();
+                                } else {
+                                    // If flvjs isn't loaded yet, wait for it
+                                    const checkFLV = setInterval(function() {
+                                        if (typeof flvjs !== 'undefined' && flvjs.isSupported()) {
+                                            clearInterval(checkFLV);
+                                            initFLVPlayer();
+                                        }
+                                    }, 100);
+                                    
+                                    // Give up after 5 seconds
+                                    setTimeout(function() {
+                                        clearInterval(checkFLV);
+                                        const video = document.getElementById('live-video-${liveFeed.id}');
+                                        if (video) {
+                                            video.poster = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvbj0ibm9uZSI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzAwMDAwMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmaWxsPSIjZmZmIj5GYWlsZWQgdG8gbG9hZCBmbHYuanM8L3RleHQ+PC9zdmc+';
+                                        }
+                                    }, 5000);
                                 }
-                            } catch(e){}
-                        }, 100);
-                    </script>
-                `;
-            } else if (liveUrl && liveUrl.includes('.m3u8')) {
-                videoPlayer = `
-                <video id="live-video-${liveFeed.id}" class="video-js vjs-default-skin vjs-fluid" controls preload="auto" style="max-height:180px;background:#000;width:100%;"></video>
-                <script>
-                    window._liveHlsPlayers = window._liveHlsPlayers || {};
-                    setTimeout(function() {
-                        try {
-                            if (window._liveHlsPlayers['${liveFeed.id}']) {
-                                window._liveHlsPlayers['${liveFeed.id}'].destroy && window._liveHlsPlayers['${liveFeed.id}'].destroy();
-                                delete window._liveHlsPlayers['${liveFeed.id}'];
-                            }
-                            var video = document.getElementById('live-video-${liveFeed.id}');
-                            if (video && window.Hls && Hls.isSupported()) {
-                                var hls = new Hls();
-                                hls.loadSource('${liveUrl}');
-                                hls.attachMedia(video);
-                                window._liveHlsPlayers['${liveFeed.id}'] = hls;
-                            } else if (video) {
-                                video.src = '${liveUrl}';
-                                videojs(video);
-                            }
-                        } catch(e){}
-                    }, 100);
-                </script>
-            `;
+                            })();
+                        </script>
+                    `;
+                } else if (liveFeed.live_url && liveFeed.live_url.includes("m3u")) {
+                    // For HLS streams, use video.js with HLS support
+                    videoPlayerHtml = `
+                        <div class="video-container">
+                            <video id="live-video-${liveFeed.id}" 
+                                   class="video-js vjs-default-skin vjs-big-play-centered"
+                                   controls 
+                                   preload="auto" 
+                                   playsinline>
+                            </video>
+                        </div>
+                        <script>
+                            (function() {
+                                try {
+                                    const video = document.getElementById('live-video-${liveFeed.id}');
+                                    if (video) {
+                                        // Initialize video.js with HLS support
+                                        const player = videojs(video, {
+                                            controls: true,
+                                            autoplay: false,
+                                            preload: 'auto',
+                                            sources: [{
+                                                src: '${liveUrl}',
+                                                type: 'application/x-mpegURL'
+                                            }],
+                                            html5: {
+                                                hls: {
+                                                    enableLowInitialPlaylist: true,
+                                                    smoothQualityChange: true,
+                                                    overrideNative: true
+                                                }
+                                            }
+                                        });
+                                        
+                                        // Store reference for cleanup
+                                        if (!window._videoJsPlayers) window._videoJsPlayers = [];
+                                        window._videoJsPlayers.push(player);
+                                    }
+                                } catch (e) {
+                                    console.error('Error initializing video player:', e);
+                                }
+                            })();
+                        </script>
+                    `;
+                }
             } else {
-                videoPlayer = `<video id="live-video-${liveFeed.id}" class="video-js vjs-default-skin vjs-fluid" controls preload="auto" style="max-height:180px;background:#000;width:100%;"></video>
-                <script>
-                    setTimeout(function() {
-                        try {
-                            var video = document.getElementById('live-video-${liveFeed.id}');
-                            if (video) {
-                                video.src = '${liveUrl || ''}';
-                                videojs(video);
-                            }
-                        } catch(e){}
-                    }, 100);
-                </script>`;
+                videoPlayerHtml = `
+                    <div class="video-placeholder d-flex align-items-center justify-content-center" 
+                        style="background: #f8f9fa; border-radius: var(--border-radius); height: 200px;">
+                        <div class="text-center">
+                            <i class="bi bi-camera-video-off fs-1 text-muted"></i>
+                            <p class="mt-2 mb-0 text-muted">No stream available</p>
+                        </div>
+                    </div>
+                `;
             }
-            cardContainer.append(`
-                <div class="col-md-4">
-                    <div class="card stream-card">
-                        <div class="card-body">
+
+            // Create the card HTML
+            const cardHtml = `
+                <div class="col-12 col-sm-6 col-lg-4 col-xxl-3 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-img-top position-relative" style="padding-top: 56.25%; overflow: hidden; background: #000;">
+                            ${videoPlayerHtml}
+                        </div>
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title text-truncate mb-1" title="${roomTitle}">${roomTitle}</h5>
                             <div class="d-flex align-items-center mb-2">
-                                <span class="fw-bold fs-5 live-title-ellipsis" title="${liveFeed.title  || liveFeed.owner.display_id || ''}">${liveFeed.title || liveFeed.owner.display_id || ''}</span>
+                                <div class="avatar-sm me-2">
+                                    <span class="avatar-title rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; font-size: 12px;">
+                                        ${avatarText}
+                                    </span>
+                                </div>
+                                <small class="text-muted">@${username}</small>
                             </div>
-                            <div class="text-muted small mt-1">@${liveFeed.owner.display_id} | View : ${viewCount}</div>
-                            <div class="mb-2">
-                                ${videoPlayer}
-                            </div>
-                            <div class="mb-2">
-                                ${aliveBadge}
-                            </div>
-                            <div class="mb-2">
-                                Room ID: <span class="text-truncate">${liveFeed.id_str || ''}</span>
-                            </div>
-                            <div class="mb-2 mt-3">
-                                ${addToMirrorBtn}
+                            <div class="d-flex justify-content-between align-items-center mt-auto">
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-circle-fill me-1"></i>
+                                    ${viewCount} watching
+                                </span>
+                                <button class="btn btn-outline-primary btn-sm" data-id="${roomId}" data-title="${roomTitle}" data-action="addMirror">
+                                    <i class="bi bi-plus-circle me-1"></i> Add Mirror
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
-            `);
+            `;
+            
+            cardContainer.append(cardHtml);
         });
+        
+        // Show/hide load more button based on pagination
+        const $loadMoreBtn = $("#loadMoreBtn");
+        if (hasMore) {
+            $loadMoreBtn.removeClass("d-none");
+        } else {
+            $loadMoreBtn.addClass("d-none");
+        }
+        
+        // Re-initialize tooltips for the new elements
+        $('[data-bs-toggle="tooltip"]').tooltip();
     }
 
     function formatNumber(num) {
-        //if thousands add K, if millions add M
-        if (num >= 1000000) {
-            return (num / 1000000).toFixed(1) + 'M';
-        } else if (num >= 1000) {
+        if (!num) return '0';
+        
+        // If thousands, add K
+        if (num >= 1000 && num < 1000000) {
             return (num / 1000).toFixed(1) + 'K';
         }
-        return num;
+        // If millions, add M
+        else if (num >= 1000000) {
+            return (num / 1000000).toFixed(1) + 'M';
+        }
+        // If less than 1000, return as is
+        return num.toString();
     }
 
     function renderSearchFeedsTable(searchFeeds, append = false) {
@@ -392,7 +752,7 @@ $(function() {
                 data: JSON.stringify({ tiktok: id }),
                 success: function(resp) {
                     showSnackbar("Mirror added successfully.", false);
-                    fetchLiveFeeds();
+                    fetchSuggestedFeeds();
                 },
                 error: function(xhr) {
                     let msg = 'Failed to add mirror.';
@@ -477,5 +837,5 @@ $(function() {
         });
     });
 
-    fetchLiveFeeds();
+    fetchSuggestedFeeds();
 });
