@@ -51,12 +51,220 @@
     });
     </script>
     <style>
-        .room-title-ellipsis {
+        /* Base styles */
+        :root {
+            --primary-color: #4361ee;
+            --success-color: #06d6a0;
+            --danger-color: #ef476f;
+            --warning-color: #ffd166;
+            --dark-color: #212529;
+            --light-color: #f8f9fa;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            background-color: #f5f7fb;
+            color: #4a5568;
+        }
+
+        /* Card styles */
+        .stream-card {
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            transition: var(--transition);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .stream-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-body {
+            padding: 1.25rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Video container */
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            background: #000;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Room info */
+        .room-header {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+
+        .room-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 0.75rem;
+            object-fit: cover;
+            background: var(--light-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .room-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .room-title {
+            font-weight: 600;
+            font-size: 1rem;
+            margin: 0 0 0.25rem 0;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            display: block;
-            max-width: 180px;
+            color: var(--dark-color);
+        }
+
+        .room-username {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin: 0;
+        }
+
+        /* Stats and badges */
+        .room-stats {
+            display: flex;
+            align-items: center;
+            margin: 0.5rem 0;
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+
+        .badge {
+            font-weight: 500;
+            padding: 0.35em 0.65em;
+            font-size: 0.75em;
+            border-radius: 4px;
+        }
+
+        .viewers-count {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 0.75rem;
+        }
+
+        .viewers-count i {
+            margin-right: 0.25rem;
+            color: var(--danger-color);
+        }
+
+        /* Buttons */
+        .action-buttons {
+            margin-top: auto;
+            padding-top: 0.75rem;
+        }
+
+        .btn {
+            border-radius: 6px;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            transition: var(--transition);
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+        }
+
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Loading state */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 767.98px) {
+            .col-md-4 {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+            
+            .stream-card {
+                margin-bottom: 1.5rem;
+            }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
         }
     </style>
 </head>
@@ -142,17 +350,37 @@
         </nav>
     </header>
     <main class="flex-grow-1 py-3">
-        <div class="container-fluid">
+        <div class="container-fluid py-4">
             <div class="container-xl">
                 <div class="dashboard-container">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <span class="badge bg-info me-2">Live Feed Count: <span id="countRoom">-</span></span>
-                </div>
-            </div>
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+                        <div class="mb-3 mb-md-0">
+                            <h1 class="h4 mb-0">Live Streams</h1>
+                            <p class="text-muted mb-0">Discover and manage live TikTok streams</p>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">
+                                    <i class="bi bi-broadcast me-1"></i>
+                                    <span>Live: <span id="countRoom" class="fw-bold">0</span></span>
+                                </span>
+                            </div>
+                            <button class="btn btn-outline-primary" id="refreshBtn" title="Refresh">
+                                <i class="bi bi-arrow-clockwise"></i>
+                                <span class="d-none d-sm-inline">Refresh</span>
+                            </button>
+                        </div>
+                    </div>
             <!-- Room List Cards -->
-            <div id="room-list-cards" class="row g-3">
+            <div id="room-list-cards" class="row g-4">
                 <!-- Room cards will be dynamically inserted here -->
+                <!-- Loading skeleton -->
+                <div class="col-12 text-center py-5" id="loadingIndicator">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Loading live streams...</p>
+                </div>
             </div>
 
             <!-- Room Card Template (for reference)

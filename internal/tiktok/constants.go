@@ -25,7 +25,9 @@ const (
 	urlRoomData          = "/webcast/fetch/"
 	urlGiftInfo          = "/gift/list/"
 	urlGetRoomIdFromUser = "/api-live/user/room"
-	urlSearch            = "/api/search/live/full/"
+	urlLiveSearch        = "/api/search/live/full/"
+	urlUserSearch        = "/api/search/user/full/"
+	urlVideoSearch       = "/api/search/video/full/"
 
 	clientNameDefault = "tiktokLive"
 	apiKeyDefault     = ""

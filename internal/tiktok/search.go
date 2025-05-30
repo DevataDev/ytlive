@@ -33,6 +33,60 @@ type SearchResponse struct {
 	Backtrace string `json:"backtrace"`
 }
 
+type SearchUserResponse struct {
+	StatusCode int `json:"status_code"`
+	Data       []struct {
+		LiveInfo struct {
+			RawData  string `json:"raw_data"`
+			RoomInfo struct {
+				HasCommerceGoods bool `json:"has_commerce_goods"`
+				IsBattle         bool `json:"is_battle"`
+			} `json:"room_info"`
+			ParsedRawData LiveRoomData `json:"parsed_raw_data"`
+		} `json:"live_info"`
+	} `json:"data"`
+	HasMore int `json:"has_more"`
+	Cursor  int `json:"cursor"`
+	Extra   struct {
+		Now             int64         `json:"now"`
+		Logid           string        `json:"logid"`
+		FatalItemIds    []interface{} `json:"fatal_item_ids"`
+		SearchRequestID string        `json:"search_request_id"`
+		APIDebugInfo    interface{}   `json:"api_debug_info"`
+	} `json:"extra"`
+	LogPb struct {
+		ImprID string `json:"impr_id"`
+	} `json:"log_pb"`
+	Backtrace string `json:"backtrace"`
+}
+
+type SearchVideoResponse struct {
+	StatusCode int `json:"status_code"`
+	Data       []struct {
+		LiveInfo struct {
+			RawData  string `json:"raw_data"`
+			RoomInfo struct {
+				HasCommerceGoods bool `json:"has_commerce_goods"`
+				IsBattle         bool `json:"is_battle"`
+			} `json:"room_info"`
+			ParsedRawData LiveRoomData `json:"parsed_raw_data"`
+		} `json:"live_info"`
+	} `json:"data"`
+	HasMore int `json:"has_more"`
+	Cursor  int `json:"cursor"`
+	Extra   struct {
+		Now             int64         `json:"now"`
+		Logid           string        `json:"logid"`
+		FatalItemIds    []interface{} `json:"fatal_item_ids"`
+		SearchRequestID string        `json:"search_request_id"`
+		APIDebugInfo    interface{}   `json:"api_debug_info"`
+	} `json:"extra"`
+	LogPb struct {
+		ImprID string `json:"impr_id"`
+	} `json:"log_pb"`
+	Backtrace string `json:"backtrace"`
+}
+
 type StreamUrl struct {
 	RtmpPullUrl string `json:"rtmp_pull_url"`
 	FlvPullUrl  struct {
@@ -134,7 +188,7 @@ type LiveRoomData struct {
 	SubTag    int `json:"sub_tag"`
 }
 
-func (c *Client) Search(query string, offset int, limit int, searchID string) (*SearchResponse, error) {
+func (c *Client) SearchLive(query string, offset int, limit int, searchID string) (*SearchResponse, error) {
 	queryParams := c.formatDefaultGetParams()
 	queryParams["keyword"] = query
 	queryParams["offset"] = fmt.Sprintf("%d", offset)
@@ -142,12 +196,83 @@ func (c *Client) Search(query string, offset int, limit int, searchID string) (*
 	queryParams["count"] = fmt.Sprintf("%d", 20)
 	queryParams["web_search_code"] = `{"tiktok":{"client_params_x":{"search_engine":{"ies_mt_user_live_video_card_use_libra":1,"mt_search_general_user_live_card":1}},"search_server":{}}}`
 	queryParams["webcast_language"] = c.location.Lang
+	// 7501710948692935688
 
 	if searchID != "" {
 		queryParams["search_id"] = searchID
 	}
 
-	url := c.FormatUrl(tiktokAppURL, urlSearch, queryParams)
+	url := c.FormatUrl(tiktokAppURL, urlLiveSearch, queryParams)
+
+	resp, err := c.Get(url, false)
+	if err != nil {
+		return nil, err
+	}
+
+	reader := parseBody(resp)
+	defer reader.Close()
+
+	var searchResponse SearchResponse
+	if err := json.NewDecoder(reader).Decode(&searchResponse); err != nil {
+		log.Println(`Failed to decode search response for`, query, `with error`, err)
+		return nil, err
+	}
+
+	searchResponse.ParseRawData()
+
+	return &searchResponse, nil
+}
+
+func (c *Client) SearchUser(query string, offset int, limit int, searchID string) (*SearchResponse, error) {
+	queryParams := c.formatDefaultGetParams()
+	queryParams["keyword"] = query
+	queryParams["offset"] = fmt.Sprintf("%d", offset)
+	queryParams["history_len"] = fmt.Sprintf("%d", limit)
+	queryParams["count"] = fmt.Sprintf("%d", 20)
+	queryParams["web_search_code"] = `{"tiktok":{"client_params_x":{"search_engine":{"ies_mt_user_live_video_card_use_libra":1,"mt_search_general_user_live_card":1}},"search_server":{}}}`
+	queryParams["webcast_language"] = c.location.Lang
+	// 7501710948692935688
+
+	if searchID != "" {
+		queryParams["search_id"] = searchID
+	}
+
+	url := c.FormatUrl(tiktokAppURL, urlUserSearch, queryParams)
+
+	resp, err := c.Get(url, false)
+	if err != nil {
+		return nil, err
+	}
+
+	reader := parseBody(resp)
+	defer reader.Close()
+
+	var searchResponse SearchResponse
+	if err := json.NewDecoder(reader).Decode(&searchResponse); err != nil {
+		log.Println(`Failed to decode search response for`, query, `with error`, err)
+		return nil, err
+	}
+
+	searchResponse.ParseRawData()
+
+	return &searchResponse, nil
+}
+
+func (c *Client) SearchVideo(query string, offset int, limit int, searchID string) (*SearchResponse, error) {
+	queryParams := c.formatDefaultGetParams()
+	queryParams["keyword"] = query
+	queryParams["offset"] = fmt.Sprintf("%d", offset)
+	queryParams["history_len"] = fmt.Sprintf("%d", limit)
+	queryParams["count"] = fmt.Sprintf("%d", 20)
+	queryParams["web_search_code"] = `{"tiktok":{"client_params_x":{"search_engine":{"ies_mt_user_live_video_card_use_libra":1,"mt_search_general_user_live_card":1}},"search_server":{}}}`
+	queryParams["webcast_language"] = c.location.Lang
+	// 7501710948692935688
+
+	if searchID != "" {
+		queryParams["search_id"] = searchID
+	}
+
+	url := c.FormatUrl(tiktokAppURL, urlVideoSearch, queryParams)
 
 	resp, err := c.Get(url, false)
 	if err != nil {

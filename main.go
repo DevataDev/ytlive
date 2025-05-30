@@ -132,7 +132,7 @@ func closeDB(db *gorm.DB, cfg *config.Config) {
 		// Remove WAL and SHM files if they exist
 		walFile := cfg.Sqlite.Db + "-wal"
 		shmFile := cfg.Sqlite.Db + "-shm"
-		
+
 		if _, err := os.Stat(walFile); err == nil {
 			if err := os.Remove(walFile); err != nil {
 				log.Printf("Error removing WAL file: %v", err)
@@ -151,7 +151,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to read config.yaml: %v", err))
 	}
-	
+
 	// Ensure database connection is closed on exit
 	defer func() {
 		if database != nil {
@@ -187,8 +187,8 @@ func main() {
 			// Set connection pool settings
 			sqlDB, err := db.DB()
 			if err == nil {
-				sqlDB.SetMaxIdleConns(10)  // Increased from 1
-				sqlDB.SetMaxOpenConns(10)  // Increased from 1
+				sqlDB.SetMaxIdleConns(10) // Increased from 1
+				sqlDB.SetMaxOpenConns(10) // Increased from 1
 				sqlDB.SetConnMaxLifetime(time.Hour)
 			}
 
@@ -546,6 +546,8 @@ func main() {
 	r.GET("/api/tiktok/live-feed", tiktokHandler.GetLiveFeed)
 
 	r.POST("/api/tiktok/search", tiktokHandler.Search)
+
+	r.GET("/api/tiktok/search", tiktokHandler.GetSearch)
 
 	r.GET("/api/tiktok/suggested-feed", tiktokHandler.GetSuggestedFeed)
 	// -- Tiktok End --

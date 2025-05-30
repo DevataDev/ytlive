@@ -126,8 +126,8 @@ func (h *TiktokHandler) GetLiveFeed(c *gin.Context) {
 		}
 	} else {
 		cacheData, err := h.Cache.Get("live_feed")
-		feedQueryResponse := cacheData.(FeedQueryResponse)
 		if err == nil {
+			feedQueryResponse := cacheData.(FeedQueryResponse)
 			feedRoomData = feedQueryResponse.Rooms
 		}
 	}
@@ -205,7 +205,7 @@ func (h *TiktokHandler) Search(c *gin.Context) {
 		return
 	}
 
-	searchRoomData, err = h.TikTokClient.Search(keyword, offsetInt, limitInt, searchId)
+	searchRoomData, err = h.TikTokClient.SearchLive(keyword, offsetInt, limitInt, searchId)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -228,6 +228,80 @@ func (h *TiktokHandler) Search(c *gin.Context) {
 	h.Cache.Set(cacheKey, searchQueryResponse, time.Now().Add(3*time.Minute))
 
 	c.JSON(200, gin.H{"rooms": rooms, "pagination": gin.H{"offset": searchQueryResponse.Offset, "limit": searchQueryResponse.Limit, "total": searchQueryResponse.Total, "has_more": searchQueryResponse.HasMore, "search_id": searchQueryResponse.SearchID}})
+}
+
+func (h *TiktokHandler) GetSearch(c *gin.Context) {
+	keyword := c.Query("query")
+	if keyword == "" {
+		c.JSON(400, gin.H{"error": "query is required"})
+		return
+	}
+
+	limit := 20
+	offset := 0
+
+	page := c.Query("page")
+	if page == "" {
+		page = "1"
+	}
+
+	loadMore := c.Query("is_load_more")
+	if loadMore == "" {
+		loadMore = "false"
+	}
+
+	searchType := c.Query("type")
+	if searchType == "" {
+		searchType = "user"
+	}
+
+	if loadMore == "true" {
+		pageInt, _ := strconv.Atoi(page)
+		offset = (pageInt - 1) * limit
+	}
+
+	searchId := c.Query("search_id")
+	if searchId == "" {
+		searchId = ""
+	}
+
+	var searchQueryResponse SearchQueryResponse
+	// check in cache first
+	cacheKey := fmt.Sprintf("search_%s_%d_%d", keyword, offset, limit)
+	searchRoomData, err := h.Cache.Get(cacheKey)
+	if err == nil {
+		searchQueryResponse = searchRoomData.(SearchQueryResponse)
+		c.JSON(200, gin.H{"rooms": searchQueryResponse.Rooms, "pagination": gin.H{"offset": searchQueryResponse.Offset, "limit": searchQueryResponse.Limit, "total": searchQueryResponse.Total, "has_more": searchQueryResponse.HasMore, "search_id": searchQueryResponse.SearchID}})
+		return
+	}
+
+	if searchType == "user" {
+		searchRoomData, err = h.TikTokClient.SearchLive(keyword, offset, limit, searchId)
+	} else {
+		searchRoomData, err = h.TikTokClient.SearchLive(keyword, offset, limit, searchId)
+	}
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	var rooms []tiktok.LiveRoomData
+	for _, room := range searchRoomData.(*tiktok.SearchResponse).Data {
+		rooms = append(rooms, room.LiveInfo.ParsedRawData)
+	}
+	searchResponse := searchRoomData.(*tiktok.SearchResponse)
+	searchQueryResponse = SearchQueryResponse{
+		Rooms:    rooms,
+		SearchID: searchResponse.LogPb.ImprID,
+		Offset:   offset,
+		Limit:    limit,
+		Total:    searchResponse.Cursor,
+		HasMore:  searchResponse.HasMore > 0,
+	}
+	// set cache
+	h.Cache.Set(cacheKey, searchQueryResponse, time.Now().Add(3*time.Minute))
+
+	c.JSON(200, gin.H{"rooms": searchQueryResponse.Rooms, "pagination": gin.H{"offset": searchQueryResponse.Offset, "limit": searchQueryResponse.Limit, "total": searchQueryResponse.Total, "has_more": searchQueryResponse.HasMore, "search_id": searchQueryResponse.SearchID}})
 }
 
 func (h *TiktokHandler) GetSuggestedFeed(c *gin.Context) {
