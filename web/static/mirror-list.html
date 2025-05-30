@@ -318,11 +318,19 @@
     <div class="container-fluid">
         <div class="container-xl">
             <div class="dashboard-container">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <span class="badge bg-info me-2">Mirror Count: <span id="countMirror">-</span></span>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center mb-4 p-3 bg-light rounded-3 shadow-sm">
+        <div class="d-flex align-items-center mb-2 mb-md-0">
+            <div class="d-flex align-items-center">
+                <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 fw-normal d-flex align-items-center">
+                    <i class="fas fa-layer-group me-2"></i>
+                    <span>Total: <span id="countMirror" class="fw-bold">0</span></span>
+                </span>
+            </div>
         </div>
-        <button class="btn btn-success" id="addMirrorBtn" data-bs-toggle="modal" data-bs-target="#addMirrorModal">Add Mirror</button>
+        <button class="btn btn-primary d-flex align-items-center px-4 py-2" id="addMirrorBtn" data-bs-toggle="modal" data-bs-target="#addMirrorModal">
+            <i class="fas fa-plus-circle me-2"></i>
+            <span>Add New Mirror</span>
+        </button>
     </div>
     <!-- Mirror List Cards -->
     <div id="mirror-list-cards" class="row g-3">
