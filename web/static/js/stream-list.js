@@ -480,33 +480,70 @@ $(function() {
     }
 
     function renderPagination(data) {
-        const pag = $("#pagination");
+        const pag = $(".pagination");
         pag.empty();
         const page = data.page || 1;
         const perPage = data.per_page || 6;
         const total = data.total || 0;
         const totalPages = Math.ceil(total / perPage);
-        if (totalPages <= 1) return;
 
-        // Total items info
-        pag.append(`<li class="page-item disabled"><span class="page-link">Total: ${total} items</span></li>`);
+        // Update showing X to Y of Z
+        const from = Math.min((page - 1) * perPage + 1, total);
+        const to = Math.min(page * perPage, total);
+        $("#showingFrom").text(from);
+        $("#showingTo").text(to);
+        $("#totalItems").text(total);
 
-        // First & Prev
-        pag.append(`<li class="page-item${page === 1 ? ' disabled' : ''}"><a class="page-link" href="#" data-page="1">First</a></li>`);
-        pag.append(`<li class="page-item${page === 1 ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${page - 1}">Prev</a></li>`);
-        
+        if (totalPages <= 1) {
+            $(".card-footer").hide();
+            return;
+        } else {
+            $(".card-footer").show();
+        }
+
+
+        // Previous button
+        const prevDisabled = page === 1 ? 'disabled' : '';
+        pag.append(`
+            <li class="page-item ${prevDisabled}">
+                <a class="page-link" href="#" data-page="${page - 1}" ${prevDisabled ? 'tabindex="-1" aria-disabled="true"' : ''}>Previous</a>
+            </li>
+        `);
+
         // Numbered pages (show up to 5 pages around current)
         let start = Math.max(1, page - 2);
         let end = Math.min(totalPages, page + 2);
+
+        // Adjust if we're at the start or end
+        if (end - start < 4) {
+            if (page < 3) {
+                end = Math.min(5, totalPages);
+            } else {
+                start = Math.max(1, totalPages - 4);
+            }
+        }
         if (page <= 3) end = Math.min(5, totalPages);
         if (page >= totalPages - 2) start = Math.max(1, totalPages - 4);
         for (let i = start; i <= end; i++) {
             pag.append(`<li class="page-item${i === page ? ' active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`);
         }
 
-        // Next & Last
-        pag.append(`<li class="page-item${page === totalPages ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${page + 1}">Next</a></li>`);
-        pag.append(`<li class="page-item${page === totalPages ? ' disabled' : ''}"><a class="page-link" href="#" data-page="${totalPages}">Last</a></li>`);
+        // Next button
+        const nextDisabled = page === totalPages ? 'disabled' : '';
+        pag.append(`
+            <li class="page-item ${nextDisabled}">
+                <a class="page-link" href="#" data-page="${page + 1}" ${nextDisabled ? 'tabindex="-1" aria-disabled="true"' : ''}>Next</a>
+            </li>
+        `);
+        
+        // Add click handler for page numbers
+        $(".page-link").on("click", function(e) {
+            e.preventDefault();
+            const newPage = $(this).data("page");
+            if (newPage && newPage > 0 && newPage <= totalPages && !$(this).parent().hasClass("disabled")) {
+                fetchStreams(newPage);
+            }
+        });
     }
 
     function fetchStreams(page = 1, per_page = 6) {
