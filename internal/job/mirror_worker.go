@@ -5,7 +5,11 @@ import (
 	"context"
 	"errors"
 	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 	"windsorf-youtube-live/internal/broadcast"
@@ -120,6 +124,41 @@ func (w *MirrorWorker) MonitorFFmpegStats(stopChan <-chan struct{}) {
 			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+func (w *MirrorWorker) checkIfAnyFfmpegProcessIsRunning(streamKey string) bool {
+	// list all ffmpeg process
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		// Create command to find ffmpeg processes
+		cmd := exec.Command("pgrep", "-f", "ffmpeg.*"+streamKey)
+
+		// Capture the output
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			// pgrep returns non-zero exit status when no processes are found
+			// So we only log the error if it's not the "no processes found" case
+			if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 1 {
+				log.Printf("Error checking for ffmpeg processes: %v", err)
+			}
+			return false
+		}
+
+		// If we got any output, it means there are matching processes
+		return len(output) > 0
+	} else if runtime.GOOS == "windows" {
+		// Windows implementation
+		cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq ffmpeg.exe")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Printf("Error checking for ffmpeg processes: %v", err)
+			return false
+		}
+		// Check if the output contains ffmpeg.exe
+		return strings.Contains(strings.ToLower(string(output)), "ffmpeg.exe")
+	}
+
+	// Unsupported OS
+	return false
 }
 
 func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokClientIface, database *gorm.DB, redisPubSub *redisutil.RedisPubSub) (*MirrorWorker, int, error) {
@@ -267,8 +306,6 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	cmd = exec.CommandContext(ctx, args[0], args[1:]...)
 
 	worker.Cmd = cmd
-
-	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
 
 	// start cmd
@@ -278,33 +315,71 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 		return nil, 0, err
 	}
 
-	// Start goroutines to capture and publish logs
 	go func() {
-		scanner := bufio.NewScanner(stdout)
-		scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-			for i := 0; i < len(data); i++ {
-				if data[i] == '\n' || data[i] == '\r' {
-					// Return the line without the delimiter
-					return i + 1, data[:i], nil
+		if err := cmd.Wait(); err != nil {
+			// Check if this is a normal exit after completing the requested loops
+			isNormalCompletion := false
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 255 {
+				// When using -stream_loop with a count, FFmpeg exits with 255 when done
+				log.Printf("FFmpeg completed for stream %s with error: %v\n", mirrorID, err)
+				// Update database
+				if database != nil {
+					database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Update("status", "stopped")
 				}
-			}
-			if atEOF && len(data) > 0 {
-				return len(data), data, nil
-			}
-			return 0, nil, nil
-		})
-		for scanner.Scan() {
-			line := scanner.Text()
-			if worker.RedisPubSub != nil {
-				channel := "ffmpeg-logs:mirror:" + mirrorID
-				worker.RedisPubSub.PublishFFmpegLog(context.Background(), channel, line)
-				logWithNewLine := line + "\n"
-				if _, err := worker.Logger.Write([]byte(logWithNewLine)); err != nil {
-					log.Println("Failed to write log:", err)
+				isNormalCompletion = true
+			} else if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 251 {
+				// When using -stream_loop with a count, FFmpeg exits with 255 when done
+				log.Printf("FFmpeg completed for stream %s with error: %v\n", mirrorID, err)
+				// Update database
+				if database != nil {
+					database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Update("status", "stopped")
 				}
+				isNormalCompletion = true
+			} else if err.Error() == "signal: killed" {
+				// Handle killed signal
+				log.Println("FFmpeg process killed by signal for stream", mirrorID)
+				worker.Logger.Write([]byte("FFmpeg process killed by signal\n"))
+				// Update database
+				if database != nil {
+					database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Update("status", "stopped")
+				}
+				return
+			}
+
+			if !isNormalCompletion {
+				log.Printf("FFmpeg process ended with error for stream %s: %v\n", mirrorID, err)
+				worker.Logger.Write([]byte("FFmpeg process ended with error: " + err.Error() + "\n"))
+			}
+
+			StopMirrorWorkerWithDatabase(mirrorID, database, false)
+			RemoveWorker(mirrorID)
+
+			if isNormalCompletion {
+				broadcast.Bus.Broadcast(broadcast.RefreshMirror, nil)
+			}
+			// Only restart if this was a normal completion with loopVideo true
+			if !isNormalCompletion && !worker.checkIfAnyFfmpegProcessIsRunning(mirror.StreamKey) {
+				log.Printf("Restarting mirror %s after an errorr\n", mirrorID)
+				RestartLock.Lock()
+				StartMirrorWorkerWithDatabase(mirrorID, worker.TiktokClient, worker.DB, worker.RedisPubSub)
+				RestartLock.Unlock()
+			}
+		} else {
+			// Normal successful completion
+			log.Println("FFmpeg process completed successfully for mirror", mirrorID)
+			worker.Logger.Write([]byte("FFmpeg process completed successfully\n"))
+			// delete concat file
+			concatPath := filepath.Join("data", "ffmpeg_concat", "audio_concat_"+strings.ToLower(mirror.StreamKey)+".txt")
+			os.Remove(concatPath)
+			StopMirrorWorkerWithDatabase(mirrorID, worker.DB, false)
+			RemoveWorker(mirrorID)
+			// update database
+			if database != nil {
+				database.Model(&models.Mirror{}).Where("id = ?", mirrorID).Update("status", "stopped")
 			}
 		}
 	}()
+
 	go func() {
 		scanner := bufio.NewScanner(stderr)
 		scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -340,13 +415,6 @@ func StartMirrorWorkerWithDatabase(mirrorID string, tiktokClient tiktok.TikTokCl
 	if err := database.Save(&mirror).Error; err != nil {
 		log.Println("Failed to update mirror for mirror", mirrorID, "with error", err)
 	}
-
-	// Start stats monitor goroutine
-	stopChan := make(chan struct{})
-	worker.StopChan = stopChan
-	go func() {
-		worker.MonitorFFmpegStats(stopChan)
-	}()
 
 	AddMirrorWorker(worker)
 
