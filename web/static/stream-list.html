@@ -455,6 +455,50 @@
   </div>
     </main>
     
+    <!-- Bind Channel Modal -->
+    <div class="modal fade" id="bindChannelModal" tabindex="-1" aria-labelledby="bindChannelModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-link-45deg me-2"></i>Bind Channel to Stream
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label for="channelSelect" class="form-label fw-medium">Select Channel</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-collection-play"></i></span>
+                            <select class="form-select" id="channelSelect">
+                                <option value="" selected disabled>Loading channels...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="streamSelect" class="form-label fw-medium">Select Live Stream</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-cast"></i></span>
+                            <select class="form-select" id="streamSelect" disabled>
+                                <option value="" selected disabled>Select a channel first</option>
+                            </select>
+                        </div>
+                        <div class="form-text text-muted">Only active live streams are shown</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" id="bindChannelSaveBtn" disabled>
+                        <i class="bi bi-link-45deg me-1"></i> Bind Channel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="bindChannelModalBackdrop" class="modal-backdrop fade" style="display:none;"></div>
+    
     <!-- Delete Confirmation Modal -->
     <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
       <div class="modal-dialog">
