@@ -94,11 +94,9 @@ function initPagination() {
 
 // Setup event listeners
 function setupEventListeners() {
-    console.log('Setup event listeners')
     // Add channel form submission
     const addChannelBtn = document.getElementById('addChannelBtn');
     if (addChannelBtn) {
-        console.log('Add channel button found')
         addChannelBtn.addEventListener('click', handleAddChannel);
     }
 

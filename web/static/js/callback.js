@@ -8,7 +8,6 @@ function callback() {
         method: 'GET',
         headers: { Authorization: 'Bearer ' + jwtToken },
         success: function(data) {
-            console.log(data);
             if (data.status === 'success') {
                 $('#result').text(data.message + ' in 5 seconds redirect to channels').addClass('text-success');
                 // after 5 seconds redirect to channels

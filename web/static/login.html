@@ -50,7 +50,6 @@
             const decoded = JSON.parse(atob(token.split('.')[1]));
             return decoded.exp > Date.now() / 1000;
         } catch (e) {
-            console.dir(e);
             return false;
         }
     }

@@ -786,7 +786,7 @@ function setupDashboardWebSocket() {
     window.dashboardSocket = new WebSocket(wsUrl);
     
     window.dashboardSocket.onopen = function() {
-        console.log('WebSocket connection established');
+
     };
     
     window.dashboardSocket.onmessage = function(event) {
@@ -808,7 +808,6 @@ function setupDashboardWebSocket() {
     };
     
     window.dashboardSocket.onclose = function() {
-        console.log('WebSocket connection closed, attempting to reconnect...');
         setTimeout(setupDashboardWebSocket, 5000);
     };
     

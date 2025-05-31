@@ -124,7 +124,6 @@ $(function () {
 
               // Get the video element before detaching
               const videoEl = player.mediaElement;
-              console.log(`detach video element: ${videoEl}`);
 
               // Properly unload and destroy the player
               try {

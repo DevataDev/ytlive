@@ -57,7 +57,6 @@ $(function () {
 
     // Load more button click handler
     $(document).on("click", "#loadMoreBtn", function() {
-        console.log("Load more clicked");
         if (!isLoading && hasMore) {
             currentPage++;
             performSearch(currentSearchQuery, true);
@@ -124,11 +123,6 @@ $(function () {
                     
                     // Update count
                     $("#countRoom").text(searchFeeds.length);
-
-                    console.dir(`hasMore: ${hasMore}`);
-                    console.dir(`isLoadMore: ${isLoadMore}`);
-                    console.dir(`searchFeeds: ${searchFeeds}`);
-                    
                     
                     // Render the results
                     renderLiveFeedsTable({
@@ -278,9 +272,6 @@ $(function () {
             `);
             return;
         }
-
-        console.dir(`hasMore: ${hasMore}`);
-        console.dir(`hasRooms: ${hasRooms}`);
         
         // If we're loading more but got no new rooms, just return without doing anything
         if (isLoadMore && !hasRooms) {
