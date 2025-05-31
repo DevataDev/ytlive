@@ -473,8 +473,6 @@ $(function () {
 
     // Remove existing load more button if any
     $("#loadMoreBtnWrapper").remove();
-    console.log(`has more: ${liveFeeds.pagination?.has_more}`);
-    console.log(`rooms length: ${liveFeeds.rooms.length}`);
 
     // Add Load More button if needed
     if (liveFeeds.pagination?.has_more && liveFeeds.rooms.length > 0) {
