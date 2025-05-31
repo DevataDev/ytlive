@@ -3,6 +3,9 @@ $(function () {
   let isLoadMore = false;
   let searchID = "";
   let feedRooms = [];
+  let offset = 0;
+  let limit = 6;
+  let allRooms = [];
 
   // Auth check and logout
   if (!localStorage.getItem("jwt_token")) {
@@ -33,6 +36,10 @@ $(function () {
       url:
         "/api/tiktok/live-feed?is_load_more=" +
         isLoadMore +
+        "&offset=" +
+        offset +
+        "&limit=" +
+        limit +
         "&search_id=" +
         searchID,
       method: "GET",
@@ -40,57 +47,43 @@ $(function () {
       success: function (data) {
         // Ensure we have valid data before processing
         if (data && data.rooms && data.rooms.length > 0) {
-          // Clean up players before updating the list
-          if (window._flvPlayers) {
-            Object.keys(window._flvPlayers).forEach(id => {
-              if (!data.rooms.some(room => room.id_str === id)) {
-                // Clean up players for rooms that are no longer in the response
-                try {
-                  const player = window._flvPlayers[id];
-                  if (player) {
-                    player.pause();
-                    player.unload();
-                    player.detachMediaElement();
-                    player.destroy();
-                  }
-                  delete window._flvPlayers[id];
-                } catch (e) {
-                  console.warn('Error cleaning up old FLV player:', e);
-                }
-              }
-            });
-          }
           if (isLoadMore) {
             // Only add new rooms that aren't already in the feedRooms array
-            const newRooms = data.rooms.filter(newRoom => 
-              !feedRooms.some(existingRoom => existingRoom.id_str === newRoom.id_str)
+            const newRooms = data.rooms.filter(
+              (newRoom) =>
+                !feedRooms.some(
+                  (existingRoom) => existingRoom.id_str === newRoom.id_str
+                )
             );
-            feedRooms = newRooms;
+            feedRooms = [...newRooms];
+            allRooms = [...allRooms, ...newRooms];
           } else {
             feedRooms = data.rooms;
+            allRooms = data.rooms;
           }
         }
-        
+
         // Update the UI with the current count of unique rooms
-        $("#countRoom").text(feedRooms.length);
-        
+        $("#countRoom").text(allRooms.length);
+
         // Update search ID and load more state
         if (data.pagination) {
-          if (data.pagination.search_id && data.pagination.search_id !== searchID) {
+          if (
+            data.pagination.search_id &&
+            data.pagination.search_id !== searchID
+          ) {
             searchID = data.pagination.search_id;
           }
-          // Only update isLoadMore if we have pagination info
-          isLoadMore = data.pagination.has_more;
         }
-        
+
         // Only show no items message if we don't have any rooms and we're not in load more mode
         if (feedRooms.length === 0 && !isLoadMore) {
           renderLiveFeedsTable({ rooms: [] });
         } else {
           // Render the combined feedRooms array
-          renderLiveFeedsTable({ 
+          renderLiveFeedsTable({
             rooms: feedRooms,
-            pagination: data.pagination // Pass through pagination info
+            pagination: data.pagination, // Pass through pagination info
           });
         }
       },
@@ -128,95 +121,98 @@ $(function () {
             if (player) {
               // Pause and clean up the player
               player.pause();
-              
+
               // Get the video element before detaching
               const videoEl = player.mediaElement;
-              
+              console.log(`detach video element: ${videoEl}`);
+
               // Properly unload and destroy the player
               try {
                 player.unload();
               } catch (e) {
-                console.warn('Error unloading FLV player:', e);
+                console.warn("Error unloading FLV player:", e);
               }
-              
+
               try {
                 player.detachMediaElement();
               } catch (e) {
-                console.warn('Error detaching FLV player media element:', e);
+                console.warn("Error detaching FLV player media element:", e);
               }
-              
+
               try {
                 player.destroy();
               } catch (e) {
-                console.warn('Error destroying FLV player:', e);
+                console.warn("Error destroying FLV player:", e);
               }
-              
+
               // Clean up the video element
               if (videoEl) {
                 try {
                   videoEl.pause();
-                  videoEl.removeAttribute('src');
+                  videoEl.removeAttribute("src");
                   videoEl.load();
                   if (videoEl.parentNode) {
                     videoEl.parentNode.removeChild(videoEl);
                   }
                 } catch (e) {
-                  console.warn('Error cleaning up video element:', e);
+                  console.warn("Error cleaning up video element:", e);
                 }
               }
-              
+
               delete window._flvPlayers[id];
             }
           } catch (e) {
-            console.warn('Error during FLV player cleanup:', e);
+            console.warn("Error during FLV player cleanup:", e);
           }
         });
       }
-      
+
       // Clean up video.js players
       if (window._videoJsPlayers) {
-        window._videoJsPlayers.forEach(player => {
+        window._videoJsPlayers.forEach((player) => {
           try {
             if (player) {
               // Get the video element before disposing
               const videoEl = player.el();
-              
+
               // Dispose the player
-              if (typeof player.dispose === 'function') {
+              if (typeof player.dispose === "function") {
                 player.dispose();
               }
-              
+
               // Clean up the video element
               if (videoEl) {
                 try {
                   videoEl.pause && videoEl.pause();
-                  videoEl.removeAttribute('src');
+                  videoEl.removeAttribute("src");
                   videoEl.load();
                   if (videoEl.parentNode) {
                     videoEl.parentNode.removeChild(videoEl);
                   }
                 } catch (e) {
-                  console.warn('Error cleaning up video.js video element:', e);
+                  console.warn("Error cleaning up video.js video element:", e);
                 }
               }
             }
           } catch (e) {
-            console.warn('Error during video.js player cleanup:', e);
+            console.warn("Error during video.js player cleanup:", e);
           }
         });
         window._videoJsPlayers = [];
       }
     }
 
-    // Only clear existing cards if not loading more
-    cleanupPlayers();
-    // cardContainer.find(".stream-card").remove();
-    cardContainer.empty();
-    
+    if (!isLoadMore) {
+      // Only clear existing cards if not loading more
+      cleanupPlayers();
+      cardContainer.find(".stream-card").remove();
+      //   cardContainer.empty();
+    }
+
     // Check if we have rooms to display
     const hasRooms = liveFeeds?.rooms?.length > 0;
     const hasMore = liveFeeds?.pagination?.has_more === true;
-    
+
     // If no rooms and not loading more, show empty state
     if (!hasRooms && !isLoadMore) {
       cardContainer.append(`
@@ -233,7 +229,7 @@ $(function () {
       `);
       return;
     }
-    
+
     // If we're loading more but got no new rooms, just return without doing anything
     if (isLoadMore && !hasRooms) {
       return;
@@ -254,7 +250,7 @@ $(function () {
           // For FLV streams, use flv.js
           videoPlayerHtml = `
                         <div class="video-container">
-                            <video id="live-video-${liveFeed.id}" 
+                            <video id="live-video-${liveFeed.id_str}" 
                                    controls 
                                    playsinline
                                    style="width:100%; height:100%; background:#000;"></video>
@@ -263,7 +259,7 @@ $(function () {
                             (function() {
                                 function initFLVPlayer() {
                                     try {
-                                        const videoId = 'live-video-${liveFeed.id}';
+                                        const videoId = 'live-video-${liveFeed.id_str}';
                                         const video = document.getElementById(videoId);
                                         
                                         if (!video) {
@@ -272,14 +268,14 @@ $(function () {
                                         }
                                         
                                         // Clean up any existing player for this video
-                                        if (window._flvPlayers && window._flvPlayers['${liveFeed.id}']) {
+                                        if (window._flvPlayers && window._flvPlayers['${liveFeed.id_str}']) {
                                             try {
-                                                const oldPlayer = window._flvPlayers['${liveFeed.id}'];
+                                                const oldPlayer = window._flvPlayers['${liveFeed.id_str}'];
                                                 oldPlayer.pause();
                                                 oldPlayer.unload();
                                                 oldPlayer.detachMediaElement();
                                                 oldPlayer.destroy();
-                                                delete window._flvPlayers['${liveFeed.id}'];
+                                                delete window._flvPlayers['${liveFeed.id_str}'];
                                             } catch (e) {
                                                 console.warn('Error cleaning up existing FLV player:', e);
                                             }
@@ -308,7 +304,7 @@ $(function () {
                                             
                                             // Store reference for cleanup
                                             if (!window._flvPlayers) window._flvPlayers = {};
-                                            window._flvPlayers['${liveFeed.id}'] = flvPlayer;
+                                            window._flvPlayers['${liveFeed.id_str}'] = flvPlayer;
                                             
                                             // Handle player errors
                                             flvPlayer.on('error', function(error) {
@@ -350,7 +346,7 @@ $(function () {
                                     // Give up after 5 seconds
                                     setTimeout(function() {
                                         clearInterval(checkFLV);
-                                        const video = document.getElementById('live-video-${liveFeed.id}');
+                                        const video = document.getElementById('live-video-${liveFeed.id_str}');
                                         if (video) {
                                             video.poster = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMDAwMDAwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBhbGlnbm1lbnQtYmFzZWxpbmU9Im1pZGRsZSIgZmlsbD0iI2ZmZiI+RmFpbGVkIHRvIGxvYWQgZmx2LmpzPC90ZXh0Pjwvc3ZnPg=';
                                         }
@@ -363,7 +359,7 @@ $(function () {
           // For HLS streams, use video.js with HLS support
           videoPlayerHtml = `
                         <div class="video-container">
-                            <video id="live-video-${liveFeed.id}" 
+                            <video id="live-video-${liveFeed.id_str}" 
                                    class="video-js vjs-default-skin vjs-big-play-centered"
                                    controls 
                                    preload="auto" 
@@ -373,7 +369,7 @@ $(function () {
                         <script>
                             (function() {
                                 try {
-                                    const video = document.getElementById('live-video-${liveFeed.id}');
+                                    const video = document.getElementById('live-video-${liveFeed.id_str}');
                                     if (video) {
                                         // Initialize video.js with HLS support
                                         const player = videojs(video, {
@@ -477,6 +473,8 @@ $(function () {
 
     // Remove existing load more button if any
     $("#loadMoreBtnWrapper").remove();
+    console.log(`has more: ${liveFeeds.pagination?.has_more}`);
+    console.log(`rooms length: ${liveFeeds.rooms.length}`);
 
     // Add Load More button if needed
     if (liveFeeds.pagination?.has_more && liveFeeds.rooms.length > 0) {
@@ -487,7 +485,7 @@ $(function () {
                     </button>
                 </div>
             `);
-    } else if (liveFeeds.rooms.length > 0) {
+    } else {
       cardContainer.after(`
                 <div id="loadMoreBtnWrapper" class="text-center my-4">
                     <div class="text-muted">
@@ -502,6 +500,7 @@ $(function () {
   $(document).on("click", "#loadMoreBtn", function (e) {
     e.preventDefault();
     isLoadMore = true;
+    offset += limit;
     fetchLiveFeeds();
   });
 
@@ -677,12 +676,16 @@ $(function () {
     function () {
       isLoadMore = false;
       searchID = "";
+      offset = 0;
       fetchLiveFeeds(true);
     }
   );
 
   // Handle retry button in error state
   $(document).on("click", "#retryBtn", function () {
+    isLoadMore = false;
+    searchID = "";
+    offset = 0;
     fetchLiveFeeds(true);
   });
 });
@@ -694,6 +697,7 @@ $(window).on("beforeunload", function () {
     Object.entries(window._flvPlayers).forEach(([id, player]) => {
       try {
         if (player) {
+          console.log("Cleaning up FLV player:", id);
           player.pause();
           player.unload();
           player.detachMediaElement();
@@ -711,6 +715,7 @@ $(window).on("beforeunload", function () {
     window._videoJsPlayers.forEach((player, index) => {
       try {
         if (player && typeof player.dispose === "function") {
+          console.log("Cleaning up video.js player:", index);
           player.dispose();
         }
       } catch (e) {
@@ -734,6 +739,7 @@ $(document).on(
       Object.entries(window._flvPlayers).forEach(([id, player]) => {
         try {
           if (player) {
+            console.log("Cleaning up FLV player from isRefresh:", isRefresh);
             player.pause();
             player.unload();
             player.detachMediaElement();

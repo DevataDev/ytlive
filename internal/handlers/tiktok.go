@@ -112,13 +112,23 @@ func (h *TiktokHandler) GetLiveFeed(c *gin.Context) {
 	if limit == "" {
 		limit = "6"
 	}
+
+	offsetInt, _ := strconv.Atoi(offset)
+	limitInt, _ := strconv.Atoi(limit)
+	if offsetInt < 0 || limitInt < 0 {
+		c.JSON(500, gin.H{"error": "offset and limit must be greater than 0"})
+		return
+	}
+
 	isLoadMore := c.Query("is_load_more")
 	var wrappedFeed *tiktok.WrappedFeedResponse
 	var feedRoomData []tiktok.FeedRoomData
 	var err error
+
+	cacheKey := fmt.Sprintf("live_feed_%d_%d", offsetInt, limitInt)
 	// check in cache first
 	if isLoadMore != "true" {
-		cacheData, err := h.Cache.Get("live_feed")
+		cacheData, err := h.Cache.Get(cacheKey)
 		if err == nil {
 			feedQueryResponse := cacheData.(FeedQueryResponse)
 			c.JSON(200, gin.H{"rooms": feedQueryResponse.Rooms, "pagination": gin.H{"total": feedQueryResponse.Total, "has_more": feedQueryResponse.HasMore, "search_id": feedQueryResponse.SearchID}})
@@ -152,7 +162,7 @@ func (h *TiktokHandler) GetLiveFeed(c *gin.Context) {
 	}
 
 	// set cache
-	h.Cache.Set("live_feed", feedQueryResponse, time.Now().Add(3*time.Minute))
+	h.Cache.Set(cacheKey, feedQueryResponse, time.Now().Add(3*time.Minute))
 
 	c.JSON(200, gin.H{"rooms": feedRoomData, "pagination": gin.H{"total": wrappedFeed.Total, "has_more": wrappedFeed.HasMore, "search_id": wrappedFeed.SearchID, "req_from": wrappedFeed.ReqFrom}})
 }
