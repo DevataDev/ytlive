@@ -165,16 +165,29 @@ $(function() {
                     $('#streamSelect').append('<option value="">Select a live stream</option>');
                     res.streams.forEach(function(stream) {
                         $('#streamSelect').append(`<option value="${stream.stream_key}">${stream.title} - ${stream.stream_key}</option>`);
+                        $('#streamSelect').prop('disabled', false);
                     });
                 } else {
                     $('#streamSelect').append('<option value="">No live streams found</option>');
+                    $('#streamSelect').prop('disabled', true);
                 }
             },
             error: function() {
                 $('#streamSelect').append('<option value="">Failed to load streams</option>');
+                $('#streamSelect').prop('disabled', true);
             }
         });
     });
+
+    $('#streamSelect').on('change', function() {
+        const liveStreamId = $(this).val();
+        if (liveStreamId) {
+            $('#bindChannelSaveBtn').prop('disabled', false);
+        } else {
+            $('#bindChannelSaveBtn').prop('disabled', true);
+        }
+    });
+    
     // Bind button
     $('#bindChannelSaveBtn').on('click', function() {
         const channelId = $('#channelSelect').val();
