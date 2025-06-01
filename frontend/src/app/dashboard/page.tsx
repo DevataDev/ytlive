@@ -14,6 +14,7 @@ import {
   StorageInfo,
   StreamStats,
   SystemMetrics,
+  RecentActivities
 } from '@/services/dashboardService';
 import styles from './dashboard.module.css';
 
@@ -84,10 +85,10 @@ export default function DashboardPage() {
   const updateSystemMetrics = useCallback((metrics: SystemMetrics) => {
     setStats(prev => ({
       ...prev,
-      cpuUsage: metrics.cpu,
-      memoryUsage: metrics.memory,
-      networkIn: metrics.download,
-      networkOut: metrics.upload
+      cpu: metrics.cpu,
+      memory: metrics.memory,
+      download: metrics.download,
+      upload: metrics.upload
     }));
 
     setNetworkData(prev => ({
@@ -131,10 +132,6 @@ export default function DashboardPage() {
     };
 
     fetchInitialData();
-
-    return () => {
-      ws.close();
-    };
   }, [status, router, updateSystemMetrics]);
 
   if (isLoading) {
@@ -229,7 +226,7 @@ export default function DashboardPage() {
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
                     <h6 className={`text-uppercase ${styles.textWhite50} mb-1`}>CPU Usage</h6>
-                    <h2 className="mb-0">{(stats.cpuUsage || 0).toFixed(1)}%</h2>
+                    <h2 className="mb-0">{(stats.cpu || 0).toFixed(1)}%</h2>
                   </div>
                   <div className={`${styles.iconShape} p-3`}>
                     <i className="bi bi-cpu fs-1"></i>
@@ -240,8 +237,8 @@ export default function DashboardPage() {
                     <div
                       className="progress-bar bg-white"
                       role="progressbar"
-                      style={{ width: `${stats.cpuUsage || 0}%` }}
-                      aria-valuenow={stats.cpuUsage || 0}
+                      style={{ width: `${stats.cpu || 0}%` }}
+                      aria-valuenow={stats.cpu || 0}
                       aria-valuemin={0}
                       aria-valuemax={100}
                     ></div>
@@ -258,7 +255,7 @@ export default function DashboardPage() {
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
                     <h6 className={`text-uppercase ${styles.textWhite50} mb-1`}>Memory Usage</h6>
-                    <h2 className="mb-0">{(stats.memoryUsage || 0).toFixed(1)}%</h2>
+                    <h2 className="mb-0">{(stats.memory || 0).toFixed(1)}%</h2>
                   </div>
                   <div className={`${styles.iconShape} p-3`}>
                     <i className="bi bi-memory fs-1"></i>
@@ -269,8 +266,8 @@ export default function DashboardPage() {
                     <div
                       className="progress-bar bg-white"
                       role="progressbar"
-                      style={{ width: `${stats.memoryUsage || 0}%` }}
-                      aria-valuenow={stats.memoryUsage || 0}
+                      style={{ width: `${stats.memory || 0}%` }}
+                      aria-valuenow={stats.memory || 0}
                       aria-valuemin={0}
                       aria-valuemax={100}
                     ></div>
@@ -300,7 +297,34 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="card-body p-3">
-                <div style={{ height: '250px' }}>
+                {/* Network Stats */}
+                <div className="row g-3 mb-3">
+                  <div className="col-6 col-md-3">
+                    <div className="d-flex align-items-center">
+                      <div className="bg-primary bg-opacity-10 rounded p-2 me-2">
+                        <i className="bi bi-download text-primary"></i>
+                      </div>
+                      <div>
+                        <p className="mb-0 small text-muted">Download</p>
+                        <h6 className="mb-0">{(stats.download || 0).toFixed(2)} Mbps</h6>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-6 col-md-3">
+                    <div className="d-flex align-items-center">
+                      <div className="bg-success bg-opacity-10 rounded p-2 me-2">
+                        <i className="bi bi-upload text-success"></i>
+                      </div>
+                      <div>
+                        <p className="mb-0 small text-muted">Upload</p>
+                        <h6 className="mb-0">{(stats.upload || 0).toFixed(2)} Mbps</h6>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Chart */}
+                <div style={{ height: '200px' }}>
                   <Line
                     data={{
                       labels: networkData.labels,
