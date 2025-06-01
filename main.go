@@ -309,6 +309,17 @@ func main() {
 		c.Set("config", cfg)
 		c.Set("db", db)
 		c.Set("redis", &redisPubSub)
+		// cors header
+		clientReqOrigin := c.Request.Header.Get("Origin")
+		c.Header("Access-Control-Allow-Origin", clientReqOrigin)
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		// return ok response for preflight request
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusOK)
+			return
+		}
 		c.Next()
 	})
 

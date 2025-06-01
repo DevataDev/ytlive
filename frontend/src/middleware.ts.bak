@@ -1,0 +1,101 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
+
+// List of protected routes that require authentication
+const protectedRoutes = [
+  '/dashboard',
+  '/stream-list',
+  '/mirror-list',
+  '/monitor-management',
+  '/profile',
+  '/settings',
+];
+
+// List of auth routes
+const authRoutes = [
+  '/login',
+  '/register',
+  '/auth/error',
+];
+
+// List of public routes that don't require authentication
+const publicRoutes = [
+  '/',
+  '/about',
+  '/pricing',
+  '/contact',
+];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  
+  // Check if the current route is protected
+  const isProtectedRoute = protectedRoutes.some(route => 
+    pathname.startsWith(route)
+  );
+  
+  // Check if the current route is an auth route
+  const isAuthRoute = authRoutes.some(route => 
+    pathname.startsWith(route)
+  );
+  
+  // Check if the current route is public
+  const isPublicRoute = publicRoutes.some(route => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+
+  // Get the token from the request
+  const token = await getToken({ 
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+  
+  // Handle auth routes
+  if (isAuthRoute) {
+    if (token) {
+      // If user is logged in and tries to access auth route, redirect to dashboard
+      const dashboardUrl = new URL('/dashboard', request.url);
+      return NextResponse.redirect(dashboardUrl);
+    }
+    return NextResponse.next();
+  }
+
+  // Handle protected routes
+  if (isProtectedRoute) {
+    if (!token) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', encodeURI(request.url));
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
+
+  // Handle public routes
+  if (isPublicRoute) {
+    // If the user is logged in and tries to access the home page, redirect to dashboard
+    if (token && pathname === '/') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // If we get here, the route is not public, not an auth route, and not protected
+  // This handles any other routes that aren't explicitly defined above
+  return NextResponse.next();
+}
+
+// Configure which routes the middleware will run on
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     * - auth (auth callback routes)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|public/|auth/).*)',
+  ],
+};

@@ -118,7 +118,7 @@ func (h *DashboardHandler) GetStorageInfo(c *gin.Context) {
 
 	// Get file from media files
 	var mediaFiles []models.MediaFile
-	if err := h.DB.Find(&mediaFiles).Error; err != nil {
+	if err := h.DB.Where("deleted_at IS NULL").Find(&mediaFiles).Error; err != nil {
 		c.JSON(500, gin.H{"error": "failed to fetch media files"})
 		return
 	}
