@@ -87,15 +87,13 @@ export const addToMirror = async (data: AddToMirrorParams): Promise<{ data: any 
  */
 export const getLiveRoom = async (roomId: string): Promise<TikTokRoom> => {
   const response = await api.get<TikTokRoom>(`/api/tiktok/room/${roomId}`);
-  return response.data;
+  return response;
 };
 
 /**
  * Searches for TikTok live rooms
  */
-export const searchLiveRooms = async (query: string): Promise<TikTokRoom[]> => {
-  const response = await api.get<TikTokRoom[]>('/api/tiktok/search', {
-    params: { q: query },
-  });
-  return response.data;
+export const searchLiveRooms = async (query: string): Promise<TikTokLiveFeedResponse> => {
+  const response = await api.get<TikTokLiveFeedResponse>('/api/tiktok/search?query=' + query);
+  return response;
 };
