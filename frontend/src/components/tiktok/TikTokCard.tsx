@@ -1,10 +1,23 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
-import { Card, Button, Spinner } from 'react-bootstrap';
-import { FaEye, FaUserFriends, FaPlusCircle } from 'react-icons/fa';
+import { useState, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
+import { Card, Button, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { 
+  FaEye, 
+  FaUserFriends, 
+  FaPlusCircle, 
+  FaVolumeMute, 
+  FaVolumeUp, 
+  FaPlay, 
+  FaPause,
+  FaExclamationTriangle
+} from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+
+// Dynamically import ReactPlayer with no SSR
+const ReactPlayer = dynamic(() => import('react-player/lazy'), { ssr: false });
 
 interface TikTokOwner {
   display_id: string;
@@ -17,13 +30,12 @@ interface TikTokStats {
   total_user?: number;
 }
 
-export interface TikTokRoom {
+interface TikTokRoom {
   id_str: string;
   title: string;
   owner: TikTokOwner;
   stats?: TikTokStats;
   live_url?: string;
-  // Add other properties as needed
 }
 
 interface TikTokCardProps {
@@ -35,17 +47,20 @@ interface TikTokCardProps {
 export default function TikTokCard({ room, onAddToMirror, loading = false }: TikTokCardProps) {
   const { data: session } = useSession();
   const router = useRouter();
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const [player, setPlayer] = useState<any>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isReady, setIsReady] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const playerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const username = room.owner?.display_id || 'unknown';
   const avatarUrl = room.owner?.avatar_thumb?.url_list?.[0];
   const avatarText = username.charAt(0).toUpperCase();
   const viewCount = formatNumber(room.stats?.total_user || 0);
-  const isHls = room.live_url?.includes('.m3u8');
-  const isFlv = room.live_url?.includes('.flv');
 
   // Format number for display (e.g., 1500 -> 1.5K)
   function formatNumber(num: number): string {
@@ -57,70 +72,32 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
     return num.toString();
   }
 
-  // Initialize video player
-  useEffect(() => {
-    if (!room.live_url || !videoRef.current) return;
+  // Toggle play/pause on hover
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+    if (playerRef.current) {
+      setIsPlaying(true);
+    }
+  }, []);
 
-    let videoPlayer: any = null;
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+    if (playerRef.current) {
+      setIsPlaying(false);
+    }
+  }, []);
 
-    const initializePlayer = async () => {
-      try {
-        if (isFlv) {
-          // For FLV streams using flv.js
-          const flvjs = (window as any).flvjs;
-          if (flvjs && flvjs.isSupported() && videoRef.current) {
-            videoPlayer = flvjs.createPlayer({
-              type: 'flv',
-              url: room.live_url,
-              isLive: true,
-              hasAudio: true,
-              hasVideo: true,
-              enableStashBuffer: false,
-              stashInitialSize: 128,
-            });
-            videoPlayer.attachMediaElement(videoRef.current);
-            videoPlayer.load();
-            setPlayer(videoPlayer);
-          }
-        } else if (isHls) {
-          // For HLS streams using hls.js
-          const Hls = (window as any).Hls;
-          if (Hls && Hls.isSupported() && videoRef.current) {
-            videoPlayer = new Hls({
-              enableWorker: true,
-              lowLatencyMode: true,
-              backBufferLength: 90,
-            });
-            videoPlayer.loadSource(room.live_url);
-            videoPlayer.attachMedia(videoRef.current);
-            setPlayer(videoPlayer);
-          } else if (videoRef.current?.canPlayType('application/vnd.apple.mpegurl')) {
-            // Native HLS support for Safari
-            videoRef.current.src = room.live_url;
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing video player:', error);
-      }
-    };
+  // Toggle play/pause on click
+  const togglePlayPause = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsPlaying(!isPlaying);
+  }, [isPlaying]);
 
-    initializePlayer();
-
-    // Cleanup function
-    return () => {
-      if (videoPlayer) {
-        try {
-          if (videoPlayer.destroy) {
-            videoPlayer.destroy();
-          } else if (videoPlayer.detachMedia) {
-            videoPlayer.detachMedia();
-          }
-        } catch (e) {
-          console.error('Error cleaning up video player:', e);
-        }
-      }
-    };
-  }, [room.live_url, isFlv, isHls]);
+  // Toggle mute on click
+  const toggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMuted(!isMuted);
+  }, [isMuted]);
 
   const handleAddToMirror = async () => {
     if (!onAddToMirror) return;
@@ -142,43 +119,183 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
       router.push('/login');
       return;
     }
-    // Handle card click if needed
+  };
+
+  const handlePlay = useCallback(() => {
+    setIsPlaying(true);
+  }, []);
+
+  const handlePause = useCallback(() => {
+    setIsPlaying(false);
+  }, []);
+
+  const handleError = useCallback((error: any) => {
+    console.error('Error playing video:', error);
+    setHasError(true);
+    toast.error('Failed to load video stream');
+  }, []);
+
+  const handleReady = useCallback(() => {
+    setIsReady(true);
+  }, []);
+
+  const handleBuffer = useCallback(() => {
+    setIsBuffering(true);
+  }, []);
+
+  const handleBufferEnd = useCallback(() => {
+    setIsBuffering(false);
+  }, []);
+
+  // Check if the URL is a supported format
+  const isSupportedFormat = useCallback((url: string): boolean => {
+    if (!url) return false;
+    const supportedFormats = ['.m3u8', '.mp4', '.webm', '.ogg', '.flv', '.f4v'];
+    return supportedFormats.some(format => url.includes(format));
+  }, []);
+
+  const renderPlayer = () => {
+    if (!room.live_url) {
+      return (
+        <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-light">
+          <div className="text-center">
+            <div className="text-muted mb-2">
+              <FaEye size={24} />
+            </div>
+            <p className="mb-0 text-muted">No stream available</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (!isSupportedFormat(room.live_url)) {
+      return (
+        <div className="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-dark text-white p-3">
+          <FaExclamationTriangle className="text-warning mb-2" size={32} />
+          <p className="text-center mb-0">Unsupported video format</p>
+          <small className="text-muted text-center">URL: {room.live_url.substring(0, 30)}...</small>
+        </div>
+      );
+    }
+
+    return (
+      <div className="position-absolute top-0 start-0 w-100 h-100" style={{ backgroundColor: '#000' }}>
+        <ReactPlayer
+          ref={playerRef}
+          url={room.live_url}
+          playing={isPlaying}
+          muted={isMuted}
+          width="100%"
+          height="100%"
+          playsinline
+          controls={isHovered}
+          autoPlay
+          mute
+          style={{ position: 'absolute', top: 0, left: 0 }}
+          onReady={handleReady}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onError={handleError}
+          onBuffer={handleBuffer}
+          onBufferEnd={handleBufferEnd}
+          config={{
+            file: {
+              forceFLV: room.live_url.includes('.flv'),
+              forceHLS: room.live_url.includes('.m3u8'),
+              hlsOptions: {
+                enableWorker: true,
+                lowLatencyMode: true,
+                backBufferLength: 90,
+              },
+            },
+          }}
+        />
+        <div className="position-absolute top-0 end-0 m-2">
+          <span className="badge bg-danger">
+            <FaEye className="me-1" /> LIVE
+          </span>
+        </div>
+        {/* Loading overlay */}
+        {!isReady || isBuffering ? (
+          <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}>
+            <Spinner animation="border" variant="light" />
+          </div>
+        ) : null}
+
+        {/* Play/Pause overlay */}
+        {!isHovered && isReady && !isBuffering && (
+          <div 
+            className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+            style={{ cursor: 'pointer', backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+            onClick={togglePlayPause}
+          >
+            {!isPlaying && (
+              <div className="bg-dark bg-opacity-50 rounded-circle p-3">
+                <FaPlay size={24} className="text-white" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Live badge */}
+        <div className="position-absolute top-0 end-0 m-2">
+          <span className="badge bg-danger">
+            <FaEye className="me-1" /> LIVE
+          </span>
+        </div>
+
+        {/* Mute/Unmute button */}
+        {isReady && !isBuffering && (
+          <OverlayTrigger
+            placement="top"
+            overlay={<Tooltip id={`mute-tooltip-${room.id_str}`}>
+              {isMuted ? 'Unmute' : 'Mute'}
+            </Tooltip>}
+          >
+            <div 
+              className="position-absolute bottom-0 end-0 m-2"
+              onClick={toggleMute}
+              style={{
+                width: '30px',
+                height: '30px',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: 10,
+              }}
+            >
+              {isMuted ? (
+                <FaVolumeMute className="text-white" size={14} />
+              ) : (
+                <FaVolumeUp className="text-white" size={14} />
+              )}
+            </div>
+          </OverlayTrigger>
+        )}
+      </div>
+    );
   };
 
   return (
     <Card 
       className="h-100 shadow-sm" 
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={handleCardClick}
     >
-      <div className="position-relative" style={{ paddingTop: '56.25%' }}> {/* 16:9 Aspect Ratio */}
-        {room.live_url ? (
-          <>
-            <video
-              ref={videoRef}
-              className="position-absolute top-0 start-0 w-100 h-100"
-              style={{ objectFit: 'cover' }}
-              playsInline
-              controls={isHovered}
-              autoPlay
-              muted
-            />
-            <div className="position-absolute top-0 end-0 m-2">
-              <span className="badge bg-danger">
-                <FaEye className="me-1" /> LIVE
-              </span>
-            </div>
-          </>
-        ) : (
-          <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-light">
-            <div className="text-center">
-              <div className="text-muted mb-2">
-                <FaEye size={24} />
-              </div>
-              <p className="mb-0 text-muted">No stream available</p>
-            </div>
-          </div>
-        )}
+      <div 
+        ref={containerRef}
+        className="position-relative" 
+        style={{ 
+          paddingTop: '56.25%', // 16:9 Aspect Ratio
+          backgroundColor: '#000',
+          overflow: 'hidden',
+        }}
+      >
+        {renderPlayer()}
       </div>
       
       <Card.Body>
@@ -200,11 +317,30 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
               </div>
             )}
           </div>
-          <div className="flex-grow-1">
-            <h6 className="mb-1 text-truncate" title={room.title}>
-              {room.title || 'Untitled Stream'}
-            </h6>
-            <p className="text-muted small mb-0">@{username}</p>
+          <div className="flex-grow-1" style={{ minWidth: 0 }}>
+            <OverlayTrigger
+              placement="top"
+              overlay={
+                <Tooltip id={`title-tooltip-${room.id_str}`}>
+                  {room.title || 'Untitled Stream'}
+                </Tooltip>
+              }
+            >
+              <h6 
+                className="mb-1 text-truncate" 
+                style={{
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '100%',
+                  display: 'inline-block',
+                  verticalAlign: 'middle'
+                }}
+              >
+                {room.title || 'Untitled Stream'}
+              </h6>
+            </OverlayTrigger>
+            <p className="text-muted small mb-0 text-truncate">@{username}</p>
           </div>
         </div>
         
@@ -218,12 +354,15 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
             <Button 
               variant="primary" 
               size="sm"
-              onClick={handleAddToMirror}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddToMirror();
+              }}
               disabled={isAdding || loading}
             >
               {isAdding ? (
                 <>
-                  <Spinner as="span" size="sm" animation="border" role="status" aria-hidden="true" className="me-1" />
+                  <Spinner as="span" size="sm" animation="border" role="status" className="me-1" />
                   Adding...
                 </>
               ) : (
