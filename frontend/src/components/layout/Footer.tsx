@@ -6,6 +6,7 @@ import { fetchFooterInfo } from '@/services/footerService';
 export default function Footer() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [versionInfo, setVersionInfo] = useState({ version: '', commit: '', buildTime: '' });
+  const [sinceYear, setSinceYear] = useState(2025);
 
   useEffect(() => {
     // Set current year
@@ -37,7 +38,7 @@ export default function Footer() {
           </div>
           <div className="col-md-6 text-center text-md-end">
             <div className={styles.copyrightText}>
-              &copy; {currentYear} PT Jejaring Internet Bersama. All rights reserved.
+              &copy; {sinceYear === currentYear ? sinceYear : `${sinceYear} - ${currentYear}`} PT Jejaring Internet Bersama. All rights reserved.
             </div>
           </div>
         </div>
