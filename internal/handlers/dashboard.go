@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -74,8 +73,6 @@ func (h *DashboardHandler) GetRecentActivities(c *gin.Context) {
 		case models.ActivityTypeVideoProcessed:
 			icon = "bi-check-circle"
 		}
-
-		log.Println("Activity:", activity)
 
 		// Format the activity for the frontend
 		formattedActivities[i] = map[string]interface{}{
