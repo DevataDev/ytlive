@@ -43,12 +43,20 @@ interface ThemeSettings {
   highContrast: boolean;
 }
 
+export interface ApiResponse<T = any> {
+  data: T;
+  message?: string;
+  success: boolean;
+  error?: string;
+  statusCode?: number;
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   method: RequestMethod = 'GET',
   data: any = null,
   options: RequestOptions = {}
-): Promise<T> {
+): Promise<ApiResponse<T>> {
   const url = `${API_BASE_URL}${endpoint}`;
   const session = await getSession();
   
@@ -57,41 +65,74 @@ export async function apiRequest<T>(
     ...options.headers,
   };
 
-  // Add authorization header if user is authenticated and not explicitly skipped
-  const accessToken = (session as any)?.accessToken || (session as any)?.user?.accessToken;
-  if (accessToken && !options.noAuth) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
+  // Add auth header if not explicitly disabled and token is available
+  if (!options.noAuth) {
+    const token = options.token || session?.user?.backendToken;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
   }
 
   const config: RequestInit = {
     method,
     headers,
-    credentials: 'include', // Important for cookies, authorization headers with HTTPS
+    credentials: 'include',
+    ...options,
   };
 
   if (data) {
-    config.body = JSON.stringify(data);
+    if (method === 'GET') {
+      // Convert data to query string for GET requests
+      const params = new URLSearchParams();
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+      const queryString = params.toString();
+      if (queryString) {
+        endpoint += `?${queryString}`;
+      }
+    } else if (data instanceof FormData) {
+      // If FormData, let the browser set the Content-Type with boundary
+      delete headers['Content-Type'];
+      config.body = data;
+    } else {
+      // For other methods, send as JSON
+      config.body = JSON.stringify(data);
+    }
   }
 
   try {
     const response = await fetch(url, config);
     
-    // Handle 204 No Content
+    // Handle no content
     if (response.status === 204) {
-      return null as unknown as T;
+      return { success: true, data: null as unknown as T };
     }
 
     const responseData = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(
-        responseData.message || 'An error occurred while making the request.'
-      );
+      const error = new Error(responseData.message || 'Something went wrong');
+      (error as any).status = response.status;
+      (error as any).data = responseData;
+      throw error;
     }
 
-    return responseData as T;
+    // If the response is already in the ApiResponse format, return it as is
+    if (responseData && typeof responseData === 'object' && 'data' in responseData) {
+      return responseData as ApiResponse<T>;
+    }
+
+    // Otherwise, wrap the response in the standard ApiResponse format
+    return {
+      data: responseData as T,
+      success: true,
+      statusCode: response.status
+    };
   } catch (error) {
-    console.error('API request failed:', error);
+    console.error(`API ${method} ${endpoint} failed:`, error);
     throw error;
   }
 }
@@ -99,18 +140,34 @@ export async function apiRequest<T>(
 // Helper methods for common HTTP methods
 export const api = {
   get: <T>(endpoint: string, options?: Omit<RequestOptions, 'method'>) =>
-    apiRequest<T>(endpoint, 'GET', null, options),
+    apiRequest<T>(endpoint, 'GET', null, options).then(res => res.data),
   
   post: <T>(endpoint: string, data?: any, options?: Omit<RequestOptions, 'method'>) =>
-    apiRequest<T>(endpoint, 'POST', data, options),
+    apiRequest<T>(endpoint, 'POST', data, options).then(res => res.data),
   
   put: <T>(endpoint: string, data: any, options?: Omit<RequestOptions, 'method'>) =>
-    apiRequest<T>(endpoint, 'PUT', data, options),
+    apiRequest<T>(endpoint, 'PUT', data, options).then(res => res.data),
   
   delete: <T>(endpoint: string, options?: Omit<RequestOptions, 'method'>) =>
-    apiRequest<T>(endpoint, 'DELETE', null, options),
+    apiRequest<T>(endpoint, 'DELETE', null, options).then(res => res.data),
   
   patch: <T>(endpoint: string, data: any, options?: Omit<RequestOptions, 'method'>) =>
+    apiRequest<T>(endpoint, 'PATCH', data, options).then(res => res.data),
+  
+  // Raw methods that return the full ApiResponse
+  getRaw: <T>(endpoint: string, options?: Omit<RequestOptions, 'method'>) =>
+    apiRequest<T>(endpoint, 'GET', null, options),
+  
+  postRaw: <T>(endpoint: string, data?: any, options?: Omit<RequestOptions, 'method'>) =>
+    apiRequest<T>(endpoint, 'POST', data, options),
+  
+  putRaw: <T>(endpoint: string, data: any, options?: Omit<RequestOptions, 'method'>) =>
+    apiRequest<T>(endpoint, 'PUT', data, options),
+  
+  deleteRaw: <T>(endpoint: string, options?: Omit<RequestOptions, 'method'>) =>
+    apiRequest<T>(endpoint, 'DELETE', null, options),
+  
+  patchRaw: <T>(endpoint: string, data: any, options?: Omit<RequestOptions, 'method'>) =>
     apiRequest<T>(endpoint, 'PATCH', data, options),
 };
 
