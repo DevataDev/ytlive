@@ -85,14 +85,22 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		}
 	}
 	offset := (page - 1) * perPage
+	search := c.Query("search")
 
 	var total int64
 	h.DB.Model(&models.User{}).Count(&total)
 
 	var users []models.User
-	if err := h.DB.Limit(perPage).Offset(offset).Find(&users).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
-		return
+	if search != "" {
+		if err := h.DB.Where("username LIKE ? OR email LIKE ?", "%"+search+"%", "%"+search+"%").Limit(perPage).Offset(offset).Find(&users).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+			return
+		}
+	} else {
+		if err := h.DB.Limit(perPage).Offset(offset).Find(&users).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+			return
+		}
 	}
 	// Hide password hashes
 	var result []map[string]interface{}

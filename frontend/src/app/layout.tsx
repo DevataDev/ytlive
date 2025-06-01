@@ -3,9 +3,11 @@
 import { Inter } from 'next/font/google';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
+import 'react-toastify/dist/ReactToastify.css';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SessionProvider } from 'next-auth/react';
+import { ToastContainer } from 'react-toastify';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { useEffect } from 'react';
@@ -52,6 +54,18 @@ export default function RootLayout({
             {shouldHide ? null : <Header />}
             <main className="flex-grow-1">
               {children}
+              <ToastContainer 
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="colored"
+              />
             </main>
             {shouldHide ? null : <Footer />}
           </AuthProvider>
