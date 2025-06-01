@@ -11,6 +11,7 @@ declare module 'next-auth' {
     name: string;
     email: string;
     backendToken: string;
+    isAdmin: boolean;
   }
 
   /**
@@ -23,6 +24,7 @@ declare module 'next-auth' {
       name: string;
       email: string;
       accessToken: string;
+      isAdmin: boolean;
     } & DefaultSession['user'];
     error?: string;
     expires: string;
@@ -39,6 +41,7 @@ declare module 'next-auth/jwt' {
     name: string;
     email: string;
     accessToken: string;
+    isAdmin: boolean;
     error?: string;
   }
 }
@@ -49,6 +52,7 @@ declare module 'next-auth/jwt' {
 export interface AuthUser {
   id: string;
   username: string;
+  isAdmin: boolean;
   name: string;
   email: string;
   accessToken: string;

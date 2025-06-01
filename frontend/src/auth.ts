@@ -10,6 +10,7 @@ declare module 'next-auth' {
       email: string;
       name: string;
       backendToken: string;
+      isAdmin: boolean;
     } & DefaultSession['user'];
   }
 
@@ -19,6 +20,7 @@ declare module 'next-auth' {
     email: string;
     name: string;
     backendToken: string;
+    isAdmin: boolean;
   }
 }
 
@@ -29,6 +31,7 @@ declare module 'next-auth/jwt' {
     email: string;
     name: string;
     backendToken: string;
+    isAdmin: boolean;
   }
 }
 
@@ -43,6 +46,7 @@ interface TokenPayload {
   username?: string;
   email?: string;
   name?: string;
+  is_admin?: boolean;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -91,6 +95,7 @@ export const authOptions: NextAuthOptions = {
             email: payload.email || 'no-email@example.com',
             name: payload.name || 'User',
             backendToken: data.token,
+            isAdmin: payload.is_admin || false,
           };
           return user;
         } catch (error) {
@@ -108,9 +113,10 @@ export const authOptions: NextAuthOptions = {
         token.email = user.email || '';
         token.name = user.name || '';
         token.backendToken = user.backendToken;
+        token.isAdmin = (user as any).isAdmin || false;
       }
 
-       return token;
+      return token;
     },
     async session({ session, token }) {
       session.user = {
@@ -119,6 +125,7 @@ export const authOptions: NextAuthOptions = {
         email: token.email || 'no-email@example.com',
         name: token.name || 'User',
         backendToken: token.backendToken,
+        isAdmin: token.isAdmin || false,
       };
       return session;
     },

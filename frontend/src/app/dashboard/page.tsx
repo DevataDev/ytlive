@@ -179,7 +179,7 @@ export default function DashboardPage() {
                     <h2 className="mb-0">{streamStats.started + streamStats.scheduled}</h2>
                   </div>
                   <div className={`${styles.iconShape} p-3`}>
-                    <i className="bi bi-collection-play fs-1"></i>
+                    <i className="bi bi-collection-play fs-4"></i>
                   </div>
                 </div>
               </div>
@@ -198,7 +198,7 @@ export default function DashboardPage() {
                     </h2>
                   </div>
                   <div className={`${styles.iconShape} p-3`}>
-                    <i className="bi bi-cast fs-1"></i>
+                    <i className="bi bi-cast fs-4"></i>
                   </div>
                 </div>
                 <div className="mt-3">
@@ -229,7 +229,7 @@ export default function DashboardPage() {
                     <h2 className="mb-0">{(stats.cpu || 0).toFixed(1)}%</h2>
                   </div>
                   <div className={`${styles.iconShape} p-3`}>
-                    <i className="bi bi-cpu fs-1"></i>
+                    <i className="bi bi-cpu fs-4"></i>
                   </div>
                 </div>
                 <div className="mt-3">
@@ -258,7 +258,7 @@ export default function DashboardPage() {
                     <h2 className="mb-0">{(stats.memory || 0).toFixed(1)}%</h2>
                   </div>
                   <div className={`${styles.iconShape} p-3`}>
-                    <i className="bi bi-memory fs-1"></i>
+                    <i className="bi bi-memory fs-4"></i>
                   </div>
                 </div>
                 <div className="mt-3">
@@ -363,7 +363,7 @@ export default function DashboardPage() {
                           intersect: false,
                           callbacks: {
                             label: function (context) {
-                              return `${context.dataset.label}: ${context.raw.toFixed(2)}Mbps`;
+                              return `${context.dataset.label}: ${context.raw.toFixed(0)}Mbps`;
                             },
                           },
                         },
@@ -385,7 +385,7 @@ export default function DashboardPage() {
                           },
                           ticks: {
                             callback: function (value) {
-                              return `${value.toFixed(2)}Mbps`;
+                              return `${value.toFixed(0)}Mbps`;
                             },
                           },
                         },

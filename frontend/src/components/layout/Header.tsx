@@ -115,12 +115,14 @@ export default function Header() {
                   </li>
                 </ul>
               </li>
-              <li className="nav-item">
-                <Link href="/users" className={`nav-link ${isActive('/users')}`}>
-                  <i className="bi bi-people"></i>
-                  <span>Users</span>
-                </Link>
-              </li>
+              {session?.user?.isAdmin && (
+                <li className="nav-item">
+                  <Link href="/users" className={`nav-link ${isActive('/users')}`}>
+                    <i className="bi bi-people"></i>
+                    <span>Users</span>
+                  </Link>
+                </li>
+              )}
               <li className="nav-item">
                 <Link href="/monitor" className={`nav-link ${isActive('/monitor')}`}>
                   <i className="bi bi-graph-up"></i>

@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: session.user.name || 'User',
       email: session.user.email || 'no-email@example.com',
       accessToken: (session.user as any).accessToken || '',
+      isAdmin: (session.user as any).isAdmin || false,
     };
     
     return userData;
