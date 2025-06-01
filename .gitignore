@@ -74,6 +74,8 @@ venv/**
 .idea/**/gradle.xml
 .idea/**/libraries
 data/*
+*.db-shm
+*.db-wal
 
 # Gradle and Maven with auto-import
 # When using Gradle or Maven with auto-import, you should exclude module files,
