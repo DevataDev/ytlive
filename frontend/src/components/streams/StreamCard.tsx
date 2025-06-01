@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Card, Button, Dropdown, Form, Spinner, Badge, Modal, Alert } from 'react-bootstrap';
 import { Stream } from '@/services/streamService';
 import BindChannelModal from '@/components/modals/BindChannelModal';
+import styles from './StreamCard.module.css';
+import { start } from 'repl';
 
 export interface StreamCardProps {
   stream: Stream;
@@ -207,7 +209,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const fileSize = stream.FileSize || stream.FileSizeBytes;
 
   return (
-    <div>
+    <div >
       <Card className="card h-100 border-0 shadow-sm overflow-hidden">
         {/* Card Header */}
         <Card.Header className="bg-white">
@@ -340,7 +342,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
         </Card.Body>
         
         {/* Card Footer */}
-        <Card.Footer className="bg-white border-top-0 pt-0">
+        <Card.Footer className={`bg-white border-top-0 pt-0 ${styles.cardFooter}`}>
           <div className="d-flex justify-content-between align-items-center">
             {/* Main Action Button */}
             {isLive ? (
@@ -360,6 +362,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
               <Button 
                 variant="success" 
                 size="sm" 
+                className={`btn btn-success btn-sm ${styles.streamStart}`}
                 onClick={handleStart}
                 disabled={!streamKeyIsSet || isStarting}
               >

@@ -172,107 +172,136 @@ const BindChannelModal: React.FC<BindChannelModalProps> = ({
   }, []);
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
-      <Modal.Header closeButton>
-        <Modal.Title>{title}</Modal.Title>
+    <Modal show={show} onHide={onHide} centered>
+      <Modal.Header closeButton className="bg-primary text-white">
+        <Modal.Title className="d-flex align-items-center">
+          <i className="bi bi-link-45deg me-2"></i>
+          {title}
+        </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
+      <Modal.Body className="p-4">
         {streamName && (
           <div className="mb-4">
-            <h5>Stream: <span className="text-primary">{streamName}</span></h5>
+            <h5 className="mb-0">
+              <i className="bi bi-cast me-2"></i>
+              <span className="text-primary">{streamName}</span>
+            </h5>
           </div>
         )}
         
         <Form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <div className="d-flex align-items-center mb-2">
-              <Form.Label className="mb-0 fw-medium">YouTube Channel</Form.Label>
-              {isLoadingChannels && <Spinner animation="border" size="sm" className="ms-2" />}
+          <Form.Group className="mb-4">
+            <Form.Label className="fw-medium">YouTube Channel</Form.Label>
+            <div className="input-group">
+              <span className="input-group-text bg-light">
+                {isLoadingChannels ? (
+                  <Spinner animation="border" size="sm" />
+                ) : (
+                  <i className="bi bi-collection-play"></i>
+                )}
+              </span>
+              <Form.Select 
+                value={selectedChannelId} 
+                onChange={handleChannelChange}
+                disabled={isLoadingChannels || loading}
+                required
+              >
+                <option value="">Select a channel</option>
+                {channels.map((channel) => (
+                  <option key={channel.ID} value={channel.ID}>
+                    {channel.ChannelName}
+                  </option>
+                ))}
+              </Form.Select>
             </div>
-            <Form.Select 
-              value={selectedChannelId} 
-              onChange={handleChannelChange}
-              disabled={isLoadingChannels || loading}
-              className="form-select-lg"
-              required
-            >
-              <option value="">Select a channel</option>
-              {channels.map((channel) => (
-                <option key={channel.ID} value={channel.ID}>
-                  {channel.ChannelName}
-                </option>
-              ))}
-            </Form.Select>
-          </div>
+          </Form.Group>
 
-          <div className="mb-4">
-            <div className="d-flex align-items-center mb-2">
-              <Form.Label className="mb-0 fw-medium">Stream Key</Form.Label>
-              {isLoadingStreams && <Spinner animation="border" size="sm" className="ms-2" />}
+          <Form.Group className="mb-4">
+            <Form.Label className="fw-medium">Stream Key</Form.Label>
+            <div className="input-group">
+              <span className="input-group-text bg-light">
+                {isLoadingStreams ? (
+                  <Spinner animation="border" size="sm" />
+                ) : (
+                  <i className="bi bi-key"></i>
+                )}
+              </span>
+              <Form.Select 
+                value={selectedStreamKey} 
+                onChange={handleStreamChange}
+                disabled={!selectedChannelId || isLoadingStreams || loading}
+                required
+              >
+                <option value="">Select a stream key</option>
+                {streams.map((stream) => (
+                  <option key={stream.id} value={stream.stream_key}>
+                    {stream.title}
+                  </option>
+                ))}
+              </Form.Select>
             </div>
-            <Form.Select 
-              value={selectedStreamKey} 
-              onChange={handleStreamChange}
-              disabled={!selectedChannelId || isLoadingStreams || loading}
-              className="form-select-lg"
-              required
-            >
-              <option value="">Select a stream key</option>
-              {streams.map((stream) => (
-                <option key={stream.id} value={stream.stream_key}>
-                  {stream.title}
-                </option>
-              ))}
-            </Form.Select>
-          </div>
+            <Form.Text className="text-muted">
+              {selectedStreamKey === 'custom' ? 'Enter your custom stream key' : 'Select a stream key from the list'}
+            </Form.Text>
+          </Form.Group>
 
           {selectedStreamKey === 'custom' && (
-            <div className="mb-4">
+            <Form.Group className="mb-4">
               <Form.Label className="fw-medium">Custom Stream Key</Form.Label>
-              <Form.Control
-                type="text"
-                value={streamKey}
-                onChange={(e) => setStreamKey(e.target.value)}
-                placeholder="Enter custom stream key"
-                disabled={loading}
-                className="form-control-lg"
-                required
-              />
-            </div>
+              <div className="input-group">
+                <span className="input-group-text bg-light">
+                  <i className="bi bi-key-fill"></i>
+                </span>
+                <Form.Control
+                  type="text"
+                  value={streamKey}
+                  onChange={(e) => setStreamKey(e.target.value)}
+                  placeholder="Enter custom stream key"
+                  disabled={loading}
+                  required
+                />
+              </div>
+            </Form.Group>
           )}
 
           {error && (
-            <div className="alert alert-danger mb-4">
+            <div className="alert alert-danger">
+              <i className="bi bi-exclamation-triangle-fill me-2"></i>
               {error}
             </div>
           )}
-
-          <div className="d-flex justify-content-end gap-3 mt-5">
-            <Button 
-              variant="outline-secondary" 
-              onClick={onHide}
-              disabled={loading || isBinding}
-              size="lg"
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="primary" 
-              type="submit"
-              disabled={!isFormValid || loading || isBinding}
-              size="lg"
-              className="px-4"
-            >
-              {isBinding ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  Binding...
-                </>
-              ) : 'Bind'}
-            </Button>
-          </div>
         </Form>
       </Modal.Body>
+      <Modal.Footer className="bg-light">
+        <Button 
+          variant="outline-secondary" 
+          onClick={onHide}
+          disabled={loading || isBinding}
+          className="d-flex align-items-center"
+        >
+          <i className="bi bi-x-circle me-1"></i>
+          Cancel
+        </Button>
+        <Button 
+          variant="primary" 
+          type="button"
+          onClick={handleSubmit}
+          disabled={!isFormValid || loading || isBinding}
+          className="d-flex align-items-center"
+        >
+          {isBinding ? (
+            <>
+              <Spinner as="span" animation="border" size="sm" className="me-2" />
+              Binding...
+            </>
+          ) : (
+            <>
+              <i className="bi bi-link-45deg me-1"></i>
+              Bind Channel
+            </>
+          )}
+        </Button>
+      </Modal.Footer>
     </Modal>
   );
 };

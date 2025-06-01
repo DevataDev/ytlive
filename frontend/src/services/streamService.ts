@@ -61,6 +61,10 @@ export interface StreamListResponse {
   total: number;
 }
 
+export interface SuccessResponse {
+  success: boolean;
+}
+
 export const fetchStreams = async (page = 1, pageSize = 10, search = ''): Promise<StreamListResponse> => {
   const session = await getSession();
   let url = `/api/streams?page=${page}&per_page=${pageSize}`;
@@ -116,12 +120,12 @@ export const renameStream = async (id: string, name: string, description: string
   return response.data;
 };
 
-export const updateStreamKey = async (id: string, streamKey: string): Promise<Stream> => {
+export const updateStreamKey = async (id: string, streamKey: string): Promise<boolean> => {
   const session = await getSession();
-  const response = await api.putRaw<Stream>(`/api/streams/${id}`, { StreamKey: streamKey }, {
+  const response = await api.putRaw<SuccessResponse>(`/api/streams/${id}/streamkey`, { "stream_key": streamKey }, {
     headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }
   });
-  return response.data;
+  return response.success;
 };
 
 export const updateRtmpUrl = async (id: string, rtmpUrl: string): Promise<Stream> => {
