@@ -14,6 +14,9 @@ export default function TikTokSearchPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [results, setResults] = useState<TikTokRoom[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [pageState, setPageState] = useState({
+    currentPage: 1,
+  });
   const [pagination, setPagination] = useState({
     has_more: false,
     search_id: '',
@@ -39,8 +42,7 @@ export default function TikTokSearchPage() {
         
         const data = await searchLiveRooms(
           searchQuery,
-          isLoadMore ? pagination.offset + pagination.limit : 0,
-          pagination.limit,
+          isLoadMore ? pageState.currentPage + 1 : 1,
           isLoadMore ? pagination.search_id : ''
         );
         
@@ -55,6 +57,9 @@ export default function TikTokSearchPage() {
           search_id: data.pagination?.search_id || '',
           offset: data.pagination?.offset || 0,
           limit: pagination.limit
+        });
+        setPageState({
+          currentPage: pageState.currentPage + 1,
         });
       } catch (error) {
         console.error('Search error:', error);

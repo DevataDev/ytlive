@@ -132,7 +132,6 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
   const handleError = useCallback((error: any) => {
     console.error('Error playing video:', error);
     setHasError(true);
-    toast.error('Failed to load video stream');
   }, []);
 
   const handleReady = useCallback(() => {
