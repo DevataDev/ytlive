@@ -54,6 +54,7 @@ export interface StorageInfo {
 export interface StreamStats {
   started: number;
   scheduled: number;
+  total: number;
 }
 
 export interface RecentActivities {

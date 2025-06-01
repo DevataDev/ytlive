@@ -22,7 +22,9 @@ func (h *DashboardHandler) GetDashboardStreamMetrics(c *gin.Context) {
 	var started, scheduled int64
 	h.DB.Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&started)
 	h.DB.Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&scheduled)
-	c.JSON(200, gin.H{"started": started, "scheduled": scheduled})
+	var total int64
+	h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Count(&total)
+	c.JSON(200, gin.H{"started": started, "scheduled": scheduled, "total": total})
 }
 
 func (h *DashboardHandler) GetDashboardSystemMetrics(c *gin.Context) {

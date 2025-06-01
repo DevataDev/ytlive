@@ -67,10 +67,7 @@ export interface SuccessResponse {
 
 export const fetchStreams = async (page = 1, pageSize = 10, search = ''): Promise<StreamListResponse> => {
   const session = await getSession();
-  let url = `/api/streams?page=${page}&per_page=${pageSize}`;
-  if (search) {
-    url += `&search=${encodeURIComponent(search)}`;
-  }
+  let url = `/api/streams?page=${page}&per_page=${pageSize}&search=${search}`;
   const response = await api.getRaw<StreamListResponse>(url, { 
     headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` } 
   });

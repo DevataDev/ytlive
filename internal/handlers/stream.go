@@ -117,18 +117,40 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 		}
 	}
 
+	var querySearch string
+	if search := c.Query("search"); search != "" {
+		querySearch = "%" + search + "%"
+	}
+
 	var total int64
-	h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Count(&total)
+	if querySearch != "" {
+		h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Where("name LIKE ?", querySearch).Count(&total)
+	} else {
+		h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Count(&total)
+	}
 
 	var streams []models.Stream
-	if err := h.DB.Preload("MediaFiles").
-		Where("user_id = ?", userID).
-		Order("created_at DESC").
-		Limit(perPage).
-		Offset((page - 1) * perPage).
-		Find(&streams).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch streams"})
-		return
+	if querySearch != "" {
+		if err := h.DB.Preload("MediaFiles").
+			Where("user_id = ?", userID).
+			Where("name LIKE ?", querySearch).
+			Order("created_at DESC").
+			Limit(perPage).
+			Offset((page - 1) * perPage).
+			Find(&streams).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch streams"})
+			return
+		}
+	} else {
+		if err := h.DB.Preload("MediaFiles").
+			Where("user_id = ?", userID).
+			Order("created_at DESC").
+			Limit(perPage).
+			Offset((page - 1) * perPage).
+			Find(&streams).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch streams"})
+			return
+		}
 	}
 
 	// Get file sizes for all media files
@@ -141,9 +163,13 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 	}
 
 	var countLive, countScheduled int64
-	h.DB.Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&countLive)
-	h.DB.Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&countScheduled)
-
+	if querySearch != "" {
+		h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Where("name LIKE ?", querySearch).Count(&countLive)
+		h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Where("name LIKE ?", querySearch).Count(&countScheduled)
+	} else {
+		h.DB.Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&countLive)
+		h.DB.Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&countScheduled)
+	}
 	// Prepare response
 	resp := make([]map[string]interface{}, 0, len(streams))
 	for _, s := range streams {

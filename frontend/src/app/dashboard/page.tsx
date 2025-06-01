@@ -176,7 +176,7 @@ export default function DashboardPage() {
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
                     <h6 className={`text-uppercase ${styles.textWhite50} mb-1`}>Total Streams</h6>
-                    <h2 className="mb-0">{streamStats.started + streamStats.scheduled}</h2>
+                    <h2 className="mb-0">{streamStats.total}</h2>
                   </div>
                   <div className={`${styles.iconShape} p-3`}>
                     <i className="bi bi-collection-play fs-4"></i>
