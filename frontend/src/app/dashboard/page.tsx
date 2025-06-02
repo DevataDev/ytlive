@@ -1,5 +1,7 @@
 'use client';
 
+// Metadata is now defined in the layout.tsx file for this route
+
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
