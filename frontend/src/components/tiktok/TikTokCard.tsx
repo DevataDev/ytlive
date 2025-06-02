@@ -2,15 +2,16 @@
 import { useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, Button, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { 
-  FaEye, 
-  FaUserFriends, 
-  FaPlusCircle, 
-  FaVolumeMute, 
-  FaVolumeUp, 
-  FaPlay, 
+import {
+  FaEye,
+  FaUserFriends,
+  FaPlusCircle,
+  FaVolumeMute,
+  FaVolumeUp,
+  FaPlay,
   FaPause,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaFire
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useSession } from 'next-auth/react';
@@ -61,6 +62,7 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
   const avatarUrl = room.owner?.avatar_thumb?.url_list?.[0];
   const avatarText = username.charAt(0).toUpperCase();
   const viewCount = formatNumber(room.stats?.total_user || 0);
+  const isTrending = (room.stats?.total_user || 0) > 10000;
 
   // Format number for display (e.g., 1500 -> 1.5K)
   function formatNumber(num: number): string {
@@ -101,7 +103,7 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
 
   const handleAddToMirror = async () => {
     if (!onAddToMirror) return;
-    
+
     setIsAdding(true);
     try {
       await onAddToMirror(room.id_str);
@@ -208,10 +210,20 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
             },
           }}
         />
+        {/* Live badge and Trending indicator */}
         <div className="position-absolute top-0 end-0 m-2">
-          <span className="badge bg-danger">
-            <FaEye className="me-1" /> LIVE
-          </span>
+          <div className="d-flex flex-column gap-1">
+            {isTrending && (
+              <span className="badge bg-warning text-dark">
+                <FaFire className="me-1" /> HOT
+              </span>
+            )}
+            {!isTrending && (
+              <span className="badge bg-danger">
+                <FaEye className="me-1" /> LIVE
+              </span>
+            )}
+          </div>
         </div>
         {/* Loading overlay */}
         {!isReady || isBuffering ? (
@@ -222,7 +234,7 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
 
         {/* Play/Pause overlay */}
         {!isHovered && isReady && !isBuffering && (
-          <div 
+          <div
             className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
             style={{ cursor: 'pointer', backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
             onClick={togglePlayPause}
@@ -235,13 +247,6 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
           </div>
         )}
 
-        {/* Live badge */}
-        <div className="position-absolute top-0 end-0 m-2">
-          <span className="badge bg-danger">
-            <FaEye className="me-1" /> LIVE
-          </span>
-        </div>
-
         {/* Mute/Unmute button */}
         {isReady && !isBuffering && (
           <OverlayTrigger
@@ -250,7 +255,7 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
               {isMuted ? 'Unmute' : 'Mute'}
             </Tooltip>}
           >
-            <div 
+            <div
               className="position-absolute bottom-0 end-0 m-2"
               onClick={toggleMute}
               style={{
@@ -278,16 +283,16 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
   };
 
   return (
-    <Card 
-      className="h-100 shadow-sm" 
+    <Card
+      className="h-100 shadow-sm"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleCardClick}
     >
-      <div 
+      <div
         ref={containerRef}
-        className="position-relative" 
-        style={{ 
+        className="position-relative"
+        style={{
           paddingTop: '56.25%', // 16:9 Aspect Ratio
           backgroundColor: '#000',
           overflow: 'hidden',
@@ -295,19 +300,19 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
       >
         {renderPlayer()}
       </div>
-      
+
       <Card.Body>
         <div className="d-flex align-items-start mb-3">
           <div className="me-3">
             {avatarUrl ? (
-              <img 
-                src={avatarUrl} 
-                alt={username} 
-                className="rounded-circle" 
-                style={{ width: '40px', height: '40px', objectFit: 'cover' }} 
+              <img
+                src={avatarUrl}
+                alt={username}
+                className="rounded-circle"
+                style={{ width: '40px', height: '40px', objectFit: 'cover' }}
               />
             ) : (
-              <div 
+              <div
                 className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
                 style={{ width: '40px', height: '40px' }}
               >
@@ -324,8 +329,8 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
                 </Tooltip>
               }
             >
-              <h6 
-                className="mb-1 text-truncate" 
+              <h6
+                className="mb-1 text-truncate"
                 style={{
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -341,16 +346,16 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
             <p className="text-muted small mb-0 text-truncate">@{username}</p>
           </div>
         </div>
-        
+
         <div className="d-flex justify-content-between align-items-center">
           <div className="d-flex align-items-center text-muted small">
             <FaUserFriends className="me-1" />
             <span>{viewCount} watching</span>
           </div>
-          
+
           {onAddToMirror && (
-            <Button 
-              variant="primary" 
+            <Button
+              variant="primary"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
