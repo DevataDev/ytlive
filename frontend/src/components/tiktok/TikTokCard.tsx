@@ -236,7 +236,7 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
               </span>
             )}
             {!isTrending && (
-              <span className="badge bg-danger">
+              <span className="badge bg-danger blink-live">
                 <FaEye className="me-1" /> LIVE
               </span>
             )}
