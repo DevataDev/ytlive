@@ -22,7 +22,8 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
 
     const playerStyles = `/* Player Preview Modal Styles */
 .player-preview-modal .modal-dialog {
-  max-width: 90vw;
+  max-width: 800px;
+  width: 90%;
 }
 
 .player-preview-modal .modal-body {
@@ -31,6 +32,11 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
 
 .player-preview-modal video {
   border-radius: 0;
+  max-height: 450px;
+}
+
+.player-preview-modal img {
+  max-height: 450px;
 }
 
 .player-preview-modal audio {
@@ -46,9 +52,21 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
   
   .player-preview-modal video,
   .player-preview-modal img {
-    max-height: 50vh;
+    max-height: 300px;
   }
-}`
+}
+
+@media (max-width: 576px) {
+  .player-preview-modal .modal-dialog {
+    max-width: 98vw;
+    margin: 0.5rem;
+  }
+  
+  .player-preview-modal video,
+  .player-preview-modal img {
+    max-height: 250px;
+  }
+}`;
 
     useEffect(() => {
         if (show && mediaFile && streamId) {
@@ -106,7 +124,7 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
                         <video
                             controls
                             className="w-100"
-                            style={{ maxHeight: '70vh', backgroundColor: '#000' }}
+                            style={{ maxHeight: '450px', backgroundColor: '#000' }}
                             onLoadedData={handleMediaLoad}
                             onError={handleMediaError}
                             preload="metadata"
@@ -119,9 +137,9 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
 
             case 'audio':
                 return (
-                    <div className="text-center py-5">
-                        <div className="mb-4">
-                            <i className="bi bi-music-note display-1 text-primary"></i>
+                    <div className="text-center py-4">
+                        <div className="mb-3">
+                            <i className="bi bi-music-note display-4 text-primary"></i>
                         </div>
                         {loading && (
                             <div className="mb-3">
@@ -131,7 +149,7 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
                         <audio
                             controls
                             className="w-100"
-                            style={{ maxWidth: '500px' }}
+                            style={{ maxWidth: '400px' }}
                             onLoadedData={handleMediaLoad}
                             onError={handleMediaError}
                             preload="metadata"
@@ -146,7 +164,7 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
                 return (
                     <div className="text-center">
                         {loading && (
-                            <div className="py-5">
+                            <div className="py-4">
                                 <Spinner animation="border" />
                             </div>
                         )}
@@ -155,7 +173,7 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
                             alt={mediaFile.FileName}
                             className="img-fluid"
                             style={{
-                                maxHeight: '70vh',
+                                maxHeight: '450px',
                                 maxWidth: '100%',
                                 display: loading ? 'none' : 'block'
                             }}
@@ -167,8 +185,8 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
 
             default:
                 return (
-                    <div className="text-center py-5">
-                        <i className="bi bi-file-earmark display-1 text-muted"></i>
+                    <div className="text-center py-4">
+                        <i className="bi bi-file-earmark display-4 text-muted"></i>
                         <p className="mt-3 text-muted">Preview not available for this file type</p>
                         <Button
                             variant="primary"
@@ -190,7 +208,7 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
             <Modal
                 show={show}
                 onHide={onHide}
-                size="xl"
+                size="lg"
                 centered
                 className="player-preview-modal"
             >
