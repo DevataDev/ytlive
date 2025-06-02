@@ -1,7 +1,6 @@
 'use client';
-
 import { useState, useEffect } from 'react';
-import { Container, Spinner } from 'react-bootstrap';
+import { Container, Spinner, Card, Button } from 'react-bootstrap';
 import { BsPlusCircle, BsArrowRepeat } from 'react-icons/bs';
 import { MirrorCard } from './components/MirrorCard';
 import CreateMirrorModal from './components/CreateMirrorModal';
@@ -116,54 +115,64 @@ export default function MirrorPage() {
 
   return (
     <Container className="py-4">
+      {/* Page Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1>Mirror Management</h1>
         <div>
-          <button 
-            className="btn btn-primary me-2" 
-            onClick={() => setShowCreateModal(true)}
-            disabled={isProcessing}
-          >
-            <BsPlusCircle className="me-1" /> Create New Mirror
-          </button>
-          <button 
-            className="btn btn-outline-secondary" 
+
+        </div>
+        <div className="d-flex gap-2">
+          <Button 
+            variant="outline-secondary"
             onClick={fetchMirrors}
             disabled={isProcessing}
           >
             <BsArrowRepeat className={isProcessing ? 'fa-spin me-1' : 'me-1'} />
             Refresh
-          </button>
-        </div>
-      </div>
-
-      {mirrors.length === 0 ? (
-        <div className="text-center my-5 p-5 bg-light rounded">
-          <h4 className="text-muted mb-3">No mirrors found</h4>
-          <p className="text-muted">Create your first mirror to get started</p>
-          <button 
-            className="btn btn-primary mt-2"
+          </Button>
+          <Button 
+            variant="primary"
             onClick={() => setShowCreateModal(true)}
             disabled={isProcessing}
           >
-            <BsPlusCircle className="me-1" /> Create Mirror
-          </button>
+            <BsPlusCircle className="me-1" /> Create New Mirror
+          </Button>
         </div>
-      ) : (
-        <div className="row">
-          {mirrors.map((mirror) => (
-            <div key={mirror.ID} className="col-12 col-md-6 col-lg-4 mb-4">
-              <MirrorCard 
-                mirror={mirror} 
-                onToggle={handleToggleMirror} 
-                onDelete={handleDeleteMirror}
-                onRefresh={handleRefresh}
-                isProcessing={isProcessing}
-              />
+      </div>
+
+      {/* Mirror List */}
+      <Card className="border-0 shadow-sm">
+        <Card.Body className="p-0">
+          {mirrors.length === 0 ? (
+            <div className="text-center p-5">
+              <h5 className="mb-2">No mirrors found</h5>
+              <p className="text-muted mb-4">
+                Create your first mirror to get started
+              </p>
+              <Button 
+                variant="primary"
+                onClick={() => setShowCreateModal(true)}
+                disabled={isProcessing}
+              >
+                <BsPlusCircle className="me-1" /> Create Mirror
+              </Button>
             </div>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="row g-4 p-3">
+              {mirrors.map((mirror) => (
+                <div key={mirror.ID} className="col-12 col-md-6 col-lg-4 mb-4">
+                  <MirrorCard 
+                    mirror={mirror} 
+                    onToggle={handleToggleMirror} 
+                    onDelete={handleDeleteMirror}
+                    onRefresh={handleRefresh}
+                    isProcessing={isProcessing}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </Card.Body>
+      </Card>
 
       <CreateMirrorModal 
         show={showCreateModal}

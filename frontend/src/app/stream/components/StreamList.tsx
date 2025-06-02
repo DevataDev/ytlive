@@ -207,8 +207,7 @@ export default function StreamList() {
         {/* Page Header */}
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
           <div className="mb-3 mb-md-0">
-            <h1 className="h3 mb-2">Stream Manager</h1>
-            <p className="text-muted mb-0">Manage your live streams and media content</p>
+           
           </div>
           <div className="d-flex gap-2">
             <div className="d-flex flex-column align-items-end me-3">

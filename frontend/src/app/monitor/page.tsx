@@ -105,13 +105,6 @@ export default function MonitorPage() {
   return (
     <Container fluid className="py-4">
       <div className="container-xxl">
-      <Row className="mb-4">
-        <Col>
-          <h1 className="h3 mb-0">Monitor Management</h1>
-          <p className="text-muted mb-0">Manage your monitored TikTok users</p>
-        </Col>
-      </Row>
-
       <Card className="shadow-sm mb-4">
         <Card.Body className="p-4">
           <Row className="align-items-center mb-4">

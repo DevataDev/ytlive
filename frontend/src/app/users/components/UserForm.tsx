@@ -8,13 +8,13 @@ interface UserFormProps {
     username: string;
     email: string;
     password?: string;
-    isAdmin: boolean;
+    is_admin: boolean;
   }) => Promise<void>;
   user?: {
     id: string;
     username: string;
     email: string;
-    isAdmin: boolean;
+    is_admin: boolean;
   } | null;
 }
 
@@ -23,7 +23,7 @@ export default function UserForm({ show, onHide, onSubmit, user }: UserFormProps
     username: '',
     email: '',
     password: '',
-    isAdmin: false,
+    is_admin: false,
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -36,7 +36,7 @@ export default function UserForm({ show, onHide, onSubmit, user }: UserFormProps
         username: user.username,
         email: user.email,
         password: '', // Don't pre-fill password for security
-        isAdmin: user.isAdmin,
+        is_admin: user.is_admin,
       });
     } else {
       // Reset form for new user
@@ -44,7 +44,7 @@ export default function UserForm({ show, onHide, onSubmit, user }: UserFormProps
         username: '',
         email: '',
         password: '',
-        isAdmin: false,
+        is_admin: false,
       });
     }
     setErrors({});
@@ -174,7 +174,7 @@ export default function UserForm({ show, onHide, onSubmit, user }: UserFormProps
               type="checkbox"
               name="isAdmin"
               label="Administrator"
-              checked={formData.isAdmin}
+              checked={formData.is_admin}
               onChange={handleChange}
             />
             <Form.Text className="text-muted">

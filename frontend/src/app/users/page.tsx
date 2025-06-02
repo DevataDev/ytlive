@@ -117,8 +117,8 @@ export default function UsersPage() {
   // Toggle user active status
   const toggleUserStatus = async (user: User) => {
     try {
-      await userService.toggleUserStatus(user.id, !user.isActive);
-      toast.success(`User ${!user.isActive ? 'activated' : 'deactivated'} successfully`);
+      await userService.toggleUserStatus(user.id, !user.is_active);
+      toast.success(`User ${!user.is_active ? 'activated' : 'deactivated'} successfully`);
       fetchUsers(pagination.page, searchTerm);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update user status');
@@ -159,158 +159,166 @@ export default function UsersPage() {
   return (
     <Container fluid className="py-4">
       <div className="container-xxl">
-      <Row className="mb-4">
-        <Col>
-          <h2>User Management</h2>
-        </Col>
-        <Col className="text-end">
-          <Button variant="primary" onClick={() => setShowAddModal(true)}>
-            <FaPlus className="me-2" /> Add User
-          </Button>
-        </Col>
-      </Row>
+        <Card className="shadow-sm mb-4">
+          <Card.Body className="p-4">
+            <Row className="align-items-center mb-4">
+              <Col md={6} className="mb-3 mb-md-0">
+                <h5 className="mb-0">
+                  <i className="bi bi-people text-primary me-2"></i>
+                  User Management
+                </h5>
+              </Col>
+              <Col md={6} className="text-md-end">
+                <Button
+                  variant="primary"
+                  onClick={() => setShowAddModal(true)}
+                  className="d-inline-flex align-items-center"
+                >
+                  <FaPlus className="me-2" />
+                  Add User
+                </Button>
+              </Col>
+            </Row>
 
-      <Card className="mb-4">
-        <Card.Body>
-          <form onSubmit={handleSearch} className="mb-4">
-            <div className="input-group">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Search users..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Button type="submit" variant="outline-secondary">
-                Search
-              </Button>
-            </div>
-          </form>
+            <form onSubmit={handleSearch} className="mb-4">
+              <div className="input-group">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Button type="submit" variant="outline-secondary">
+                  Search
+                </Button>
+              </div>
+            </form>
 
-          <div className="table-responsive">
-            <table className="table table-hover">
-              <thead>
-                <tr>
-                  <th>Username</th>
-                  <th>Email</th>
-                  <th>Admin</th>
-                  <th>Status</th>
-                  <th className="text-end">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users?.length === 0 ? (
+            <div className="table-responsive">
+              <table className="table table-hover">
+                <thead>
                   <tr>
-                    <td colSpan={5} className="text-center">
-                      {loading ? 'Loading...' : 'No users found'}
-                    </td>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Admin</th>
+                    <th>Status</th>
+                    <th className="text-end">Actions</th>
                   </tr>
-                ) : (
-                  users?.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.username}</td>
-                      <td>{user.email}</td>
-                      <td>
-                        {user.is_admin ? (
-                          <span className="badge bg-success">Yes</span>
-                        ) : (
-                          <span className="badge bg-secondary">No</span>
-                        )}
-                      </td>
-                      <td>
-                        {user.is_active ? (
-                          <span className="badge bg-success">Active</span>
-                        ) : (
-                          <span className="badge bg-danger">Inactive</span>
-                        )}
-                      </td>
-                      <td className="text-end">
-                        <div className="btn-group" role="group">
-                          <Button
-                            variant="outline-primary"
-                            size="sm"
-                            className="me-2"
-                            onClick={() => toggleUserStatus(user)}
-                            title={user.is_active ? 'Deactivate' : 'Activate'}
-                          >
-                            {user.is_active ? <FaEyeSlash /> : <FaEye />}
-                          </Button>
-                          <Button
-                            variant="outline-secondary"
-                            size="sm"
-                            className="me-2"
-                            onClick={() => setEditingUser(user)}
-                            title="Edit"
-                          >
-                            <FaEdit />
-                          </Button>
-                          <Button
-                            variant="outline-info"
-                            size="sm"
-                            className="me-2"
-                            onClick={() => setPasswordUpdateUser(user)}
-                            title="Change Password"
-                          >
-                            <FaKey />
-                          </Button>
-                          <Button
-                            variant="outline-danger"
-                            size="sm"
-                            onClick={() => handleDeleteUser(user.id)}
-                            title="Delete"
-                            disabled={user.id === session?.user?.id}
-                          >
-                            <FaTrash />
-                          </Button>
-                        </div>
+                </thead>
+                <tbody>
+                  {users?.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center">
+                        {loading ? 'Loading...' : 'No users found'}
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    users?.map((user) => (
+                      <tr key={user.id}>
+                        <td>{user.username}</td>
+                        <td>{user.email}</td>
+                        <td>
+                          {user.is_admin ? (
+                            <span className="badge bg-success">Yes</span>
+                          ) : (
+                            <span className="badge bg-secondary">No</span>
+                          )}
+                        </td>
+                        <td>
+                          {user.is_active ? (
+                            <span className="badge bg-success">Active</span>
+                          ) : (
+                            <span className="badge bg-danger">Inactive</span>
+                          )}
+                        </td>
+                        <td className="text-end">
+                          <div className="btn-group" role="group">
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
+                              className="me-2"
+                              onClick={() => toggleUserStatus(user)}
+                              title={user.is_active ? 'Deactivate' : 'Activate'}
+                            >
+                              {user.is_active ? <FaEyeSlash /> : <FaEye />}
+                            </Button>
+                            <Button
+                              variant="outline-secondary"
+                              size="sm"
+                              className="me-2"
+                              onClick={() => setEditingUser(user)}
+                              title="Edit"
+                            >
+                              <FaEdit />
+                            </Button>
+                            <Button
+                              variant="outline-info"
+                              size="sm"
+                              className="me-2"
+                              onClick={() => setPasswordUpdateUser(user)}
+                              title="Change Password"
+                            >
+                              <FaKey />
+                            </Button>
+                            <Button
+                              variant="outline-danger"
+                              size="sm"
+                              onClick={() => handleDeleteUser(user.id)}
+                              title="Delete"
+                              disabled={user.id === session?.user?.id}
+                            >
+                              <FaTrash />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          {pagination.totalPages > 1 && (
-            <nav className="mt-4">
-              <ul className="pagination justify-content-center">
-                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((pageNum) => (
-                  <li key={pageNum} className={`page-item ${pagination.page === pageNum ? 'active' : ''}`}>
-                    <button
-                      className="page-link"
-                      onClick={() => handlePageChange(pageNum)}
-                      disabled={pagination.page === pageNum}
-                    >
-                      {pageNum}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          )}
-        </Card.Body>
-      </Card>
+            {pagination.totalPages > 1 && (
+              <nav className="mt-4">
+                <ul className="pagination justify-content-center">
+                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((pageNum) => (
+                    <li key={pageNum} className={`page-item ${pagination.page === pageNum ? 'active' : ''}`}>
+                      <button
+                        className="page-link"
+                        onClick={() => handlePageChange(pageNum)}
+                        disabled={pagination.page === pageNum}
+                      >
+                        {pageNum}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
+          </Card.Body>
+        </Card>
 
-      {/* Add/Edit User Modal */}
-      <UserForm
-        show={showAddModal || !!editingUser}
-        onHide={() => {
-          setShowAddModal(false);
-          setEditingUser(null);
-        }}
-        onSubmit={editingUser ? 
-          (data) => handleUpdateUser(editingUser.id, data) : 
-          handleCreateUser}
-        user={editingUser}
-      />
+        {/* Add/Edit User Modal */}
+        <UserForm
+          show={showAddModal || !!editingUser}
+          onHide={() => {
+            setShowAddModal(false);
+            setEditingUser(null);
+          }}
+          onSubmit={editingUser ? 
+            (data) => handleUpdateUser(editingUser.id, data) : 
+            handleCreateUser}
+          user={editingUser}
+        />
 
-      {/* Password Update Modal */}
-      <PasswordUpdateModal
-        show={!!passwordUpdateUser}
-        onHide={() => setPasswordUpdateUser(null)}
-        onSubmit={handlePasswordUpdate}
-        user={passwordUpdateUser}
-      />
+        {/* Password Update Modal */}
+        <PasswordUpdateModal
+          show={!!passwordUpdateUser}
+          onHide={() => setPasswordUpdateUser(null)}
+          onSubmit={handlePasswordUpdate}
+          user={passwordUpdateUser}
+        />
       </div>
     </Container>
   );
