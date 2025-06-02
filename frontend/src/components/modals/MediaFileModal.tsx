@@ -3,6 +3,7 @@ import { Modal, Button, Form, Alert, Spinner, ListGroup, Badge } from 'react-boo
 import { toast } from 'react-toastify';
 import { MediaFile, MediaFileData } from '@/services/streamService';
 import { fetchMediaFiles, uploadMediaFile, deleteMediaFile, getMediaPreview, MediaFileUploadData } from '@/services/mediaFileService';
+import PlayerPreviewModal from './PlayerPreviewModal';
 
 export interface MediaFileModalProps {
   show: boolean;
@@ -24,6 +25,8 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mediaType, setMediaType] = useState<'video' | 'audio' | 'image'>('video');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [selectedMediaFile, setSelectedMediaFile] = useState<MediaFile | null>(null);
 
   // Load media files when modal opens
   useEffect(() => {
@@ -145,6 +148,11 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
     }
   };
 
+  const handlePreviewFile = (file: MediaFile) => {
+    setSelectedMediaFile(file);
+    setShowPreviewModal(true);
+  };
+
   return (
     <>
       <Modal show={show} onHide={onHide} size="lg" centered>
@@ -192,7 +200,7 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
                       <Button
                         variant="outline-primary"
                         size="sm"
-                        onClick={() => window.open(getMediaPreview(streamId, file.ID), '_blank')}
+                        onClick={() => handlePreviewFile(file)}
                         title="Preview"
                       >
                         <i className="bi bi-eye"></i>
@@ -296,6 +304,53 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Update the preview button in the media files list */}
+      <ListGroup>
+        {mediaFiles.map((file) => (
+          <ListGroup.Item key={file.ID} className="d-flex justify-content-between align-items-center">
+            <div className="d-flex align-items-center">
+              <i className={`bi ${getMediaTypeIcon(file.MediaType)} me-2`}></i>
+              <div>
+                <div className="fw-medium">{file.FileName}</div>
+                <small className="text-muted">
+                  {formatFileSize(file.FileSize)} • {new Date(file.CreatedAt).toLocaleDateString()}
+                </small>
+              </div>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              {getMediaTypeBadge(file.MediaType)}
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={() => handlePreviewFile(file)}
+                title="Preview"
+              >
+                <i className="bi bi-eye"></i>
+              </Button>
+              <Button
+                variant="outline-danger"
+                size="sm"
+                onClick={() => setShowDeleteConfirm(file.ID)}
+                title="Delete"
+              >
+                <i className="bi bi-trash"></i>
+              </Button>
+            </div>
+          </ListGroup.Item>
+        ))}
+      </ListGroup>
+
+      {/* Add Player Preview Modal */}
+      <PlayerPreviewModal
+        show={showPreviewModal}
+        onHide={() => {
+          setShowPreviewModal(false);
+          setSelectedMediaFile(null);
+        }}
+        mediaFile={selectedMediaFile}
+        streamId={streamId}
+      />
     </>
   );
 };

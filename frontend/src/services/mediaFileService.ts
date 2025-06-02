@@ -39,5 +39,5 @@ export const deleteMediaFile = async (fileId: string): Promise<void> => {
 };
 
 export const getMediaPreview = (streamId: string, mediaId: string): string => {
-  return `/api/streams/${streamId}/media/${mediaId}/preview`;
+  return `${process.env.NEXT_PUBLIC_API_URL}/api/streams/${streamId}/media/${mediaId}/preview`;
 };
