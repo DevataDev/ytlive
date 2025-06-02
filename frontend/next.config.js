@@ -7,10 +7,7 @@ const nextConfig = {
     unoptimized: true,
     domains: ['localhost'],
   },
-  // Add this to skip prerendering for specific pages
-  experimental: {
-    skipTrailingSlashRedirect: true,
-  },
+
   async redirects() {
     return [
       {
