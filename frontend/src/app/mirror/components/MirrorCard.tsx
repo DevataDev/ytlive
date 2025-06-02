@@ -46,6 +46,8 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
       setBindModalError('');
       await bindChannel(mirror.ID, channelId, streamKey);
       setShowBindModal(false);
+      onRefresh(mirror.ID);
+      toast.success('Channel bound successfully');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to bind channel';
       setBindModalError(errorMessage);

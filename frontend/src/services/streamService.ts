@@ -141,14 +141,14 @@ export const toggleLoopVideo = async (id: string, loop: boolean): Promise<Stream
   return response.data;
 };
 
-export const bindChannel = async (streamId: string, channelId: string, streamKey: string): Promise<Stream> => {
+export const bindChannel = async (streamId: string, channelId: string, streamKey: string): Promise<void> => {
   const session = await getSession();
-  const response = await api.postRaw<Stream>(
-    `/api/streams/${streamId}/bind-channel`,
-    { channelId, streamKey },
+  const response = await api.put<void>(
+    `/api/streams/${streamId}/channel-id`,
+    { "channel_id": channelId, "stream_key": streamKey  },
     { headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` } }
   );
-  return response.data;
+  return response;
 };
 
 export const createStream = async (streamData: Omit<Stream, 'ID' | 'CreatedAt' | 'UpdatedAt' | 'Status' | 'MediaFiles'>): Promise<Stream> => {

@@ -19,6 +19,7 @@ import {
 } from '@/services/streamService';
 import StreamCard from '@/components/streams/StreamCard';
 import styles from './StreamList.module.css';
+import { toast } from 'react-toastify';
 
 interface PaginationState {
   page: number;
@@ -175,6 +176,7 @@ export default function StreamList() {
     try {
       await bindChannel(streamId, channelId, streamKey);
       await loadStreams();
+      toast.success('Channel bound successfully');
     } catch (err) {
       console.error('Failed to bind channel:', err);
       setError('Failed to bind channel. Please try again.');

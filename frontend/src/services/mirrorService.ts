@@ -108,7 +108,7 @@ export async function actionMirror(mirrorId: string, action: 'start' | 'stop') {
 
 export async function bindChannel(mirrorId: string, channelId: string, streamKey: string) {
     const session = await getSession();
-    const response = await api.post<void>(`/api/mirrors/${mirrorId}/channel-id`, {
+    const response = await api.put<void>(`/api/mirrors/${mirrorId}/channel-id`, {
         "channel_id": channelId,
         "stream_key": streamKey
     }, {
