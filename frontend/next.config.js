@@ -5,9 +5,8 @@ const nextConfig = {
   distDir: 'out',
   images: {
     unoptimized: true,
-    domains: ['localhost'],
   },
-
+  
   async redirects() {
     return [
       {
@@ -22,39 +21,34 @@ const nextConfig = {
       },
       {
         source: '/',
+        destination: '/dashboard',
+        permanent: false,
         has: [
           {
             type: 'cookie',
-            key: '__Secure-next-auth.session-token',
+            key: 'next-auth.session-token',
           },
         ],
-        destination: '/dashboard',
-        permanent: false,
       },
     ];
   },
+  
   async headers() {
     return [
       {
-        // Apply these headers to all routes
-        source: '/:path*',
+        source: '/(.*)',
         headers: [
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
           {
             key: 'X-Frame-Options',
             value: 'DENY',
           },
           {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
           },
-          // Security headers for API routes
           {
             key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
+            value: 'origin-when-cross-origin',
           },
           {
             key: 'Permissions-Policy',
@@ -64,6 +58,7 @@ const nextConfig = {
       },
     ];
   },
+  // Remove the rewrites() function entirely
 };
 
 module.exports = nextConfig;
