@@ -305,42 +305,6 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
         </Modal.Footer>
       </Modal>
 
-      {/* Update the preview button in the media files list */}
-      <ListGroup>
-        {mediaFiles.map((file) => (
-          <ListGroup.Item key={file.ID} className="d-flex justify-content-between align-items-center">
-            <div className="d-flex align-items-center">
-              <i className={`bi ${getMediaTypeIcon(file.MediaType)} me-2`}></i>
-              <div>
-                <div className="fw-medium">{file.FileName}</div>
-                <small className="text-muted">
-                  {formatFileSize(file.FileSize)} • {new Date(file.CreatedAt).toLocaleDateString()}
-                </small>
-              </div>
-            </div>
-            <div className="d-flex align-items-center gap-2">
-              {getMediaTypeBadge(file.MediaType)}
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={() => handlePreviewFile(file)}
-                title="Preview"
-              >
-                <i className="bi bi-eye"></i>
-              </Button>
-              <Button
-                variant="outline-danger"
-                size="sm"
-                onClick={() => setShowDeleteConfirm(file.ID)}
-                title="Delete"
-              >
-                <i className="bi bi-trash"></i>
-              </Button>
-            </div>
-          </ListGroup.Item>
-        ))}
-      </ListGroup>
-
       {/* Add Player Preview Modal */}
       <PlayerPreviewModal
         show={showPreviewModal}

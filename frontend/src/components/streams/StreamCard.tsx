@@ -248,7 +248,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
                 <Dropdown.Item onClick={() => setShowBindModal(true)}>
                   <i className="bi bi-link-45deg me-2"></i>Bind Channel
                 </Dropdown.Item>
-                <Dropdown.Item onClick={() => setShowMediaModal(true)}>
+                <Dropdown.Item onClick={() => handleViewMediaFiles()}>
                   <i className="bi bi-folder2-open me-2"></i>Media Files
                 </Dropdown.Item>
                 <Dropdown.Item
