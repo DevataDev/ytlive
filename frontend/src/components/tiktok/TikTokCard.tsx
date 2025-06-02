@@ -199,31 +199,31 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
     return (
       <div className="position-absolute top-0 start-0 w-100 h-100" style={{ backgroundColor: '#000' }}>
         <ReactPlayer
-        url={room.live_url}
-        playing={isPlaying}
-        muted={isMuted}
-        width="100%"
-        height="100%"
-        playsinline
-        controls={isHovered}
-        style={{ position: 'absolute', top: 0, left: 0 }}
-        onReady={handleReady}
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onError={handleError}
-        onBuffer={handleBuffer}
-        onBufferEnd={handleBufferEnd}
-        config={{
-          file: {
-            forceFLV: room.live_url.includes('.flv'),
-            forceHLS: room.live_url.includes('.m3u8'),
-            hlsOptions: {
-              enableWorker: true,
-              lowLatencyMode: true,
-              backBufferLength: 90,
+          url={room.live_url}
+          playing={isPlaying}
+          muted={isMuted}
+          width="100%"
+          height="100%"
+          playsinline
+          controls={isHovered}
+          style={{ position: 'absolute', top: 0, left: 0 }}
+          onReady={handleReady}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onError={handleError}
+          onBuffer={handleBuffer}
+          onBufferEnd={handleBufferEnd}
+          config={{
+            file: {
+              forceFLV: room.live_url.includes('.flv'),
+              forceHLS: room.live_url.includes('.m3u8'),
+              hlsOptions: {
+                enableWorker: true,
+                lowLatencyMode: true,
+                backBufferLength: 90,
+              },
             },
-          },
-        }}
+          }}
         />
         {/* Live badge and Trending indicator */}
         <div className="position-absolute top-0 end-0 m-2">
@@ -299,102 +299,102 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
 
   return (
     <>
-    <style>{blinkingStyles}</style>
-    <Card
-      className="h-100 shadow-sm"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onClick={handleCardClick}
-    >
-      <div
-        ref={containerRef}
-        className="position-relative"
-        style={{
-          paddingTop: '56.25%', // 16:9 Aspect Ratio
-          backgroundColor: '#000',
-          overflow: 'hidden',
-        }}
+      <style>{blinkingStyles}</style>
+      <Card
+        className="h-100 shadow-sm"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onClick={handleCardClick}
       >
-        {renderPlayer()}
-      </div>
+        <div
+          ref={containerRef}
+          className="position-relative"
+          style={{
+            paddingTop: '56.25%', // 16:9 Aspect Ratio
+            backgroundColor: '#000',
+            overflow: 'hidden',
+          }}
+        >
+          {renderPlayer()}
+        </div>
 
-      <Card.Body>
-        <div className="d-flex align-items-start mb-3">
-          <div className="me-3">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={username}
-                className="rounded-circle"
-                style={{ width: '40px', height: '40px', objectFit: 'cover' }}
-              />
-            ) : (
-              <div
-                className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
-                style={{ width: '40px', height: '40px' }}
+        <Card.Body>
+          <div className="d-flex align-items-start mb-3">
+            <div className="me-3">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={username}
+                  className="rounded-circle"
+                  style={{ width: '40px', height: '40px', objectFit: 'cover' }}
+                />
+              ) : (
+                <div
+                  className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
+                  style={{ width: '40px', height: '40px' }}
+                >
+                  {avatarText}
+                </div>
+              )}
+            </div>
+            <div className="flex-grow-1" style={{ minWidth: 0 }}>
+              <OverlayTrigger
+                placement="top"
+                overlay={
+                  <Tooltip id={`title-tooltip-${room.id_str}`}>
+                    {room.title || 'Untitled Stream'}
+                  </Tooltip>
+                }
               >
-                {avatarText}
-              </div>
+                <h6
+                  className="mb-1 text-truncate"
+                  style={{
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '100%',
+                    display: 'inline-block',
+                    verticalAlign: 'middle'
+                  }}
+                >
+                  {room.title || 'Untitled Stream'}
+                </h6>
+              </OverlayTrigger>
+              <p className="text-muted small mb-0 text-truncate">@{username}</p>
+            </div>
+          </div>
+
+          <div className="d-flex justify-content-between align-items-center">
+            <div className="d-flex align-items-center text-muted small">
+              <FaUserFriends className="me-1" />
+              <span>{viewCount} watching</span>
+            </div>
+
+            {onAddToMirror && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddToMirror();
+                }}
+                disabled={isAdding || loading}
+              >
+                {isAdding ? (
+                  <>
+                    <Spinner as="span" size="sm" animation="border" role="status" className="me-1" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <FaPlusCircle className="me-1" /> Add to Mirror
+                  </>
+                )}
+              </Button>
             )}
           </div>
-          <div className="flex-grow-1" style={{ minWidth: 0 }}>
-            <OverlayTrigger
-              placement="top"
-              overlay={
-                <Tooltip id={`title-tooltip-${room.id_str}`}>
-                  {room.title || 'Untitled Stream'}
-                </Tooltip>
-              }
-            >
-              <h6
-                className="mb-1 text-truncate"
-                style={{
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  maxWidth: '100%',
-                  display: 'inline-block',
-                  verticalAlign: 'middle'
-                }}
-              >
-                {room.title || 'Untitled Stream'}
-              </h6>
-            </OverlayTrigger>
-            <p className="text-muted small mb-0 text-truncate">@{username}</p>
-          </div>
-        </div>
-
-        <div className="d-flex justify-content-between align-items-center">
-          <div className="d-flex align-items-center text-muted small">
-            <FaUserFriends className="me-1" />
-            <span>{viewCount} watching</span>
-          </div>
-
-          {onAddToMirror && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAddToMirror();
-              }}
-              disabled={isAdding || loading}
-            >
-              {isAdding ? (
-                <>
-                  <Spinner as="span" size="sm" animation="border" role="status" className="me-1" />
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <FaPlusCircle className="me-1" /> Add to Mirror
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-      </Card.Body>
-    </Card>
+        </Card.Body>
+      </Card>
     </>
   );
 }
