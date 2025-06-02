@@ -7,13 +7,18 @@ import CreateMirrorModal from './components/CreateMirrorModal';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
-import { actionMirror, getMirrors, MirrorItem } from '@/services/mirrorService';
+import { actionMirror, deleteMirror, getMirrors, MirrorItem } from '@/services/mirrorService';
+import DeleteMirrorModal from './components/DeleteMirrorModal';
 
 export default function MirrorPage() {
   const [mirrors, setMirrors] = useState<MirrorItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // Add these new state variables for the delete modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [mirrorToDelete, setMirrorToDelete] = useState<MirrorItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -59,32 +64,38 @@ export default function MirrorPage() {
     }
   };
 
-  const handleDeleteMirror = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this mirror?')) {
-      return;
-    }
+  // Replace the existing handleDeleteMirror function
+  const handleDeleteMirror = async () => {
+    if (!mirrorToDelete) return;
 
     try {
-      setIsProcessing(true);
+      setIsDeleting(true);
       const token = session?.user?.backendToken;
-      const response = await fetch(`/api/mirrors/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await deleteMirror(mirrorToDelete.ID); // Change this lin
 
-      if (!response.ok) {
-        throw new Error('Failed to delete mirror');
-      }
-
-      setMirrors(mirrors.filter(mirror => mirror.ID !== id));
+      setMirrors(mirrors.filter(mirror => mirror.ID !== mirrorToDelete.ID));
       toast.success('Mirror deleted successfully');
+      setShowDeleteModal(false);
+      setMirrorToDelete(null);
     } catch (error) {
       console.error('Error deleting mirror:', error);
       toast.error('Failed to delete mirror');
     } finally {
-      setIsProcessing(false);
+      setIsDeleting(false);
+    }
+  };
+
+  // Add this new function to show the delete modal
+  const handleDeleteClick = (mirror: MirrorItem) => {
+    setMirrorToDelete(mirror);
+    setShowDeleteModal(true);
+  };
+
+  // Add this function to hide the delete modal
+  const handleHideDeleteModal = () => {
+    if (!isDeleting) {
+      setShowDeleteModal(false);
+      setMirrorToDelete(null);
     }
   };
 
@@ -163,7 +174,7 @@ export default function MirrorPage() {
                   <MirrorCard 
                     mirror={mirror} 
                     onToggle={handleToggleMirror} 
-                    onDelete={handleDeleteMirror}
+                    onDelete={() => handleDeleteClick(mirror)} // Change this line
                     onRefresh={handleRefresh}
                     isProcessing={isProcessing}
                   />
@@ -178,6 +189,15 @@ export default function MirrorPage() {
         show={showCreateModal}
         onHide={() => setShowCreateModal(false)}
         onSuccess={handleCreateSuccess}
+      />
+
+      {/* Add the DeleteMirrorModal component */}
+      <DeleteMirrorModal
+        show={showDeleteModal}
+        mirror={mirrorToDelete}
+        deleting={isDeleting}
+        onHide={handleHideDeleteModal}
+        onConfirm={handleDeleteMirror}
       />
     </Container>
   );
