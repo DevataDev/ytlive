@@ -28,7 +28,7 @@ export interface MonitorData {
   ChannelId: string;
 }
 
-export const fetchMonitors = async (page = 1, pageSize = 10, search = ''): Promise<{ data: Monitor[]; total: number }> => {
+export const fetchMonitors = async (page = 1, pageSize = 10, search = ''): Promise<{ data: MonitorData[]; total: number }> => {
   const session = await getSession();
   let offset = (page - 1) * pageSize;
   let url = `/api/monitors?offset=${offset}&limit=${pageSize}`;

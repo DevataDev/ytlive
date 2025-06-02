@@ -59,3 +59,62 @@ export async function getMirrors() {
     });
     return response;
 }
+
+export async function saveStreamKey(mirrorId: string, streamKey: string) {
+    const session = await getSession();
+    const response = await api.put<void>(`/api/mirrors/${mirrorId}/stream-key`, {
+        "stream_key": streamKey
+    }, {
+        headers: {
+            'Authorization': `Bearer ${session?.user?.backendToken}`
+        }
+    })
+
+    return response;
+}
+
+export async function deleteMirror(mirrorId: string) {
+    const session = await getSession();
+    const response = await api.delete<void>(`/api/mirrors/${mirrorId}`, {
+        headers: {
+            'Authorization': `Bearer ${session?.user?.backendToken}`
+        }
+    });
+    return response;
+}
+
+export async function saveRtmpUrl(mirrorId: string, rtmpUrl: string) {
+    const session = await getSession();
+    const response = await api.put<void>(`/api/mirrors/${mirrorId}/rtmp-url`, {
+        "rtmp_url": rtmpUrl
+    }, {
+        headers: {
+            'Authorization': `Bearer ${session?.user?.backendToken}`
+        }
+    })
+    return response;
+}
+
+
+export async function actionMirror(mirrorId: string, action: 'start' | 'stop') {
+    const session = await getSession();
+    const response = await api.post<void>(`/api/mirrors/${mirrorId}/${action}`, {
+        headers: {
+            'Authorization': `Bearer ${session?.user?.backendToken}`
+        }
+    });
+    return response;
+}
+
+export async function bindChannel(mirrorId: string, channelId: string, streamKey: string) {
+    const session = await getSession();
+    const response = await api.post<void>(`/api/mirrors/${mirrorId}/channel-id`, {
+        "channel_id": channelId,
+        "stream_key": streamKey
+    }, {
+        headers: {
+            'Authorization': `Bearer ${session?.user?.backendToken}`
+        }
+    });
+    return response;
+}

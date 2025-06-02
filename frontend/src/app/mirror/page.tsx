@@ -8,7 +8,7 @@ import CreateMirrorModal from './components/CreateMirrorModal';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
-import { getMirrors, MirrorItem } from '@/services/mirrorService';
+import { actionMirror, getMirrors, MirrorItem } from '@/services/mirrorService';
 
 export default function MirrorPage() {
   const [mirrors, setMirrors] = useState<MirrorItem[]>([]);
@@ -48,16 +48,7 @@ export default function MirrorPage() {
     try {
       setIsProcessing(true);
       const token = session?.user?.backendToken;
-      const response = await fetch(`/api/mirrors/${id}/${action}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to ${action} mirror`);
-      }
+      const response = await actionMirror(id, action);
 
       await fetchMirrors();
       toast.success(`Mirror ${action}ped successfully`);
