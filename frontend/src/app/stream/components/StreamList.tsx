@@ -48,9 +48,9 @@ export default function StreamList() {
     scheduled: 0
   });
 
-  const updateStats = useCallback((streamListResponse: StreamListResponse) => {
-    const liveCount = streamListResponse.countLive;
-    const scheduledCount = streamListResponse.countScheduled;
+  const updateStats = useCallback((data: StreamListResponse) => {
+    const liveCount = data.countLive;
+    const scheduledCount = data.countScheduled;
     setStats({ live: liveCount, scheduled: scheduledCount });
   }, []);
 
@@ -71,7 +71,7 @@ export default function StreamList() {
         total: data.total
       }));
 
-      updateStats(data.streams);
+      updateStats(data);
     } catch (err) {
       console.error('Failed to load streams:', err);
       setError('Failed to load streams. Please try again later.');
@@ -221,7 +221,7 @@ export default function StreamList() {
                 <span className="ms-1 fw-semibold">{stats.scheduled}</span>
               </div>
             </div>
-            <Button variant="primary" onClick={() => router.push('/streams/new')}>
+            <Button variant="primary" onClick={() => router.push('/stream/new')}>
               <Plus className="me-1" /> New Stream
             </Button>
           </div>

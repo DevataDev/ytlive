@@ -60,6 +60,7 @@ export default function DashboardPage() {
   const [streamStats, setStreamStats] = useState<StreamStats>({
     started: 0,
     scheduled: 0,
+    total: 0,
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivities>({
     activities: [],
