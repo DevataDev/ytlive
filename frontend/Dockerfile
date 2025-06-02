@@ -12,7 +12,7 @@ RUN npm install
 COPY . .
 
 # Build the Next.js app
-RUN npm run build
+# RUN npm run build
 
 # Use a lightweight production image
 FROM node:18-alpine AS runner
