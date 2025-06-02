@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'YT Live Dashboard',
-  description: 'YouTube Live Streaming Dashboard',
+  title: 'YukLive! - Live Streaming Dashboard',
+  description: 'YukLive! - Your live streaming management platform',
+  keywords: ['yuklive', 'live streaming', 'youtube', 'tiktok', 'streaming platform'],
 };
