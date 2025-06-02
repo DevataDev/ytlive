@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { getSession } from 'next-auth/react';
-export async function getServerSideProps() {
-    return { props: {} };
-  }
+export const dynamic = 'force-dynamic';
   
 
 export default function YouTubeCallbackPage() {
