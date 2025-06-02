@@ -155,6 +155,23 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
     return supportedFormats.some(format => url.includes(format));
   }, []);
 
+  const blinkingStyles = `
+  @keyframes blink-live {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+  }
+  @keyframes blink-hot {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.4; }
+  }
+  .blink-live {
+    animation: blink-live 1.5s infinite;
+  }
+  .blink-hot {
+    animation: blink-hot 1.2s infinite;
+  }
+`;
+
   const renderPlayer = () => {
     if (!room.live_url) {
       return (
@@ -214,7 +231,7 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
         <div className="position-absolute top-0 end-0 m-2">
           <div className="d-flex flex-column gap-1">
             {isTrending && (
-              <span className="badge bg-warning text-dark">
+              <span className="badge bg-warning text-dark blink-hot">
                 <FaFire className="me-1" /> HOT
               </span>
             )}
@@ -283,6 +300,8 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
   };
 
   return (
+    <>
+    <style>{blinkingStyles}</style>
     <Card
       className="h-100 shadow-sm"
       onMouseEnter={handleMouseEnter}
@@ -378,5 +397,6 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
         </div>
       </Card.Body>
     </Card>
+    </>
   );
 }
