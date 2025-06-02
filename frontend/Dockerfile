@@ -1,22 +1,33 @@
-FROM node:18-alpine
+# 1. Use official Node image
+FROM node:18-alpine AS builder
 
-# Set working directory
+# 2. Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json* ./
+# 3. Install deps
+COPY package*.json ./
+RUN npm install
 
-# Install dependencies
-RUN npm ci
-
-# Copy source code
+# 4. Copy source
 COPY . .
 
-# Build the application
+# 5. Build the Next.js app
 RUN npm run build
 
-# Expose port
+# --- Final stage: run optimized production build ---
+FROM node:18-alpine AS runner
+
+# 6. Set working directory
+WORKDIR /app
+
+# 7. Copy built app + node_modules from builder
+COPY --from=builder /app ./
+
+# 8. Set env for production
+ENV NODE_ENV=production
+
+# 9. Expose port
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "run", "start"]
+# 10. Start app
+CMD ["npm", "start"]
