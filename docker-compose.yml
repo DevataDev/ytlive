@@ -88,7 +88,7 @@ services:
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=8080"
       # Optional: Add API prefix routing
-      - "traefik.http.routers.backend-api.rule=Host(`yourdomain.com`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-api.rule=Host(`${API_DOMAIN}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.backend-api.tls.certresolver=letsencrypt"
 
   # Next.js Frontend
