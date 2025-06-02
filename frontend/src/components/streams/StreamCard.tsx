@@ -496,7 +496,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
       {/* Add Media File Modal */}
       <MediaFileModal
         show={showMediaModal}
-        onHide={() => setShowMediaModal(false)}
+        onHide={() => handleCloseMediaModal()}
         streamId={stream.ID}
         streamName={stream.Name || 'Untitled Stream'}
       />
