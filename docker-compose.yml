@@ -80,8 +80,6 @@ services:
     networks:
       - ytlive-network
     restart: unless-stopped
-    environment:
-      - GIN_MODE=release
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`${API_DOMAIN}`)"
