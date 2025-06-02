@@ -94,7 +94,6 @@ export default function TikTokLivePage() {
     try {
       setIsLoading(true);
       await addToMirror({ tiktok: roomId });
-      toast.success('Added to mirror successfully!');
     } catch (error) {
       console.error('Failed to add to mirror:', error);
       toast.error('Failed to add to mirror. Please try again.');

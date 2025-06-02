@@ -42,29 +42,29 @@ export const userService = {
 
   // Create a new user
   async createUser(userData: CreateUserData): Promise<User> {
-    const response = await api.post<User>('/users', userData);
-    return response.data;
+    const response = await api.post<User>('/api/users', userData);
+    return response;
   },
 
   // Update a user
   async updateUser(userId: string, userData: UpdateUserData): Promise<User> {
-    const response = await api.put<User>(`/users/${userId}`, userData);
-    return response.data;
+    const response = await api.put<User>(`/api/users/${userId}`, userData);
+    return response;
   },
 
   // Update user password
   async updateUserPassword(userId: string, newPassword: string): Promise<void> {
-    await api.patch(`/users/${userId}/password`, { newPassword });
+    await api.patch(`/api/users/${userId}/password`, { newPassword });
   },
 
   // Delete a user
   async deleteUser(userId: string): Promise<void> {
-    await api.delete(`/users/${userId}`);
+    await api.delete(`/api/users/${userId}`);
   },
 
   // Toggle user active status
   async toggleUserStatus(userId: string, isActive: boolean): Promise<User> {
-    const response = await api.patch<User>(`/users/${userId}/status`, { isActive });
-    return response.data;
+    const response = await api.patch<User>(`/api/users/${userId}/status`, { isActive });
+    return response;
   },
 };

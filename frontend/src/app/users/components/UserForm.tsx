@@ -94,7 +94,7 @@ export default function UserForm({ show, onHide, onSubmit, user }: UserFormProps
       // Only include password if it's a new user or if it's being changed
       const submitData = { ...formData };
       if (user && !submitData.password) {
-        delete submitData.password;
+          delete submitData.password;
       }
       
       await onSubmit(submitData);

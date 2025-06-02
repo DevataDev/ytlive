@@ -7,7 +7,7 @@ import { BsArrowRepeat, BsSearch } from 'react-icons/bs';
 import { toast } from 'react-toastify';
 import { debounce } from 'lodash';
 import TikTokCard from '@/components/tiktok/TikTokCard';
-import { searchLiveRooms, TikTokRoom } from '@/services/tiktokService';
+import { searchLiveRooms, TikTokRoom, addToMirror} from '@/services/tiktokService';
 
 export default function TikTokSearchPage() {
   const [query, setQuery] = useState('');
@@ -117,9 +117,7 @@ export default function TikTokSearchPage() {
   // Handle add to mirror
   const handleAddToMirror = async (roomId: string) => {
     try {
-      // Implement add to mirror functionality here
-      console.log('Add to mirror:', roomId);
-      toast.success('Added to mirror successfully!');
+      await addToMirror({ tiktok: roomId });
     } catch (error) {
       console.error('Failed to add to mirror:', error);
       toast.error('Failed to add to mirror. Please try again.');

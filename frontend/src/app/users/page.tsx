@@ -9,11 +9,13 @@ import { userService, type User, type UserListResponse } from '@/services/userSe
 import { toast } from 'react-toastify';
 import UserForm from './components/UserForm';
 import PasswordUpdateModal from './components/PasswordUpdateModal';
+// Add import at the top
+import DeleteUserModal from './components/DeleteUserModal';
 
 export default function UsersPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  
+
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,16 +104,29 @@ export default function UsersPage() {
   };
 
   // Handle delete user
-  const handleDeleteUser = async (userId: string) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      try {
-        await userService.deleteUser(userId);
-        toast.success('User deleted successfully');
-        fetchUsers(pagination.page, searchTerm);
-      } catch (err: any) {
-        toast.error(err.message || 'Failed to delete user');
-      }
+  // Add new state for delete modal
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState<boolean>(false);
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      setDeleting(true);
+      await userService.deleteUser(userToDelete.id);
+      toast.success('User deleted successfully');
+      setUserToDelete(null);
+      fetchUsers(pagination.page, searchTerm);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete user');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  // Add function to show delete modal
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user);
   };
 
   // Toggle user active status
@@ -128,7 +143,7 @@ export default function UsersPage() {
   // Handle password update
   const handlePasswordUpdate = async (newPassword: string) => {
     if (!passwordUpdateUser) return;
-    
+
     try {
       await userService.updateUserPassword(passwordUpdateUser.id, newPassword);
       toast.success('Password updated successfully');
@@ -264,7 +279,7 @@ export default function UsersPage() {
                             <Button
                               variant="outline-danger"
                               size="sm"
-                              onClick={() => handleDeleteUser(user.id)}
+                              onClick={() => handleDeleteClick(user)}
                               title="Delete"
                               disabled={user.id === session?.user?.id}
                             >
@@ -306,8 +321,8 @@ export default function UsersPage() {
             setShowAddModal(false);
             setEditingUser(null);
           }}
-          onSubmit={editingUser ? 
-            (data) => handleUpdateUser(editingUser.id, data) : 
+          onSubmit={editingUser ?
+            (data) => handleUpdateUser(editingUser.id, data) :
             handleCreateUser}
           user={editingUser}
         />
@@ -318,6 +333,14 @@ export default function UsersPage() {
           onHide={() => setPasswordUpdateUser(null)}
           onSubmit={handlePasswordUpdate}
           user={passwordUpdateUser}
+        />
+        {/* Delete User Modal */}
+        <DeleteUserModal
+          show={!!userToDelete}
+          user={userToDelete}
+          deleting={deleting}
+          onHide={() => setUserToDelete(null)}
+          onConfirm={handleDeleteUser}
         />
       </div>
     </Container>
