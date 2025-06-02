@@ -28,7 +28,7 @@ const nextConfig = {
         has: [
           {
             type: 'cookie',
-            key: 'next-auth.session-token',
+            key: '__Secure-next-auth.session-token',
           },
         ],
       },
