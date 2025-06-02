@@ -5,7 +5,6 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? process.env.NEXT_PUBLIC_API_URL // Same origin in production
   : process.env.NEXT_PUBLIC_API_URL; // Gin server in development
 
-console.dir(API_BASE_URL);
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 

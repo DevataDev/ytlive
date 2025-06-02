@@ -50,8 +50,7 @@ export default function RootLayout({
 
   const shouldHide = hideHeaderFooter.includes(pathname);
   // Debug logging (remove after testing)
-  console.log('Current pathname:', pathname);
-  console.log('Should hide header/footer:', shouldHide);
+  console.log(`Env : ${process.env.NEXT_PUBLIC_API_URL}`);
 
   return (
     <html lang="en" className={inter.variable}>
