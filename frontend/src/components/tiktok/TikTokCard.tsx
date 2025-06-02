@@ -199,33 +199,31 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
     return (
       <div className="position-absolute top-0 start-0 w-100 h-100" style={{ backgroundColor: '#000' }}>
         <ReactPlayer
-          ref={playerRef}
-          url={room.live_url}
-          playing={isPlaying}
-          muted={isMuted}
-          width="100%"
-          height="100%"
-          playsinline
-          controls={isHovered}
-          mute
-          style={{ position: 'absolute', top: 0, left: 0 }}
-          onReady={handleReady}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onError={handleError}
-          onBuffer={handleBuffer}
-          onBufferEnd={handleBufferEnd}
-          config={{
-            file: {
-              forceFLV: room.live_url.includes('.flv'),
-              forceHLS: room.live_url.includes('.m3u8'),
-              hlsOptions: {
-                enableWorker: true,
-                lowLatencyMode: true,
-                backBufferLength: 90,
-              },
+        url={room.live_url}
+        playing={isPlaying}
+        muted={isMuted}
+        width="100%"
+        height="100%"
+        playsinline
+        controls={isHovered}
+        style={{ position: 'absolute', top: 0, left: 0 }}
+        onReady={handleReady}
+        onPlay={handlePlay}
+        onPause={handlePause}
+        onError={handleError}
+        onBuffer={handleBuffer}
+        onBufferEnd={handleBufferEnd}
+        config={{
+          file: {
+            forceFLV: room.live_url.includes('.flv'),
+            forceHLS: room.live_url.includes('.m3u8'),
+            hlsOptions: {
+              enableWorker: true,
+              lowLatencyMode: true,
+              backBufferLength: 90,
             },
-          }}
+          },
+        }}
         />
         {/* Live badge and Trending indicator */}
         <div className="position-absolute top-0 end-0 m-2">
