@@ -34,6 +34,11 @@ export default function RootLayout({
     '/register',
     '/forgot-password',
     '/reset-password',
+    '/login/',
+    '/register/',
+    '/forgot-password/',
+    '/reset-password/',
+    '/login/[...nextauth]',
   ];
 
   // Load Bootstrap JS
@@ -44,7 +49,9 @@ export default function RootLayout({
   }, []);
 
   const shouldHide = hideHeaderFooter.includes(pathname);
-
+  // Debug logging (remove after testing)
+  console.log('Current pathname:', pathname);
+  console.log('Should hide header/footer:', shouldHide);
 
   return (
     <html lang="en" className={inter.variable}>
@@ -75,4 +82,4 @@ export default function RootLayout({
   );
 }
 
-// export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
