@@ -483,6 +483,8 @@ func main() {
 	// DELETE /api/streams/:id endpoint
 	r.DELETE("/api/streams/:id", handlers.JWTMiddleware(), streamHandler.DeleteStream)
 
+	r.PUT("/api/streams/:id", handlers.JWTMiddleware(), streamHandler.UpdateStream)
+
 	r.PUT("/api/streams/:id/channel-id", handlers.JWTMiddleware(), streamHandler.UpdateStreamChannelId)
 
 	// User management endpoints

@@ -303,7 +303,7 @@ export default function StreamList() {
                     className="img-fluid mb-3"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
-                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cGF0aCBkPSJNMTkgMTNIMTlNMTUgMTNIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMjEgN0gxN0MxNi4yMzA5IDcgMTUuNjE2NyA3LjU5Njk1IDE1LjUgOC4yNkMxNS4yMjY4IDguMTEzODIgMTQuOTI0MSA4IDE0LjYwNjFDMTMuNzE3OSA4IDEzIDguNzE3OTQgMTMgOS42MDYwNkMxMyA5LjkyNDEyIDEzLjExMzggMTAuMjI2OCAxMy4yNjAxIDEwLjVINVMzIDExLjM5NTQgMyAxMi41VjE5UzMuODk1NDMgMjEgNSAyMWgxNGMxLjEwNDYgMCAxLS44OTU0IDEtMnYtNnYtM1oiIHN0cm9rZT0iNzM3RkZGIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPg=='; // Fallback SVG
+                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cGF0aCBkPSJNMTkgMTNIMTlNMTUgMTNIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMjEgN0gxN0MxNi4yMzA5IDcgMTUuNjE2NyA3LjU5Njk1IDE1LjUgOC4yNkMxNS4yMjY4IDguMTEzODIgMTQuOTI0MSA4IDE0LjYwNjFDMTMuNzE3OSA4IDEzIDguNzE3OTQgMTMgOS42MDYwNkMxMyA5LjkyNDEyIDEzLjExMzggMTAuMjI2OCAxMy4yNjAxIDEwLjVINVMzIDExLjM5NTQgMyAxMi41VjE5UzMuODk1NDMgMjEgNSAyMWgxNGMxLjEwNDYgMCAxLS44OTU0IDEtMnYtNnYtM1oiIHN0cm9rZT0iNzM3RkZGIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPg=='; // Fallback SVG
                     }}
                   />
                 </div>
@@ -326,7 +326,7 @@ export default function StreamList() {
                       onUpdateRtmpUrl={handleUpdateRtmpUrl}
                       onToggleLoopVideo={handleToggleLoopVideo}
                       onBindChannel={handleBindChannel}
-                      onViewMediaFiles={() => router.push(`/streams/${stream.ID}/media`)}
+                      onViewMediaFiles={() => {}} // Remove router navigation
                       onViewLogs={() => router.push(`/streams/${stream.ID}/logs`)}
                       onViewSettings={() => router.push(`/streams/${stream.ID}/settings`)}
                     />

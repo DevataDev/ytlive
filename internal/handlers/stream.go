@@ -1178,3 +1178,37 @@ func sanitizeFileName(fileName string) string {
 	normalized = strings.ReplaceAll(normalized, ".mp4", "")
 	return normalized
 }
+
+func (h *StreamHandler) UpdateStream(c *gin.Context) {
+	var id string
+	// Get stream ID from URL path
+	id = c.Param("id")
+	// Parse request body
+	var req struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body."})
+		return
+	}
+
+	// Update stream in database
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id =?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Stream not found."})
+		return
+	}
+	stream.Name = req.Name
+	stream.Description = &req.Description
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to update stream."})
+		return
+	}
+	// Broadcast updates to all clients
+	go func() {
+		BroadcastStreamListUpdate()
+	}()
+	c.JSON(200, gin.H{"success": true})
+}

@@ -119,11 +119,11 @@ export default function TikTokLivePage() {
       {/* Page Header */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
         <div className="mb-3 mb-md-0">
-          <h2 className="mb-1 d-flex align-items-center">
+          <h4 className="mb-1 d-flex align-items-center">
             <FaPlay className="me-2 text-primary" />
             TikTok Live Streams
-          </h2>
-          <p className="text-muted mb-0">Discover and add live TikTok streams to your mirrors</p>
+          </h4>
+          <p className="text-muted small mb-0">Discover and add live TikTok streams to your mirrors</p>
         </div>
         <div className="d-flex gap-2">
           <div className="d-flex flex-column align-items-end me-3">

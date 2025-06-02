@@ -52,6 +52,24 @@ export interface MediaFile {
   UpdatedAt: string;
 }
 
+export interface MediaListResponse {
+  files: MediaFileData[];
+}
+
+export interface MediaFileData {
+  id: string;
+  stream_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  media_type: string;
+  mime_type: string;
+  is_primary: boolean;
+  order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface StreamListResponse {
   countLive: number;
   countScheduled: number;
@@ -76,7 +94,11 @@ export const fetchStreams = async (page = 1, pageSize = 10, search = ''): Promis
 
 export const updateStream = async (id: string, streamData: Partial<Stream>): Promise<Stream> => {
   const session = await getSession();
-  const response = await api.putRaw<Stream>(`/api/streams/${id}`, streamData, {
+  const jsonData = {
+    "name": streamData.Name,
+    "description": streamData.Description,
+  }
+  const response = await api.putRaw<Stream>(`/api/streams/${id}`, jsonData, {
     headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }
   });
   return response.data;

@@ -7,6 +7,7 @@ import BindChannelModal from '@/components/modals/BindChannelModal';
 import styles from './StreamCard.module.css';
 import { useFfmpegLogsModal } from '@/hooks/useFfmpegLogsModal';
 import FfmpegLogsModal from '@/components/modals/FfmpegLogsModal';
+import MediaFileModal from '@/components/modals/MediaFileModal';
 
 
 export interface StreamCardProps {
@@ -55,6 +56,13 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const { showModal, itemId, itemType, openModal, closeModal } = useFfmpegLogsModal();
+  const [showMediaModal, setShowMediaModal] = useState(false);
+  const handleViewMediaFiles = () => {
+    setShowMediaModal(true);
+  };
+  const handleCloseMediaModal = () => {
+    setShowMediaModal(false);
+  };
 
   const handleViewLogs = (streamId: string) => {
     openModal(streamId, 'stream');
@@ -240,7 +248,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
                 <Dropdown.Item onClick={() => setShowBindModal(true)}>
                   <i className="bi bi-link-45deg me-2"></i>Bind Channel
                 </Dropdown.Item>
-                <Dropdown.Item>
+                <Dropdown.Item onClick={() => setShowMediaModal(true)}>
                   <i className="bi bi-folder2-open me-2"></i>Media Files
                 </Dropdown.Item>
                 <Dropdown.Item
@@ -386,6 +394,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
               <Button 
                 variant="outline-secondary" 
                 size="sm" 
+                onClick={() => handleViewLogs(stream.ID)}
                 className="me-2"
                 title="View Logs"
               >
@@ -394,6 +403,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
               <Button 
                 variant="outline-secondary" 
                 size="sm"
+                onClick={() => setShowMediaModal(true)}
                 title="Media Files"
               >
                 <i className="bi bi-folder2-open"></i>
@@ -481,6 +491,14 @@ const StreamCard: React.FC<StreamCardProps> = ({
         title="Bind Channel to Stream"
         loading={isLoading}
         error={bindModalError}
+      />
+
+      {/* Add Media File Modal */}
+      <MediaFileModal
+        show={showMediaModal}
+        onHide={() => setShowMediaModal(false)}
+        streamId={stream.ID}
+        streamName={stream.Name || 'Untitled Stream'}
       />
     </div>
   );
