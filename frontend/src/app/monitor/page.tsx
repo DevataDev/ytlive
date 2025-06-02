@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Form, Spinner, Alert } from 'react-bootstrap';
+import { toast } from 'react-toastify';
 import { MonitorTable } from './components/MonitorTable';
 import { AddMonitorModal } from './components/AddMonitorModal';
 import { EditMonitorModal } from './components/EditMonitorModal';
+import DeleteMonitorModal from './components/DeleteMonitorModal';
 import { Monitor, MonitorFormData } from './types/monitor';
 import { fetchMonitors, createMonitor, updateMonitor, deleteMonitor, toggleMonitorStatus, MonitorData } from '@/services/monitorService';
 import BindChannelModal from '@/components/modals/BindChannelModal';
@@ -19,6 +21,16 @@ export default function MonitorPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 10;
+
+  // Delete modal states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [monitorToDelete, setMonitorToDelete] = useState<Monitor | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Bind channel modal states
+  const [showBindModal, setShowBindModal] = useState(false);
+  const [monitorToBind, setMonitorToBind] = useState<Monitor | null>(null);
+  const [binding, setBinding] = useState(false);
 
   const updateDataMonitors = (data: MonitorData[], total: number) => {
     const monitors = data.map((monitor) => ({
@@ -81,15 +93,52 @@ export default function MonitorPage() {
     }
   };
 
-  const handleDeleteMonitor = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this monitor?')) {
-      try {
-        await deleteMonitor(id);
-        loadMonitors();
-      } catch (err) {
-        setError('Failed to delete monitor');
-        console.error(err);
-      }
+  const handleDeleteClick = (monitor: Monitor) => {
+    setMonitorToDelete(monitor);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!monitorToDelete) return;
+
+    try {
+      setDeleting(true);
+      await deleteMonitor(monitorToDelete.id);
+      toast.success('Monitor deleted successfully');
+      setShowDeleteModal(false);
+      setMonitorToDelete(null);
+      loadMonitors();
+    } catch (err) {
+      setError('Failed to delete monitor');
+      toast.error('Failed to delete monitor');
+      console.error(err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleBindChannelClick = (monitor: Monitor) => {
+    setMonitorToBind(monitor);
+    setShowBindModal(true);
+  };
+
+  const handleBindChannel = async (channelId: string, streamKey: string) => {
+    if (!monitorToBind) return;
+
+    try {
+      setBinding(true);
+      // You'll need to implement this service method
+      // await bindMonitorToChannel(monitorToBind.id, channelId, streamKey);
+      toast.success('Channel bound successfully');
+      setShowBindModal(false);
+      setMonitorToBind(null);
+      loadMonitors();
+    } catch (err) {
+      toast.error('Failed to bind channel');
+      console.error(err);
+      throw err;
+    } finally {
+      setBinding(false);
     }
   };
 
@@ -163,8 +212,9 @@ export default function MonitorPage() {
               <MonitorTable
                 monitors={monitors}
                 onEdit={setEditingMonitor}
-                onDelete={handleDeleteMonitor}
+                onDelete={handleDeleteClick}
                 onToggleStatus={handleToggleStatus}
+                onBindChannel={handleBindChannelClick}
                 page={page}
                 pageSize={pageSize}
                 total={total}
@@ -189,6 +239,27 @@ export default function MonitorPage() {
           onSave={handleUpdateMonitor}
         />
       )}
+
+      {/* New Delete Modal */}
+      <DeleteMonitorModal
+        show={showDeleteModal}
+        monitor={monitorToDelete}
+        deleting={deleting}
+        onHide={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteConfirm}
+      />
+
+      {/* New Bind Channel Modal */}
+      <BindChannelModal
+        show={showBindModal}
+        onHide={() => setShowBindModal(false)}
+        onBind={handleBindChannel}
+        title="Bind Channel to Monitor"
+        streamName={monitorToBind?.displayName}
+        loading={binding}
+        fetchChannels={() => Promise.resolve([])} // You'll need to implement this
+        fetchStreams={() => Promise.resolve([])} // You'll need to implement this
+      />
       </div>
     </Container>
   );

@@ -1,4 +1,4 @@
-import { Table, Button, Badge, Pagination } from 'react-bootstrap';
+import { Table, Badge, Button, Pagination } from 'react-bootstrap';
 import { Monitor } from '../types/monitor';
 import { formatDistanceToNow } from 'date-fns';
 import Image from 'next/image';
@@ -6,8 +6,9 @@ import Image from 'next/image';
 interface MonitorTableProps {
   monitors: Monitor[];
   onEdit: (monitor: Monitor) => void;
-  onDelete: (id: string) => void;
+  onDelete: (monitor: Monitor) => void; // Changed to pass the monitor object
   onToggleStatus: (id: string, isActive: boolean) => void;
+  onBindChannel: (monitor: Monitor) => void; // Added bind channel functionality
   page: number;
   pageSize: number;
   total: number;
@@ -19,6 +20,7 @@ export function MonitorTable({
   onEdit,
   onDelete,
   onToggleStatus,
+  onBindChannel, // Added bind channel prop
   page,
   pageSize,
   total,
@@ -155,6 +157,14 @@ export function MonitorTable({
                       <i className={`bi ${monitor.isActive ? 'bi-pause' : 'bi-play'}`}></i>
                     </Button>
                     <Button
+                      variant="outline-success"
+                      size="sm"
+                      onClick={() => onBindChannel(monitor)}
+                      title="Bind Channel"
+                    >
+                      <i className="bi bi-link-45deg"></i>
+                    </Button>
+                    <Button
                       variant="outline-secondary"
                       size="sm"
                       onClick={() => onEdit(monitor)}
@@ -165,7 +175,7 @@ export function MonitorTable({
                     <Button
                       variant="outline-danger"
                       size="sm"
-                      onClick={() => onDelete(monitor.id)}
+                      onClick={() => onDelete(monitor)} // Changed to pass monitor object
                       title="Delete"
                     >
                       <i className="bi bi-trash"></i>

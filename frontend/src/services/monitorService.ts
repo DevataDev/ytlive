@@ -50,7 +50,11 @@ export const fetchMonitors = async (page = 1, pageSize = 10, search = ''): Promi
 
 export const createMonitor = async (data: MonitorFormData): Promise<MonitorData> => {
   const session = await getSession();
-  const response = await api.post('/api/monitors', data, {
+  const jsonData = {
+    "username": data.username,
+    "isActive": data.isActive,
+  }
+  const response = await api.post('/api/monitors', jsonData, {
     headers: { 'Authorization': `Bearer ${session?.user?.backendToken }` }
   });
   return response as MonitorData;
@@ -71,9 +75,10 @@ export const deleteMonitor = async (id: string): Promise<void> => {
   });
 };
 
-export const toggleMonitorStatus = async (id: string, isActive: boolean): Promise<void> => {
+export const toggleMonitorStatus = async (id: string, isPause: boolean): Promise<void> => {
   const session = await getSession();
-  await api.patch(`/api/monitors/${id}/status`, { isActive }, {
+  const status = !isPause ? 'pause' : 'resume';
+  await api.put(`/api/monitors/${id}/${status}`, {
     headers: { 'Authorization': `Bearer ${session?.user?.backendToken }` }
   });
 };

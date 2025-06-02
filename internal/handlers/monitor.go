@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -49,32 +52,76 @@ func (h *MonitorHandler) AddMonitor(c *gin.Context) {
 	var req struct {
 		UniqueId string `json:"unique_id"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+
+	var alternativeReq struct {
+		Username string `json:"username"`
+		IsActive bool   `json:"isActive"`
+	}
+
+	rawBody, err := c.GetRawData()
+	if err != nil {
+		c.JSON(400, gin.H{"error": "failed to read request body"})
 		return
 	}
 
-	if req.UniqueId == "" {
+	// Restore body for re-use
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(rawBody))
+	// try to parse as req
+	// if that fails, try to parse as alternativeReq
+	// if that fails, return error
+	// if that succeeds, use the alternativeReq value
+
+	if err := json.Unmarshal(rawBody, &req); err != nil {
+		// Success with Req
+		// Continue using req
+		log.Println(err)
+	}
+
+	if err := json.Unmarshal(rawBody, &alternativeReq); err != nil {
+		// Success with AlternativeReq
+		// Continue using altReq
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse request"})
+		return
+	}
+
+	if req.UniqueId == "" && alternativeReq.Username == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Unique ID is required"})
 		return
 	}
 
+	var uniqueId string
+	if req.UniqueId != "" {
+		uniqueId = req.UniqueId
+	}
+	if alternativeReq.Username != "" && req.UniqueId == "" {
+		uniqueId = alternativeReq.Username
+	}
+
 	var monitor models.Monitor
-	if err := h.DB.Where("unique_id = ?", req.UniqueId).First(&monitor).Error; err == nil {
+	if err := h.DB.Where("unique_id = ?", uniqueId).First(&monitor).Error; err == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Monitor already exists"})
 		return
 	}
 
+	var isPaused bool
+	if alternativeReq.IsActive {
+		isPaused = false
+	} else {
+		isPaused = true
+	}
+
 	monitor = models.Monitor{
 		ID:        generateULID(),
-		UniqueId:  req.UniqueId,
+		UniqueId:  uniqueId,
 		UserId:    c.GetString("user_id"),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		IsLive:    false,
+		Paused:    isPaused,
 		RtmpUrl:   "rtmp://a.rtmp.youtube.com/live2/",
 		StreamKey: "",
 	}
+
 	if err := h.DB.Create(&monitor).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save monitor"})
 		return
@@ -129,6 +176,34 @@ func (h *MonitorHandler) UpdateMonitor(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save monitor"})
 		return
 	}
+	c.JSON(http.StatusOK, gin.H{"monitor": monitor})
+}
+
+func (h *MonitorHandler) UpdateMonitorStatus(c *gin.Context) {
+	var id string
+	if c.Param("id") != "" {
+		id = c.Param("id")
+	}
+	var req struct {
+		IsActive bool `json:"isActive"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	var monitor models.Monitor
+	if err := h.DB.Where("(unique_id =? OR id =?)", id, id).First(&monitor).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Monitor not found"})
+		return
+	}
+	monitor.Paused = !req.IsActive
+	if err := h.DB.Save(&monitor).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update monitor"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"monitor": monitor})
 }
 
@@ -242,5 +317,24 @@ func (h *MonitorHandler) ResumeMonitor(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update monitor"})
 		return
 	}
+	c.JSON(http.StatusOK, gin.H{"monitor": monitor})
+}
+
+func (h *MonitorHandler) DeleteMonitorById(c *gin.Context) {
+	var monitorId string
+	if c.Param("id") != "" {
+		monitorId = c.Param("id")
+	}
+
+	var monitor models.Monitor
+	if err := h.DB.Where("(unique_id =? OR id =?)", monitorId, monitorId).First(&monitor).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Monitor not found"})
+		return
+	}
+	if err := h.DB.Delete(&monitor).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete monitor"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"monitor": monitor})
 }

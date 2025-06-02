@@ -582,6 +582,8 @@ func main() {
 	r.PUT("/api/monitors/:id/channel-id", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorChannelId)
 	r.PUT("/api/monitors/:id/pause", handlers.JWTMiddleware(), monitorHandler.PauseMonitor)
 	r.PUT("/api/monitors/:id/resume", handlers.JWTMiddleware(), monitorHandler.ResumeMonitor)
+	r.DELETE("/api/monitors/:id", handlers.JWTMiddleware(), monitorHandler.DeleteMonitorById)
+	r.PUT("/api/monitors/:id", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorStatus)
 
 	tiktokSignHandler := handlers.NewTiktokSignHandler(cfg)
 	r.POST("/api/tiktok/sign", tiktokSignHandler.Sign)

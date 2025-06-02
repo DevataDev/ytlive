@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal, Button, Form, Spinner, Alert, Image } from 'react-bootstrap';
 import { Monitor, MonitorFormData } from '../types/monitor';
+import { getInitialsAvatar } from '@/app/channels/utils/avatarUtils';
 
 interface EditMonitorModalProps {
   show: boolean;
@@ -61,7 +62,7 @@ export function EditMonitorModal({ show, onHide, monitor, onSave }: EditMonitorM
           <div className="d-flex align-items-center mb-4">
             <div className="me-3">
               <Image
-                src={monitor.avatar || '/default-avatar.png'}
+                src={getInitialsAvatar(monitor.displayName)}
                 alt={monitor.username}
                 width={64}
                 height={64}
