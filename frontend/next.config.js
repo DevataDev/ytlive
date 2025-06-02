@@ -2,10 +2,14 @@
 const nextConfig = {
   reactStrictMode: true,
   trailingSlash: true,
-  distDir: 'out', // Output directory
+  distDir: 'out',
   images: {
-    unoptimized: true, // Required for static export
-    domains: ['localhost'], // Add your image domains here
+    unoptimized: true,
+    domains: ['localhost'],
+  },
+  // Add this to skip prerendering for specific pages
+  experimental: {
+    skipTrailingSlashRedirect: true,
   },
   async redirects() {
     return [
