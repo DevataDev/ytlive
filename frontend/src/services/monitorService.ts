@@ -25,6 +25,7 @@ export interface MonitorData {
   StreamKey: string;
   UserId: string;
   IsLive: boolean;
+  Paused: boolean;
   ChannelId: string;
 }
 

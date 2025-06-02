@@ -580,6 +580,8 @@ func main() {
 	r.PUT("/api/monitors/:id/rtmp-url", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorRTMPUrl)
 	r.PUT("/api/monitors/:id/stream-key", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorStreamKey)
 	r.PUT("/api/monitors/:id/channel-id", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorChannelId)
+	r.PUT("/api/monitors/:id/pause", handlers.JWTMiddleware(), monitorHandler.PauseMonitor)
+	r.PUT("/api/monitors/:id/resume", handlers.JWTMiddleware(), monitorHandler.ResumeMonitor)
 
 	tiktokSignHandler := handlers.NewTiktokSignHandler(cfg)
 	r.POST("/api/tiktok/sign", tiktokSignHandler.Sign)

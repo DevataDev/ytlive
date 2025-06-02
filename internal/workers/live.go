@@ -55,7 +55,7 @@ func (w *LiveWorker) StartUserMonitoring() {
 		for {
 			log.Println("Starting user monitoring")
 			var monitors []models.Monitor
-			if err := w.DB.Find(&monitors).Error; err != nil {
+			if err := w.DB.Where("deleted_at IS NULL and paused = false").Find(&monitors).Error; err != nil {
 				log.Println("Failed to fetch monitors", err)
 				return
 			}

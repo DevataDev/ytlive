@@ -7,6 +7,7 @@ import { AddMonitorModal } from './components/AddMonitorModal';
 import { EditMonitorModal } from './components/EditMonitorModal';
 import { Monitor, MonitorFormData } from './types/monitor';
 import { fetchMonitors, createMonitor, updateMonitor, deleteMonitor, toggleMonitorStatus, MonitorData } from '@/services/monitorService';
+import BindChannelModal from '@/components/modals/BindChannelModal';
 
 export default function MonitorPage() {
   const [monitors, setMonitors] = useState<Monitor[]>([]);
@@ -25,7 +26,7 @@ export default function MonitorPage() {
       username: monitor.UniqueId,
       displayName: monitor.UniqueId,
       avatar: '',
-      isActive: monitor.IsLive,
+      isActive: !monitor.Paused,
       lastChecked: monitor.LastCheckedAt,
       status: monitor.IsLive ? 'online' : 'offline',
       createdAt: monitor.CreatedAt,
