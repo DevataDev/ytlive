@@ -4,6 +4,8 @@ import { toast } from 'react-toastify';
 import { MirrorItem, saveStreamKey, saveRtmpUrl, bindChannel } from '@/services/mirrorService';
 import BindChannelModal from '@/components/modals/BindChannelModal';
 import ReactPlayer from 'react-player';
+import FfmpegLogsModal from '@/components/modals/FfmpegLogsModal';
+import { useFfmpegLogsModal } from '@/hooks/useFfmpegLogsModal';
 
 interface MirrorCardProps {
   mirror: MirrorItem;
@@ -31,6 +33,11 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
   const [showBindModal, setShowBindModal] = useState(false);
   const [bindModalError, setBindModalError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { showModal, itemId, itemType, openModal, closeModal } = useFfmpegLogsModal();
+
+  const handleViewLogs = (streamId: string) => {
+    openModal(streamId, 'mirror');
+  };
 
   // Handle bind channel
   const handleBindChannelSubmit = async (channelId: string, streamKey: string) => {
@@ -216,7 +223,7 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
               <div className="col">
                 <button
                   className="btn btn-outline-info w-100"
-                  onClick={() => {/* Handle logs functionality */ }}
+                  onClick={() => { handleViewLogs(mirror.ID);  }}
                   style={{ borderRadius: '8px' }}
                 >
                   Logs
@@ -235,6 +242,15 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Global FFmpeg Logs Modal */}
+      <FfmpegLogsModal
+        show={showModal}
+        onHide={closeModal}
+        itemId={itemId}
+        itemType={itemType}
+        title="Mirror FFmpeg Logs"
+      />
 
       {/* Bind Channel Modal */}
       <BindChannelModal

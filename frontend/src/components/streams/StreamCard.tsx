@@ -5,7 +5,9 @@ import { Card, Button, Dropdown, Form, Spinner, Badge, Modal, Alert } from 'reac
 import { Stream } from '@/services/streamService';
 import BindChannelModal from '@/components/modals/BindChannelModal';
 import styles from './StreamCard.module.css';
-import { start } from 'repl';
+import { useFfmpegLogsModal } from '@/hooks/useFfmpegLogsModal';
+import FfmpegLogsModal from '@/components/modals/FfmpegLogsModal';
+
 
 export interface StreamCardProps {
   stream: Stream;
@@ -52,6 +54,11 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const [bindModalError, setBindModalError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
+  const { showModal, itemId, itemType, openModal, closeModal } = useFfmpegLogsModal();
+
+  const handleViewLogs = (streamId: string) => {
+    openModal(streamId, 'stream');
+  };
   
   const isLive = stream.Status === 'live';
   const isScheduled = stream.Status === 'scheduled';
@@ -236,7 +243,8 @@ const StreamCard: React.FC<StreamCardProps> = ({
                 <Dropdown.Item>
                   <i className="bi bi-folder2-open me-2"></i>Media Files
                 </Dropdown.Item>
-                <Dropdown.Item>
+                <Dropdown.Item
+                onClick={() => handleViewLogs(stream.ID)}>
                   <i className="bi bi-terminal me-2"></i>View Logs
                 </Dropdown.Item>
                 <Dropdown.Divider />
@@ -449,6 +457,15 @@ const StreamCard: React.FC<StreamCardProps> = ({
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Global FFmpeg Logs Modal */}
+      <FfmpegLogsModal
+        show={showModal}
+        onHide={closeModal}
+        itemId={itemId}
+        itemType={itemType}
+        title="Stream FFmpeg Logs"
+      />
       
       {/* Bind Channel Modal */}
       <BindChannelModal
