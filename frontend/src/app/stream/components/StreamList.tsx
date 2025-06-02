@@ -116,15 +116,14 @@ export default function StreamList() {
   };
 
   const handleDeleteStream = async (id: string) => {
-    if (confirm('Are you sure you want to delete this stream? This action cannot be undone.')) {
-      try {
-        await deleteStream(id);
-        await loadStreams();
-      } catch (err) {
-        console.error('Failed to delete stream:', err);
-        setError('Failed to delete stream. Please try again.');
-        throw err; // Re-throw to allow StreamCard to handle the error
-      }
+    // Remove the window.confirm() line
+    try {
+      await deleteStream(id);
+      await loadStreams();
+    } catch (err) {
+      console.error('Failed to delete stream:', err);
+      setError('Failed to delete stream. Please try again.');
+      throw err; // Re-throw to allow StreamCard to handle the error
     }
   };
 
