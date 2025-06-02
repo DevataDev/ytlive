@@ -49,7 +49,7 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
   const router = useRouter();
   const [isHovered, setIsHovered] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isReady, setIsReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -188,7 +188,6 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
           height="100%"
           playsinline
           controls={isHovered}
-          autoPlay
           mute
           style={{ position: 'absolute', top: 0, left: 0 }}
           onReady={handleReady}

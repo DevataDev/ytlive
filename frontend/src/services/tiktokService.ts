@@ -95,20 +95,23 @@ export const getLiveRoom = async (roomId: string): Promise<TikTokRoom> => {
  */
 interface SearchLiveRoomsParams {
   query: string;
-  page?: number;
+  offset?: number;
+  limit?: number;
   searchId?: string;
 }
 
 export const searchLiveRooms = async (
   query: string,
-  page: number = 1,
+  offset: number = 0,
+  limit: number = 12,
   searchId: string = ''
 ): Promise<TikTokLiveFeedResponse> => {
   const params = new URLSearchParams();
   params.append('query', query);
+  params.append('offset', offset.toString());
+  params.append('limit', limit.toString());
   
-  if (page) params.append('page', page.toString());
-  if (page > 1) {
+  if (offset > 0) {
     params.append('is_load_more', 'true');
   } else {
     params.append('is_load_more', 'false');
