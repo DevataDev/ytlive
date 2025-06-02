@@ -180,3 +180,38 @@ export const createStream = async (streamData: Omit<Stream, 'ID' | 'CreatedAt' |
   });
   return response.data;
 };
+
+export interface StreamScheduleRequest {
+  ScheduledAt: string | null;
+  StoppedAt: string | null;
+  Timezone: string;
+}
+
+export interface StreamDurationRequest {
+  DurationHours: number;
+}
+
+export interface StreamLoopCountRequest {
+  LoopCount: number;
+}
+
+export const setStreamSchedule = async (id: string, scheduleData: StreamScheduleRequest): Promise<void> => {
+  const session = await getSession();
+  await api.putRaw(`/api/streams/${id}/schedule`, scheduleData, {
+    headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }
+  });
+};
+
+export const setStreamDuration = async (id: string, durationData: StreamDurationRequest): Promise<void> => {
+  const session = await getSession();
+  await api.putRaw(`/api/streams/${id}/duration`, durationData, {
+    headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }
+  });
+};
+
+export const setStreamLoopCount = async (id: string, loopCountData: StreamLoopCountRequest): Promise<void> => {
+  const session = await getSession();
+  await api.putRaw(`/api/streams/${id}/loopcount`, loopCountData, {
+    headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }
+  });
+};

@@ -8,6 +8,7 @@ import styles from './StreamCard.module.css';
 import { useFfmpegLogsModal } from '@/hooks/useFfmpegLogsModal';
 import FfmpegLogsModal from '@/components/modals/FfmpegLogsModal';
 import MediaFileModal from '@/components/modals/MediaFileModal';
+import StreamSettingsModal from '@/components/modals/StreamSettingsModal';
 
 
 export interface StreamCardProps {
@@ -22,7 +23,7 @@ export interface StreamCardProps {
   onBindChannel: (streamId: string, channelId: string, streamKey: string) => Promise<void>;
   onViewMediaFiles: () => void;
   onViewLogs: () => void;
-  onViewSettings: () => void;
+  onViewSettings: () => void; // Add this line
   className?: string;
 }
 
@@ -57,6 +58,8 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const [isStopping, setIsStopping] = useState(false);
   const { showModal, itemId, itemType, openModal, closeModal } = useFfmpegLogsModal();
   const [showMediaModal, setShowMediaModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+
   const handleViewMediaFiles = () => {
     setShowMediaModal(true);
   };
@@ -64,14 +67,29 @@ const StreamCard: React.FC<StreamCardProps> = ({
     setShowMediaModal(false);
   };
 
+  const handleViewSettings = () => {
+    setShowSettingsModal(true);
+  };
+
+  const handleCloseSettingsModal = () => {
+    setShowSettingsModal(false);
+  };
+
+  const handleStreamUpdate = () => {
+    // Refresh the stream data after settings update
+    // This should trigger a re-fetch of streams in the parent component
+    window.location.reload(); // Simple approach, or implement proper state management
+  };
+
+
   const handleViewLogs = (streamId: string) => {
     openModal(streamId, 'stream');
   };
-  
+
   const isLive = stream.Status === 'live';
   const isScheduled = stream.Status === 'scheduled';
   const streamKeyIsSet = !!(stream.StreamKey && stream.StreamKey.trim().length > 0);
-  
+
   // Status badge
   const renderStatusBadge = () => {
     if (isLive) {
@@ -235,7 +253,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
               </h5>
               <span className="ms-2">{renderStatusBadge()}</span>
             </div>
-            
+
             {/* Dropdown Menu */}
             <Dropdown>
               <Dropdown.Toggle variant="outline-secondary" size="sm" id={`dropdown-${stream.ID}`}>
@@ -252,12 +270,15 @@ const StreamCard: React.FC<StreamCardProps> = ({
                   <i className="bi bi-folder2-open me-2"></i>Media Files
                 </Dropdown.Item>
                 <Dropdown.Item
-                onClick={() => handleViewLogs(stream.ID)}>
+                  onClick={() => handleViewLogs(stream.ID)}>
                   <i className="bi bi-terminal me-2"></i>View Logs
                 </Dropdown.Item>
+                <Dropdown.Item onClick={() => { handleViewSettings() }}>
+                  <i className="bi bi-gear me-2"></i>Settings
+                </Dropdown.Item>
                 <Dropdown.Divider />
-                <Dropdown.Item 
-                  className="text-danger" 
+                <Dropdown.Item
+                  className="text-danger"
                   onClick={() => setShowDeleteConfirm(true)}
                 >
                   <i className="bi bi-trash me-2"></i>Delete
@@ -269,7 +290,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
             <small className="text-muted">ID: {stream.ID || 'N/A'}</small>
           </div>
         </Card.Header>
-        
+
         {/* Card Body */}
         <Card.Body className="p-3">
           {/* Stream Info */}
@@ -285,10 +306,10 @@ const StreamCard: React.FC<StreamCardProps> = ({
               </div>
             )}
           </div>
-          
+
           {/* Error Alert */}
           {error && <Alert variant="danger" className="py-1 px-2" onClose={() => setError('')} dismissible>{error}</Alert>}
-          
+
           {/* Stream Key */}
           <div className="mb-3">
             <Form.Label className="small text-muted mb-1">Stream Key</Form.Label>
@@ -301,15 +322,15 @@ const StreamCard: React.FC<StreamCardProps> = ({
                 placeholder="Stream Key"
                 aria-label="Stream Key"
               />
-              <Button 
-                variant="outline-secondary" 
+              <Button
+                variant="outline-secondary"
                 onClick={() => setShowPassword(!showPassword)}
                 title={showPassword ? 'Hide' : 'Show'}
               >
                 <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
               </Button>
-              <Button 
-                variant="outline-success" 
+              <Button
+                variant="outline-success"
                 onClick={handleUpdateStreamKey}
                 disabled={isLoading}
                 title="Save Stream Key"
@@ -318,7 +339,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
               </Button>
             </div>
           </div>
-          
+
           {/* RTMP URL */}
           <div className="mb-3">
             <Form.Label className="small text-muted mb-1">RTMP URL</Form.Label>
@@ -331,8 +352,8 @@ const StreamCard: React.FC<StreamCardProps> = ({
                 placeholder="RTMP URL"
                 aria-label="RTMP URL"
               />
-              <Button 
-                variant="outline-success" 
+              <Button
+                variant="outline-success"
                 onClick={handleUpdateRtmpUrl}
                 disabled={isLoading}
                 title="Save RTMP URL"
@@ -341,9 +362,9 @@ const StreamCard: React.FC<StreamCardProps> = ({
               </Button>
             </div>
           </div>
-          
+
           {/* Loop Toggle */}
-          <Form.Check 
+          <Form.Check
             type="switch"
             id={`loop-switch-${stream.ID}`}
             label={
@@ -356,15 +377,15 @@ const StreamCard: React.FC<StreamCardProps> = ({
             className="mb-0"
           />
         </Card.Body>
-        
+
         {/* Card Footer */}
         <Card.Footer className={`bg-white border-top-0 pt-0 ${styles.cardFooter}`}>
           <div className="d-flex justify-content-between align-items-center">
             {/* Main Action Button */}
             {isLive ? (
-              <Button 
-                variant="danger" 
-                size="sm" 
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={handleStop}
                 disabled={isStopping}
               >
@@ -375,9 +396,9 @@ const StreamCard: React.FC<StreamCardProps> = ({
                 )}
               </Button>
             ) : (
-              <Button 
-                variant="success" 
-                size="sm" 
+              <Button
+                variant="success"
+                size="sm"
                 className={`btn btn-success btn-sm ${styles.streamStart}`}
                 onClick={handleStart}
                 disabled={!streamKeyIsSet || isStarting}
@@ -389,19 +410,19 @@ const StreamCard: React.FC<StreamCardProps> = ({
                 )}
               </Button>
             )}
-            
+
             <div className="d-flex align-items-center">
-              <Button 
-                variant="outline-secondary" 
-                size="sm" 
+              <Button
+                variant="outline-secondary"
+                size="sm"
                 onClick={() => handleViewLogs(stream.ID)}
                 className="me-2"
                 title="View Logs"
               >
                 <i className="bi bi-terminal"></i>
               </Button>
-              <Button 
-                variant="outline-secondary" 
+              <Button
+                variant="outline-secondary"
                 size="sm"
                 onClick={() => setShowMediaModal(true)}
                 title="Media Files"
@@ -412,7 +433,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
           </div>
         </Card.Footer>
       </Card>
-      
+
       {/* Rename Modal */}
       <Modal show={showRenameModal} onHide={() => setShowRenameModal(false)} centered>
         <Modal.Header closeButton>
@@ -421,19 +442,19 @@ const StreamCard: React.FC<StreamCardProps> = ({
         <Modal.Body>
           <Form.Group className="mb-3">
             <Form.Label>Name</Form.Label>
-            <Form.Control 
-              type="text" 
-              value={newName} 
-              onChange={(e) => setNewName(e.target.value)} 
+            <Form.Control
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
               placeholder="Enter stream name"
             />
           </Form.Group>
           <Form.Group>
             <Form.Label>Description (Optional)</Form.Label>
-            <Form.Control 
-              as="textarea" 
-              rows={3} 
-              value={newDescription} 
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
               placeholder="Enter description"
             />
@@ -448,7 +469,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
           </Button>
         </Modal.Footer>
       </Modal>
-      
+
       {/* Delete Confirmation Modal */}
       <Modal show={showDeleteConfirm} onHide={() => setShowDeleteConfirm(false)} centered>
         <Modal.Header closeButton>
@@ -476,7 +497,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
         itemType={itemType}
         title="Stream FFmpeg Logs"
       />
-      
+
       {/* Bind Channel Modal */}
       <BindChannelModal
         show={showBindModal}
@@ -500,8 +521,17 @@ const StreamCard: React.FC<StreamCardProps> = ({
         streamId={stream.ID}
         streamName={stream.Name || 'Untitled Stream'}
       />
+
+      {/* Stream Settings Modal */}
+      <StreamSettingsModal
+        show={showSettingsModal}
+        onHide={handleCloseSettingsModal}
+        stream={stream}
+        onStreamUpdate={handleStreamUpdate}
+      />
     </div>
   );
 };
 
 export default StreamCard;
+

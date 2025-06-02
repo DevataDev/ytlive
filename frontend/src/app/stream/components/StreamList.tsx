@@ -328,7 +328,7 @@ export default function StreamList() {
                       onBindChannel={handleBindChannel}
                       onViewMediaFiles={() => {}} // Remove router navigation
                       onViewLogs={() => router.push(`/streams/${stream.ID}/logs`)}
-                      onViewSettings={() => router.push(`/streams/${stream.ID}/settings`)}
+                      onViewSettings={() => {}} // Add this line
                     />
                   </div>
                 ))}
