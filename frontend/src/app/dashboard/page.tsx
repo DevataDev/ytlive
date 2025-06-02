@@ -365,8 +365,8 @@ export default function DashboardPage() {
                           mode: 'index',
                           intersect: false,
                           callbacks: {
-                            label: function (context) {
-                              return `${context.dataset.label}: ${context.raw.toFixed(0)}Mbps`;
+                            label: function (context: any) {
+                              return `${context.dataset.label}: ${(context.raw as number).toFixed(0)}Mbps`;
                             },
                           },
                         },
@@ -388,7 +388,7 @@ export default function DashboardPage() {
                           },
                           ticks: {
                             callback: function (value) {
-                              return `${value.toFixed(0)}Mbps`;
+                              return `${typeof value === 'number' ? value.toFixed(0) : value}Mbps`;
                             },
                           },
                         },

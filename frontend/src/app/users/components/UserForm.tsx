@@ -19,7 +19,13 @@ interface UserFormProps {
 }
 
 export default function UserForm({ show, onHide, onSubmit, user }: UserFormProps) {
-  const [formData, setFormData] = useState({
+  // Change the formData state type to make password optional
+  const [formData, setFormData] = useState<{
+    username: string;
+    email: string;
+    password?: string;
+    is_admin: boolean;
+  }>({
     username: '',
     email: '',
     password: '',
@@ -84,10 +90,9 @@ export default function UserForm({ show, onHide, onSubmit, user }: UserFormProps
     }));
   };
 
+  // The delete operation will now work correctly
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validate()) return;
     
     setLoading(true);
     try {

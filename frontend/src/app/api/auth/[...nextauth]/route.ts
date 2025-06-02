@@ -1,4 +1,4 @@
-// This file is the entry point for NextAuth.js API routes
+// This file handles NextAuth.js authentication for the application
 // It re-exports the auth handlers from our centralized auth configuration
 
 import { authOptions } from "@/auth";
@@ -28,9 +28,5 @@ const handler = NextAuth({
 
 export { handler as GET, handler as POST };
 
-// Re-export auth options for server components
-export { authOptions } from '@/auth';
-
 // Ensure the route is treated as dynamic (no static generation)
 export const dynamic = 'force-dynamic';
-export { signIn, signOut } from 'next-auth/react';

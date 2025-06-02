@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  trailingSlash: true,
+  distDir: 'out', // Output directory
   images: {
+    unoptimized: true, // Required for static export
     domains: ['localhost'], // Add your image domains here
   },
   async redirects() {

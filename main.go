@@ -328,104 +328,20 @@ func main() {
 	r.StaticFS("/static", http.FS(staticFS))
 
 	// serve uploads folder
-	// server ./uploads
-	// uploadsFS, _ := fs.Sub(StaticFiles, "uploads")
 	r.StaticFS("/uploads", http.Dir("uploads"))
 
-	r.GET("/stream", func(c *gin.Context) {
-		// replace it with static embedded file stream-list.html
+	// Keep your existing legacy routes for backward compatibility
+	r.GET("/stream-legacy", func(c *gin.Context) {
 		staticFs, _ := fs.Sub(StaticFiles, "web/static")
 		c.FileFromFS("/stream-list.html", http.FS(staticFs))
 	})
 
-	// Dashboard endpoints (JWT protected)
-	r.GET("/dashboard", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/dashboard.html", http.FS(staticFs))
-	})
-
-	// Serve the upload page at /upload
-	r.GET("/upload", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/upload.html", http.FS(staticFs))
-	})
-
-	r.GET("/users", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/user-management.html", http.FS(staticFs))
-	})
-
-	// Monitor Management Page
-	r.GET("/monitor", func(c *gin.Context) {
-		staticFS, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/monitor-management.html", http.FS(staticFS))
-	})
-
-	// Mirror page
-	r.GET("/mirror", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/mirror-list.html", http.FS(staticFs))
-	})
-
-	// Live page
-	r.GET("/live", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/live-list.html", http.FS(staticFs))
-	})
-
-	// Search page
-	r.GET("/search", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/search-list.html", http.FS(staticFs))
-	})
-
-	// Channels page
-	r.GET("/channels", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/channels-management.html", http.FS(staticFs))
-	})
-
-	// Privacy Policy page
-	r.GET("/privacy", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/privacy.html", http.FS(staticFs))
-	})
-
-	// Terms & Conditions page
-	r.GET("/terms", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/terms.html", http.FS(staticFs))
-	})
-
-	//callback
-	r.GET("/youtube/callback", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/callback.html", http.FS(staticFs))
-	})
-
-	r.GET("/", func(c *gin.Context) {
-		// check if user is logged in
-		_, exists := c.Get("user_id")
-		if exists {
-			// redirect to dashboard
-			c.Redirect(http.StatusSeeOther, "/dashboard")
-		} else {
-			// redirect to login
-			c.Redirect(http.StatusSeeOther, "/login")
-		}
-	})
-
-	r.GET("/login", func(c *gin.Context) {
-		// check if user is logged in
-		_, exists := c.Get("user_id")
-		if exists {
-			// redirect to dashboard
-			c.Redirect(http.StatusSeeOther, "/dashboard")
-		} else {
-			staticFs, _ := fs.Sub(StaticFiles, "web/static")
-			c.FileFromFS("/login.html", http.FS(staticFs))
-		}
-	})
+	// callback
+	// Remove or comment out this route since it's now handled by Next.js
+	// r.GET("/youtube/callback", func(c *gin.Context) {
+	//     staticFs, _ := fs.Sub(StaticFiles, "web/static")
+	//     c.FileFromFS("/callback.html", http.FS(staticFs))
+	// })
 
 	// Auth handler
 	authHandler := &handlers.AuthHandler{DB: db}

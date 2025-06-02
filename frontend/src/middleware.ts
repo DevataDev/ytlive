@@ -6,7 +6,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Define public paths that don't require authentication
-  const publicPaths = ['/login', '/api/auth'];
+  const publicPaths = ['/login', '/api/auth', '/api/login'];
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
   
   // If it's a public path, just continue
@@ -24,6 +24,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
   
+  // If we have a token and trying to access login, redirect to dashboard
+  if (token && pathname === '/login') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+  
   // If we have a token, continue with the request
   return NextResponse.next();
 }
@@ -35,7 +40,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public files (public folder)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

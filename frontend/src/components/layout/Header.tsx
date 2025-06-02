@@ -160,19 +160,6 @@ export default function Header() {
                   </li>
                   <li><hr className={`dropdown-divider my-1 ${styles.dropdownDivider}`} /></li>
                   <li>
-                    <Link href="/profile" className={`dropdown-item ${styles.dropdownItem}`}>
-                      <i className="bi bi-person"></i>
-                      Profile
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/settings" className={`dropdown-item ${styles.dropdownItem}`}>
-                      <i className="bi bi-gear"></i>
-                      Settings
-                    </Link>
-                  </li>
-                  <li><hr className={`dropdown-divider my-1 ${styles.dropdownDivider}`} /></li>
-                  <li>
                     <button 
                       className={`dropdown-item text-danger ${styles.dropdownItem}`}
                       onClick={handleSignOut}
