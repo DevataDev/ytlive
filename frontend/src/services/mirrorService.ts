@@ -1,12 +1,12 @@
 import { getSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 
-interface AddMirrorResponse {
+export interface AddMirrorResponse {
     message: string;
-    mirror: Mirror;
+    mirror: MirrorItem;
 }
 
-interface Mirror {
+export interface MirrorItem {
     ID: string;
     RoomId: string;
     DisplayName: string;
@@ -27,8 +27,8 @@ interface Mirror {
     ChannelId: string;
 }
 
-interface MirrorListResponse {
-    mirrors: Mirror[];
+export interface MirrorListResponse {
+    mirrors: MirrorItem[];
     pagination: {
         limit: number;
         offset: number;

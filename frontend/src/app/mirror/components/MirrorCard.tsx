@@ -1,10 +1,11 @@
 import React from 'react';
 import { Button } from 'react-bootstrap';
 import { BsCheckCircle, BsCircle, BsArrowRepeat, BsTrash } from 'react-icons/bs';
-import { Mirror } from '../types/mirror';
+import { toast } from 'react-toastify';
+import { MirrorItem } from '@/services/mirrorService';
 
 interface MirrorCardProps {
-  mirror: Mirror;
+  mirror: MirrorItem;
   onToggle: (id: string, action: 'start' | 'stop') => void;
   onDelete: (id: string) => void;
   onRefresh: (id: string) => void;
@@ -58,10 +59,10 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
   );
 
   return (
-    <div className="">
-      <div className="card h-100">
+    <div>
+      <div className="card h-100 shadow-sm">
         <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">{mirror.Name || 'Unnamed Mirror'}</h5>
+          <h5 className="mb-0">{mirror.Title || 'Unnamed Mirror'}</h5>
           <div>
             <button 
               className="btn btn-sm btn-outline-secondary me-1" 
@@ -82,16 +83,21 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
           </div>
         </div>
         <div className="card-body">
-          <div className="mb-2">
-            <strong>Status:</strong> {getStatusBadge()}
+          <div className="mb-3">
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <span className="text-muted">Status</span>
+              {getStatusBadge()}
+            </div>
+            <div className="d-flex justify-content-between align-items-center">
+              <span className="text-muted">Room Status</span>
+              {getHostStatusBadge()}
+            </div>
           </div>
-          <div className="mb-2">
-            <strong>Room Status:</strong> {getHostStatusBadge()}
-          </div>
+          
           {mirror.StreamKey && (
-            <div className="mb-2">
-              <strong>Stream Key:</strong>
-              <div className="input-group input-group-sm mt-1">
+            <div className="mb-3">
+              <label className="form-label small text-muted mb-1">Stream Key</label>
+              <div className="input-group input-group-sm">
                 <input 
                   type="text" 
                   className="form-control form-control-sm" 
@@ -103,45 +109,53 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(mirror.StreamKey || '');
+                    toast.success('Stream key copied to clipboard');
                   }}
+                  title="Copy to clipboard"
                 >
-                  Copy
+                  <i className="bi bi-clipboard"></i>
                 </button>
               </div>
             </div>
           )}
-          {mirror.StreamURL && (
-            <div className="mb-2">
-              <strong>Stream URL:</strong>
-              <div className="input-group input-group-sm mt-1">
+          
+          {mirror.RtmpUrl && (
+            <div className="mb-3">
+              <label className="form-label small text-muted mb-1">Stream URL</label>
+              <div className="input-group input-group-sm">
                 <input 
                   type="text" 
                   className="form-control form-control-sm" 
-                  value={mirror.StreamURL} 
+                  value={mirror.RtmpUrl} 
                   readOnly 
                 />
                 <button 
                   className="btn btn-outline-secondary" 
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(mirror.StreamURL || '');
+                    navigator.clipboard.writeText(mirror.RtmpUrl || '');
+                    toast.success('Stream URL copied to clipboard');
                   }}
+                  title="Copy to clipboard"
                 >
-                  Copy
+                  <i className="bi bi-clipboard"></i>
                 </button>
               </div>
             </div>
           )}
+          
           {mirror.StreamKey && (
-            <div className="mt-3 d-grid">
-              <Button
-                variant={isLive ? 'danger' : 'primary'}
-                size="sm"
+            <div className="d-grid">
+              <button
+                className={`btn btn-sm btn-block ${isLive ? 'btn-danger' : 'btn-primary'}`}
                 onClick={() => onToggle(mirror.ID, isLive ? 'stop' : 'start')}
                 disabled={!canStart || isQueued || isProcessing}
               >
-                {isLive ? 'Stop' : isQueued ? 'Queued' : 'Start Mirroring'}
-              </Button>
+                {isProcessing ? (
+                  <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                ) : null}
+                {isLive ? 'Stop Mirroring' : isQueued ? 'Queued' : 'Start Mirroring'}
+              </button>
             </div>
           )}
         </div>
