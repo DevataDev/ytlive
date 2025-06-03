@@ -173,6 +173,25 @@ export const bindChannel = async (streamId: string, channelId: string, streamKey
   return response;
 };
 
+export interface CreateStreamNewData {
+  Name: string;
+  Description?: string;
+  MediaFileIds?: string[];
+}
+
+export const createStreamNew= async (streamData: CreateStreamNewData): Promise<SuccessResponse> => {
+  const session = await getSession();
+  var jsonData = {
+    "name": streamData.Name,
+    "description": streamData.Description,
+    "media_file_ids": streamData.MediaFileIds,
+  }
+  const response = await api.post<SuccessResponse>('/api/streams/new', jsonData, {
+    headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }
+  })
+  return response;
+}
+
 export const createStream = async (streamData: Omit<Stream, 'ID' | 'CreatedAt' | 'UpdatedAt' | 'Status' | 'MediaFiles'>): Promise<Stream> => {
   const session = await getSession();
   const response = await api.postRaw<Stream>('/api/streams', streamData, {

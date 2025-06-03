@@ -9,7 +9,7 @@ import { getSession } from 'next-auth/react'
 import { toast } from 'react-toastify';
 
 import MediaFileSelectionModal from '@/components/modals/MediaFileSelectionModal';
-import { MediaFile } from '@/services/streamService';
+import { CreateStreamNewData, MediaFile, createStreamNew } from '@/services/streamService';
 
 interface FilePreview {
   file: File
@@ -96,7 +96,33 @@ export default function StreamNewPage() {
   }
 
   const handleUpload = async () => {
-    if (files.length === 0) return
+    if (files.length === 0) {
+      if (selectedMediaFiles.length === 0) {
+        setError('No files selected')
+        return
+      } else {
+      // If there are no files to upload, but there are selected media files, proceed with the stream creation
+          try {
+            const mediaFileIds = selectedMediaFiles.map(file => file.ID);
+            console.log(mediaFileIds)
+            const data = {
+              MediaFileIds: mediaFileIds,
+              Name: `Stream ${new Date().toISOString().split('T')[0]} ${new Date().toLocaleTimeString()}`,
+              Description: '',
+            }
+            const response = await createStreamNew(data as CreateStreamNewData)
+            setSuccess('Stream created! Redirecting...')
+              setFiles([])
+              setTimeout(() => {
+                router.push('/stream')
+              }, 1500)
+          } catch (error) {
+            setError('Error creating stream')
+            return
+          }
+          return
+      }
+    }
 
     setIsUploading(true)
     setError(null)
@@ -283,7 +309,7 @@ export default function StreamNewPage() {
               <Button
                 variant="primary"
                 onClick={handleUpload}
-                disabled={files.length === 0 || isUploading}
+                disabled={(files.length === 0 && selectedMediaFiles.length === 0) || isUploading}
                 className="px-4"
               >
                 {isUploading ? (
@@ -301,7 +327,10 @@ export default function StreamNewPage() {
                 ) : (
                   <>
                     <Upload className="me-2" />
-                    Upload {files.length > 0 && `${files.length} File${files.length > 1 ? 's' : ''}`}
+                    {selectedMediaFiles.length > 0 && files.length === 0 
+                      ? `Create Stream (${selectedMediaFiles.length} file${selectedMediaFiles.length > 1 ? 's' : ''})` 
+                      : `Upload ${files.length > 0 ? `${files.length} File${files.length > 1 ? 's' : ''}` : ''}`
+                    }
                   </>
                 )}
               </Button>
@@ -309,12 +338,12 @@ export default function StreamNewPage() {
 
             <MediaFileSelectionModal
               show={showMediaSelection}
-              onHide={handleModalHide}
+              onHide={() => setShowMediaSelection(false)}
               onSelect={handleMediaFileSelection}
               selectedFileIds={selectedMediaFiles.map(file => file.ID)}
               title="Select Media Files for New Stream"
               allowMultiple={true}
-              mediaTypeFilter="video"
+              mediaTypeFilter="all"
             />
           </Card.Body>
         </Card>

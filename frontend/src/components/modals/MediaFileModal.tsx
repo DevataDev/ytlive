@@ -23,7 +23,7 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [mediaType, setMediaType] = useState<'video' | 'audio' | 'image'>('video');
+  const [mediaType, setMediaType] = useState<'video' | 'audio'>('video');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedMediaFile, setSelectedMediaFile] = useState<MediaFile | null>(null);
@@ -134,7 +134,6 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
     switch (type) {
       case 'video': return 'bi-camera-video';
       case 'audio': return 'bi-music-note';
-      case 'image': return 'bi-image';
       default: return 'bi-file-earmark';
     }
   };
@@ -143,7 +142,6 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
     switch (type) {
       case 'video': return <Badge bg="primary">Video</Badge>;
       case 'audio': return <Badge bg="success">Audio</Badge>;
-      case 'image': return <Badge bg="info">Image</Badge>;
       default: return <Badge bg="secondary">File</Badge>;
     }
   };
@@ -229,12 +227,11 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
                   <Form.Label>Media Type</Form.Label>
                   <Form.Select
                     value={mediaType}
-                    onChange={(e) => setMediaType(e.target.value as 'video' | 'audio' | 'image')}
+                    onChange={(e) => setMediaType(e.target.value as 'video' | 'audio' )}
                     disabled={uploading}
                   >
                     <option value="video">Video</option>
                     <option value="audio">Audio</option>
-                    <option value="image">Image</option>
                   </Form.Select>
                 </div>
                 <div className="col-md-8 mb-3">
@@ -251,7 +248,6 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
                   <Form.Text className="text-muted">
                     {mediaType === 'video' && 'Supported formats: MP4, MKV'}
                     {mediaType === 'audio' && 'Supported formats: WAV, MP3'}
-                    {mediaType === 'image' && 'Supported formats: JPG, PNG, GIF'}
                   </Form.Text>
                 </div>
               </div>

@@ -13,7 +13,7 @@ export interface MediaFileSelectionModalProps {
   selectedFileIds?: string[]; // Pre-selected files for editing
   title?: string;
   allowMultiple?: boolean;
-  mediaTypeFilter?: 'video' | 'audio';
+  mediaTypeFilter?: 'video' | 'audio' | 'all';
 }
 
 interface UserMediaFilesResponse {
@@ -33,13 +33,14 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
   selectedFileIds = [],
   title = 'Select Media Files',
   allowMultiple = true,
-  mediaTypeFilter = 'video'
+  mediaTypeFilter = 'all'
 }) => {
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<string[]>(selectedFileIds);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentFilter, setCurrentFilter] = useState<'video' | 'audio' | 'all'>(mediaTypeFilter);
   const [pagination, setPagination] = useState({
     total: 0,
     limit: 20,
@@ -174,6 +175,14 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
   const getFilteredFiles = () => {
     let filtered = mediaFiles;
     
+    // Filter by media type
+    if (currentFilter !== 'all') {
+      filtered = filtered.filter(file => {
+        const fileType = file.MimeType.split('/')[0];
+        return fileType === currentFilter;
+      });
+    }
+    
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(file => 
@@ -219,9 +228,9 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
           </Alert>
         )}
 
-        {/* Simple Search and Controls */}
+        {/* Search and Filter Controls */}
         <Row className="mb-3">
-          <Col md={8}>
+          <Col md={6}>
             <InputGroup>
               <InputGroup.Text>
                 <i className="bi bi-search"></i>
@@ -234,7 +243,17 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
               />
             </InputGroup>
           </Col>
-          <Col md={4}>
+          <Col md={3}>
+            <Form.Select
+              value={currentFilter}
+              onChange={(e) => setCurrentFilter(e.target.value as 'video' | 'audio' | 'all')}
+            >
+              <option value="all">All Media</option>
+              <option value="video">Video Only</option>
+              <option value="audio">Audio Only</option>
+            </Form.Select>
+          </Col>
+          <Col md={3}>
             {allowMultiple && (
               <div className="d-flex gap-2">
                 <Button 

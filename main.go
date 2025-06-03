@@ -332,6 +332,7 @@ func main() {
 	r.PUT("/api/streams/:id/maxbitrate", handlers.JWTMiddleware(), streamHandler.SetMaxBitrate)
 	r.GET("/api/streams", handlers.JWTMiddleware(), streamHandler.ListStreams)
 	r.POST("/api/streams", handlers.JWTMiddleware(), streamHandler.CreateStream)
+	r.POST("/api/streams/new", handlers.JWTMiddleware(), streamHandler.CreateStreamFromExisting)
 	r.PUT("/api/streams/:id/schedule", handlers.JWTMiddleware(), streamHandler.SetSchedule)
 	r.PUT("/api/streams/:id/duration", handlers.JWTMiddleware(), streamHandler.SetDuration)
 	r.PUT("/api/streams/:id/rename", handlers.JWTMiddleware(), streamHandler.RenameFile)

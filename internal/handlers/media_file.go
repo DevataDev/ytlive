@@ -286,12 +286,55 @@ func (h *MediaFileHandler) ListAllMediaFilesByUser(c *gin.Context) {
 		typeFile = "video"
 	}
 
+	if typeFile != "video" && typeFile != "audio" && typeFile != "all" {
+		c.JSON(400, gin.H{"error": "type must be video or audio or all"})
+		return
+	}
+
 	var query string
 	if c.Query("query") != "" {
 		query = c.Query("query")
 	}
 	if query != "" {
 		query = "%" + query + "%"
+	}
+
+	if typeFile == "all" {
+		// Get all media files for this stream
+		var mediaFiles []models.MediaFile
+		var totalFiles int64
+
+		if query != "" {
+			if err := h.DB.Distinct("file_path").Model(&models.MediaFile{}).Where("user_id =? AND file_name LIKE?", userID, query).Count(&totalFiles).Error; err != nil {
+				c.JSON(500, gin.H{"error": "failed to fetch media files"})
+				return
+			}
+		} else {
+			if err := h.DB.Distinct("file_path").Model(&models.MediaFile{}).Where("user_id =?", userID).Count(&totalFiles).Error; err != nil {
+				c.JSON(500, gin.H{"error": "failed to fetch media files"})
+				return
+			}
+		}
+		if query != "" {
+			if err := h.DB.Where("user_id =? AND file_name LIKE?", userID, query).Group("file_path").Limit(limit).Offset(offset).Order("created_at DESC").Find(&mediaFiles).Error; err != nil {
+				c.JSON(500, gin.H{"error": "failed to fetch media files"})
+				return
+			}
+		} else {
+			if err := h.DB.Where("user_id =?", userID).Group("file_path").Limit(limit).Offset(offset).Order("created_at DESC").Find(&mediaFiles).Error; err != nil {
+				c.JSON(500, gin.H{"error": "failed to fetch media files"})
+				return
+			}
+		}
+
+		var hasMore bool
+		if offset+limit < int(totalFiles) {
+			hasMore = true
+		} else {
+			hasMore = false
+		}
+		c.JSON(200, gin.H{"files": mediaFiles, "pagination": gin.H{"total": totalFiles, "limit": limit, "offset": offset, "has_more": hasMore}})
+		return
 	}
 
 	var totalFiles int64

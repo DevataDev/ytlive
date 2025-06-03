@@ -1212,3 +1212,79 @@ func (h *StreamHandler) UpdateStream(c *gin.Context) {
 	}()
 	c.JSON(200, gin.H{"success": true})
 }
+
+func (h *StreamHandler) CreateStreamFromExisting(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(401, gin.H{"error": "Unauthorized."})
+		return
+	}
+	var req struct {
+		MediaFileIds []string `json:"media_file_ids"`
+		Name         string   `json:"name"`
+		Description  string   `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body."})
+		return
+	}
+
+	// Fetch media files from database
+	var mediaFiles []models.MediaFile
+	if err := h.DB.Where("id IN ?", req.MediaFileIds).Find(&mediaFiles).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch media files."})
+		return
+	}
+	// Create a new stream
+	// Generate a new stream ID
+	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+	streamID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+
+	stream := models.Stream{
+		ID:         streamID,
+		Name:       req.Name,
+		Status:     "stopped",
+		UserID:     userID.(string),
+		MaxBitrate: nil,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+		MediaFiles: []models.MediaFile{},
+	}
+
+	if err := h.DB.Create(&stream).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to create stream."})
+		return
+	}
+
+	// create new medial files entries
+	for _, mediaFile := range mediaFiles {
+		entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+		mediaId := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+		mediaFileNew := models.MediaFile{
+			ID:        mediaId,
+			StreamID:  stream.ID,
+			FileName:  mediaFile.FileName,
+			FilePath:  mediaFile.FilePath,
+			FileSize:  mediaFile.FileSize,
+			MediaType: mediaFile.MediaType,
+			MimeType:  mediaFile.MimeType,
+			IsPrimary: mediaFile.IsPrimary,
+			UserId:    userID.(string),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			Order:     mediaFile.Order,
+		}
+
+		if err := h.DB.Create(&mediaFileNew).Error; err != nil {
+			log.Println(err)
+			continue
+		}
+	}
+
+	// Broadcast updates to all clients
+	go func() {
+		BroadcastStreamListUpdate()
+	}()
+	c.JSON(200, gin.H{"success": true, "stream": stream})
+}
