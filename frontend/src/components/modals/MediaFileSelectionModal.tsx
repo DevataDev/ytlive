@@ -12,11 +12,11 @@ export interface MediaFileSelectionModalProps {
   selectedFileIds?: string[]; // Pre-selected files for editing
   title?: string;
   allowMultiple?: boolean;
-  mediaTypeFilter?: 'video' | 'audio' | 'image' | 'all';
+  mediaTypeFilter?: 'video' | 'audio';
 }
 
 interface UserMediaFilesResponse {
-  files: MediaFile[];
+  files: MediaFileData[];
   pagination: {
     total: number;
     limit: number;
@@ -93,7 +93,7 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
       }
 
       const offset = reset ? 0 : pagination.offset;
-      const typeParam = mediaTypeFilter === 'all' ? 'video' : mediaTypeFilter; // API defaults to video, we'll handle 'all' client-side
+      const typeParam = mediaTypeFilter === 'video' ? 'video' : mediaTypeFilter; // API defaults to video, we'll handle 'all' client-side
       
       const response = await api.get<UserMediaFilesResponse>(
         `/api/media/user?limit=${pagination.limit}&offset=${offset}&type=${typeParam}`,
@@ -103,9 +103,16 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
       );
 
       const newFiles = response.files || [];
+      const mappedFiles = newFiles.map(file => ({
+        ID: file.ID,
+        FileName: file.file_name,
+        MediaType: file.media_type,
+        FileSize: file.file_size,
+        CreatedAt: file.created_at,
+      }))
       
       if (reset) {
-        setMediaFiles(newFiles);
+        setMediaFiles(mappedFiles);
       } else {
         setMediaFiles(prev => [...prev, ...newFiles]);
       }
