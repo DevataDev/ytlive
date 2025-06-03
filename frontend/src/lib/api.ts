@@ -1,5 +1,4 @@
 import { getSession } from 'next-auth/react';
-import { getConfig } from './config';
 import { Session } from 'next-auth';
 
 
@@ -57,7 +56,7 @@ export async function apiRequest<T>(
   data: any = null,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
-  const { apiUrl } = getConfig();
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
   const url = `${apiUrl}${endpoint}`;
   console.log('API request:', method, url, data, options);
   const session = await getSession();
