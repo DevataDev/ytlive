@@ -15,9 +15,6 @@ RUN npm install
 
 COPY . .
 
-RUN ls -R .
-RUN cat tsconfig.json
-
 # 3. Set env for production
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_API_BASE_URL
