@@ -21,6 +21,8 @@ RUN npm install
 # 4. Copy source
 COPY . .
 
+RUN ls -R src/services
+
 # 5. Build the Next.js app
 RUN npm run build
 
