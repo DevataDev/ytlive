@@ -91,7 +91,7 @@ class DashboardService {
 
   public async fetchStorageInfo(): Promise<StorageInfo> {
     const session = await getSession();
-    const data = await api.get<StorageInfo>(`api/dashboard/storage`, {
+    const data = await api.get<StorageInfo>(`/api/dashboard/storage`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session?.user?.backendToken}`,
