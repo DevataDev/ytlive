@@ -53,9 +53,11 @@ const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsHost = process.env.NEXT_PUBLIC_API_URL?.replace(/^http/, protocol);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8081';
+    const wsHost = apiUrl?.replace(/^http/, protocol);
     const wsUrl = `${wsHost}/ws/ffmpeg-logs/${itemType}/${itemId}?token=${encodeURIComponent(token)}`;
 
+    console.log('Connecting to Logs WebSocket:', wsUrl);
     try {
       const socket = new WebSocket(wsUrl);
       socketRef.current = socket;
