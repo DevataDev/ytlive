@@ -1,14 +1,6 @@
 # 1. Use official Node image
 FROM node:18-alpine AS builder
 
-# 3. Set env for production
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_API_BASE_URL
-
-ENV NODE_ENV=production \
-    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
-
 # 2. Set working directory
 WORKDIR /app
 
