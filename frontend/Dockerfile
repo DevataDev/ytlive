@@ -18,6 +18,14 @@ COPY . .
 RUN ls -R .
 RUN cat tsconfig.json
 
+# 3. Set env for production
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_API_BASE_URL
+
+ENV NODE_ENV=production \
+    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+
 # 5. Build the Next.js app
 RUN npm run build
 
