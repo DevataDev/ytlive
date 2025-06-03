@@ -6,6 +6,10 @@ import { Button, Card, Form, ProgressBar, Alert, Spinner } from 'react-bootstrap
 import { Upload, X, CameraVideo, MusicNote, FileEarmark, ExclamationCircle } from 'react-bootstrap-icons'
 import styles from './page.module.css'
 import { getSession } from 'next-auth/react'
+import { toast } from 'react-toastify';
+
+import MediaFileSelectionModal from '@/components/modals/MediaFileSelectionModal';
+import { MediaFile } from '@/services/streamService';
 
 interface FilePreview {
   file: File
@@ -19,9 +23,19 @@ export default function StreamNewPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  // Add to your component state
+  const [showMediaSelection, setShowMediaSelection] = useState(false);
+  const [selectedMediaFiles, setSelectedMediaFiles] = useState<MediaFile[]>([]);
+
+  // Add handler for media file selection
+  const handleMediaFileSelection = (files: MediaFile[]) => {
+    setSelectedMediaFiles(files);
+    toast.success(`${files.length} media file(s) selected`);
+  };
+
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes'
@@ -64,7 +78,7 @@ export default function StreamNewPage() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFiles(e.dataTransfer.files)
     }
@@ -105,10 +119,10 @@ export default function StreamNewPage() {
         }
       })
 
-      xhr.onreadystatechange = function() {
+      xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
           setIsUploading(false)
-          
+
           if (xhr.status === 200) {
             try {
               const response = JSON.parse(xhr.responseText)
@@ -122,7 +136,7 @@ export default function StreamNewPage() {
             }
           } else {
             let errorMessage = 'Error uploading files'
-            
+
             try {
               if (xhr.responseText) {
                 const errorResponse = JSON.parse(xhr.responseText)
@@ -163,14 +177,13 @@ export default function StreamNewPage() {
     <div className="container-xxl py-4">
       <div className="mx-auto" style={{ maxWidth: '800px' }}>
         <h1 className="h3 mb-4">Upload New Stream</h1>
-        
+
         <Card>
           <Card.Body className="p-4">
             <div
-              className={`border border-2 rounded p-5 text-center ${
-                isDragging ? 'border-primary bg-light' : 'border-secondary border-opacity-25'
-              }`}
-              style={{ 
+              className={`border border-2 rounded p-5 text-center ${isDragging ? 'border-primary bg-light' : 'border-secondary border-opacity-25'
+                }`}
+              style={{
                 borderStyle: 'dashed',
                 transition: 'all 0.3s ease',
                 cursor: 'pointer'
@@ -279,6 +292,26 @@ export default function StreamNewPage() {
                   </>
                 )}
               </Button>
+
+
+
+              <Button
+                variant="outline-primary"
+                onClick={() => setShowMediaSelection(true)}
+                className="mb-3"
+              >
+                <i className="bi bi-file-earmark-play me-2"></i>
+                Select Existing Media Files ({selectedMediaFiles.length})
+              </Button>
+
+              <MediaFileSelectionModal
+                show={showMediaSelection}
+                onHide={() => setShowMediaSelection(false)}
+                onSelect={handleMediaFileSelection}
+                title="Select Media Files for New Stream"
+                allowMultiple={true}
+                mediaTypeFilter="video" // or "all" for all types
+              />
             </div>
           </Card.Body>
         </Card>
@@ -286,3 +319,4 @@ export default function StreamNewPage() {
     </div>
   )
 }
+

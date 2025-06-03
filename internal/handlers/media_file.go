@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,6 +53,12 @@ func (h *MediaFileHandler) UploadMediaFile(c *gin.Context) {
 	streamID := c.Param("id")
 	if streamID == "" {
 		c.JSON(400, gin.H{"error": "stream_id required"})
+		return
+	}
+
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -166,6 +173,7 @@ func (h *MediaFileHandler) UploadMediaFile(c *gin.Context) {
 		FileSize:  file.Size,
 		MediaType: models.MediaType(mediaType),
 		MimeType:  file.Header.Get("Content-Type"),
+		UserId:    userID.(string),
 	}
 
 	if err := h.DB.Create(&mediaFile).Error; err != nil {
@@ -251,4 +259,71 @@ func (h *MediaFileHandler) GetMediaPreview(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", filepath.Base(mediaFile.FilePath)))
 	c.Header("Content-Type", contentType)
 	c.File(mediaFile.FilePath)
+}
+
+func (h *MediaFileHandler) ListAllMediaFilesByUser(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var limit int
+	var offset int
+	if c.Query("limit") != "" {
+		limit, _ = strconv.Atoi(c.Query("limit"))
+	}
+	if c.Query("offset") != "" {
+		offset, _ = strconv.Atoi(c.Query("offset"))
+	}
+
+	var typeFile string
+	if c.Query("type") != "" {
+		typeFile = c.Query("type")
+	}
+
+	if typeFile == "" {
+		typeFile = "video"
+	}
+
+	var query string
+	if c.Query("query") != "" {
+		query = c.Query("query")
+	}
+	if query != "" {
+		query = "%" + query + "%"
+	}
+
+	var totalFiles int64
+	if query != "" {
+		if err := h.DB.Model(&models.MediaFile{}).Where("user_id =? AND media_type =? AND file_name LIKE ?", userID, typeFile, query).Count(&totalFiles).Error; err != nil {
+			c.JSON(500, gin.H{"error": "failed to fetch media files"})
+			return
+		}
+	} else {
+		if err := h.DB.Model(&models.MediaFile{}).Where("user_id = ? AND media_type = ?", userID, typeFile).Count(&totalFiles).Error; err != nil {
+			c.JSON(500, gin.H{"error": "failed to fetch media files"})
+			return
+		}
+	}
+
+	// Get all media files for this stream
+	var mediaFiles []models.MediaFile
+	if query != "" {
+		if err := h.DB.Where("user_id =? AND media_type =? AND file_name LIKE?", userID, typeFile, query).Limit(limit).Offset(offset).Order("created_at DESC").Find(&mediaFiles).Error; err != nil {
+			c.JSON(500, gin.H{"error": "failed to fetch media files"})
+			return
+		}
+	} else {
+		if err := h.DB.Where("user_id = ? and media_type = ?", userID, typeFile).Limit(limit).Offset(offset).Order("created_at DESC").Find(&mediaFiles).Error; err != nil {
+			c.JSON(500, gin.H{"error": "failed to fetch media files"})
+			return
+		}
+	}
+
+	var hasMore bool
+	if offset+limit < int(totalFiles) {
+		hasMore = true
+	}
+	c.JSON(200, gin.H{"files": mediaFiles, "pagination": gin.H{"total": totalFiles, "limit": limit, "offset": offset, "has_more": hasMore}})
 }

@@ -54,3 +54,29 @@ export const getMediaPreview = (streamId: string, mediaId: string): string => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
   return `${apiUrl}/api/streams/${streamId}/media/${mediaId}/preview`;
 };
+
+// Add to mediaFileService.ts
+export interface UserMediaFilesResponse {
+  files: MediaFile[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+}
+
+export const fetchAllUserMediaFiles = async (
+  limit = 20,
+  offset = 0,
+  type: 'video' | 'audio' | 'image' = 'video'
+): Promise<UserMediaFilesResponse> => {
+  const session = await getSession();
+  const response = await api.get<UserMediaFilesResponse>(
+    `/api/media/user?limit=${limit}&offset=${offset}&type=${type}`,
+    {
+      headers: { Authorization: `Bearer ${session?.user?.backendToken}` },
+    }
+  );
+  return response;
+};

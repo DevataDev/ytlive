@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"mime/multipart"
 	"net/http"
@@ -387,18 +388,21 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 
 			// Create media file record
 			mediaFile := models.MediaFile{
-				ID:          mediaFileID.String(),
-				StreamID:    stream.ID,
-				FileName:    downloadName,
-				FilePath:    destPath,
-				FileSize:    fileInfo.Size(),
-				MediaType:   mediaType,
-				MimeType:    file.MimeType,
-				IsPrimary:   true,
-				Order:       0,
-				CreatedAt:   time.Now(),
-				UpdatedAt:   time.Now(),
+				ID:        mediaFileID.String(),
+				StreamID:  stream.ID,
+				FileName:  downloadName,
+				FilePath:  destPath,
+				FileSize:  fileInfo.Size(),
+				MediaType: mediaType,
+				MimeType:  file.MimeType,
+				IsPrimary: true,
+				Order:     0,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+				UserId:    userID,
 			}
+
+			log.Println("mediaFile", mediaFile)
 
 			if err := tx.Create(&mediaFile).Error; err != nil {
 				tx.Rollback()
@@ -475,11 +479,11 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 			ext := filepath.Ext(fileHeader.Filename)
 			fileNameWithoutExtension := strings.TrimSuffix(fileHeader.Filename, ext)
 			fileNameWithoutExtension = strings.ReplaceAll(fileNameWithoutExtension, " ", "-")
-			fileName := fmt.Sprintf("file-%d-%s%s", 
-				time.Now().UnixNano(), 
+			fileName := fmt.Sprintf("file-%d-%s%s",
+				time.Now().UnixNano(),
 				normalizeFileName(fileNameWithoutExtension),
 				ext)
-			
+
 			uploadPath := "./uploads/" + fileName
 
 			// Save file
@@ -549,8 +553,8 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 				Order:     len(results),      // Maintain upload order
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
+				UserId:    userID.(string),
 			}
-
 
 			// Add media file
 			if err := tx.Create(&mediaFile).Error; err != nil {

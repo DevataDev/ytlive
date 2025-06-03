@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -33,13 +32,8 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/yaml.v3"
 
-	"embed"
-
 	"windsorf-youtube-live/internal/broadcast"
 )
-
-//go:embed web/static/* web/static
-var StaticFiles embed.FS
 
 var (
 	ctx                         = context.Background()
@@ -323,25 +317,8 @@ func main() {
 		c.Next()
 	})
 
-	// Replace static file serving with embedded static files
-	staticFS, _ := fs.Sub(StaticFiles, "web/static")
-	r.StaticFS("/static", http.FS(staticFS))
-
 	// serve uploads folder
 	r.StaticFS("/uploads", http.Dir("uploads"))
-
-	// Keep your existing legacy routes for backward compatibility
-	r.GET("/stream-legacy", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/stream-list.html", http.FS(staticFs))
-	})
-
-	// callback
-	// Remove or comment out this route since it's now handled by Next.js
-	// r.GET("/youtube/callback", func(c *gin.Context) {
-	//     staticFs, _ := fs.Sub(StaticFiles, "web/static")
-	//     c.FileFromFS("/callback.html", http.FS(staticFs))
-	// })
 
 	// Auth handler
 	authHandler := &handlers.AuthHandler{DB: db}
@@ -377,6 +354,7 @@ func main() {
 	r.POST("/api/streams/:id/media", handlers.JWTMiddleware(), mediaFileHandler.UploadMediaFile)
 	r.DELETE("/api/streams/media/:id", handlers.JWTMiddleware(), mediaFileHandler.DeleteMediaFile)
 	r.GET("/api/streams/:id/media/:mediaId/preview", mediaFileHandler.GetMediaPreview)
+	r.GET("/api/media/user", handlers.JWTMiddleware(), mediaFileHandler.ListAllMediaFilesByUser)
 
 	// Handle video upload (file or Google Drive link)
 	r.POST("/api/streams/upload", handlers.JWTMiddleware(), fileUploadHandler.UploadStream)
