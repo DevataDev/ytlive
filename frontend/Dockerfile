@@ -14,6 +14,8 @@ WORKDIR /app
 
 # 3. Install deps
 COPY package*.json ./
+COPY tsconfig.json ./
+
 RUN npm install
 
 # 4. Copy source
