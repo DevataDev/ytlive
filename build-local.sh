@@ -16,4 +16,4 @@ echo "  Commit: $COMMIT"
 echo "  Date: $BUILD_DATE"
 
 # Build with docker-compose
-docker-compose build --no-cache backend
+docker compose build --no-cache backend
