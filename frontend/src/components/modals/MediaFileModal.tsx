@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { MediaFile, MediaFileData } from '@/services/streamService';
 import { fetchMediaFiles, uploadMediaFile, deleteMediaFile, getMediaPreview, MediaFileUploadData } from '@/services/mediaFileService';
 import PlayerPreviewModal from './PlayerPreviewModal';
+import MediaFileSelectionModal from './MediaFileSelectionModal';
 
 export interface MediaFileModalProps {
   show: boolean;
@@ -27,6 +28,10 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedMediaFile, setSelectedMediaFile] = useState<MediaFile | null>(null);
+  
+  // New state for existing media selection
+  const [showMediaSelection, setShowMediaSelection] = useState(false);
+  const [addingExistingMedia, setAddingExistingMedia] = useState(false);
 
   // Load media files when modal opens
   useEffect(() => {
@@ -151,6 +156,41 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
     setShowPreviewModal(true);
   };
 
+  // New function to handle adding existing media files
+  const handleAddExistingMedia = async (selectedFiles: MediaFile[]) => {
+    if (selectedFiles.length === 0) {
+      setShowMediaSelection(false);
+      return;
+    }
+
+    setAddingExistingMedia(true);
+    try {
+      // Add the selected files to the current stream
+      // This assumes you have an API endpoint to associate existing media with a stream
+      const promises = selectedFiles.map(file => 
+        // You'll need to implement this API call based on your backend
+        fetch(`/api/streams/${streamId}/media`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ mediaFileId: file.ID })
+        })
+      );
+      
+      await Promise.all(promises);
+      
+      toast.success(`Added ${selectedFiles.length} existing media file(s) to stream`);
+      setShowMediaSelection(false);
+      await loadMediaFiles(); // Refresh the media files list
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add existing media files';
+      toast.error(errorMessage);
+    } finally {
+      setAddingExistingMedia(false);
+    }
+  };
+
   return (
     <>
       <Modal show={show} onHide={onHide} size="lg" centered>
@@ -218,59 +258,96 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
             )}
           </div>
 
-          {/* Upload New Media File */}
+          {/* Add Media Section */}
           <div>
-            <h6 className="mb-3">Add New Media File</h6>
-            <Form onSubmit={handleFileUpload}>
-              <div className="row">
-                <div className="col-md-4 mb-3">
-                  <Form.Label>Media Type</Form.Label>
-                  <Form.Select
-                    value={mediaType}
-                    onChange={(e) => setMediaType(e.target.value as 'video' | 'audio' )}
-                    disabled={uploading}
+            <h6 className="mb-3">Add Media Files</h6>
+            
+            {/* Add Existing Media Button */}
+            <div className="mb-3">
+              <Button
+                variant="outline-primary"
+                onClick={() => setShowMediaSelection(true)}
+                disabled={addingExistingMedia}
+                className="me-2"
+              >
+                {addingExistingMedia ? (
+                  <>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-collection me-2"></i>
+                    Add Existing Media
+                  </>
+                )}
+              </Button>
+              <small className="text-muted">
+                Select from your previously uploaded media files
+              </small>
+            </div>
+
+            {/* Divider */}
+            <div className="d-flex align-items-center mb-3">
+              <hr className="flex-grow-1" />
+              <span className="px-3 text-muted small">OR</span>
+              <hr className="flex-grow-1" />
+            </div>
+
+            {/* Upload New Media File */}
+            <div>
+              <h6 className="mb-3">Upload New Media File</h6>
+              <Form onSubmit={handleFileUpload}>
+                <div className="row">
+                  <div className="col-md-4 mb-3">
+                    <Form.Label>Media Type</Form.Label>
+                    <Form.Select
+                      value={mediaType}
+                      onChange={(e) => setMediaType(e.target.value as 'video' | 'audio' )}
+                      disabled={uploading}
+                    >
+                      <option value="video">Video</option>
+                      <option value="audio">Audio</option>
+                    </Form.Select>
+                  </div>
+                  <div className="col-md-8 mb-3">
+                    <Form.Label>Select File</Form.Label>
+                    <Form.Control
+                      type="file"
+                      onChange={(e) => {
+                        const target = e.target as HTMLInputElement;
+                        setSelectedFile(target.files?.[0] || null);
+                      }}
+                      accept={mediaType === 'video' ? '.mp4,.mkv' : mediaType === 'audio' ? '.wav,.mp3' : '.jpg,.jpeg,.png,.gif'}
+                      disabled={uploading}
+                    />
+                    <Form.Text className="text-muted">
+                      {mediaType === 'video' && 'Supported formats: MP4, MKV'}
+                      {mediaType === 'audio' && 'Supported formats: WAV, MP3'}
+                    </Form.Text>
+                  </div>
+                </div>
+                <div className="d-flex justify-content-end">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={!selectedFile || uploading}
                   >
-                    <option value="video">Video</option>
-                    <option value="audio">Audio</option>
-                  </Form.Select>
+                    {uploading ? (
+                      <>
+                        <Spinner animation="border" size="sm" className="me-2" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-upload me-2"></i>
+                        Upload File
+                      </>
+                    )}
+                  </Button>
                 </div>
-                <div className="col-md-8 mb-3">
-                  <Form.Label>Select File</Form.Label>
-                  <Form.Control
-                    type="file"
-                    onChange={(e) => {
-                      const target = e.target as HTMLInputElement;
-                      setSelectedFile(target.files?.[0] || null);
-                    }}
-                    accept={mediaType === 'video' ? '.mp4,.mkv' : mediaType === 'audio' ? '.wav,.mp3' : '.jpg,.jpeg,.png,.gif'}
-                    disabled={uploading}
-                  />
-                  <Form.Text className="text-muted">
-                    {mediaType === 'video' && 'Supported formats: MP4, MKV'}
-                    {mediaType === 'audio' && 'Supported formats: WAV, MP3'}
-                  </Form.Text>
-                </div>
-              </div>
-              <div className="d-flex justify-content-end">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={!selectedFile || uploading}
-                >
-                  {uploading ? (
-                    <>
-                      <Spinner animation="border" size="sm" className="me-2" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <i className="bi bi-upload me-2"></i>
-                      Upload File
-                    </>
-                  )}
-                </Button>
-              </div>
-            </Form>
+              </Form>
+            </div>
           </div>
         </Modal.Body>
         <Modal.Footer>
@@ -279,6 +356,16 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Existing Media Selection Modal */}
+      <MediaFileSelectionModal
+        show={showMediaSelection}
+        onHide={() => setShowMediaSelection(false)}
+        onSelect={handleAddExistingMedia}
+        title="Add Existing Media to Stream"
+        allowMultiple={true}
+        mediaTypeFilter="all"
+      />
 
       {/* Delete Confirmation Modal */}
       <Modal show={!!showDeleteConfirm} onHide={() => setShowDeleteConfirm(null)} centered>
