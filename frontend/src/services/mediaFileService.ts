@@ -1,7 +1,6 @@
 import { api } from "@/lib/api";
 import { getSession } from "next-auth/react";
 import { MediaFile, MediaFileData, MediaListResponse } from "./streamService";
-import { getConfig } from "@/lib/config";
 
 export interface MediaFileUploadData {
   file: File;
@@ -52,6 +51,6 @@ export const deleteMediaFile = async (fileId: string): Promise<void> => {
 };
 
 export const getMediaPreview = (streamId: string, mediaId: string): string => {
-  const { apiUrl } = getConfig();
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
   return `${apiUrl}/api/streams/${streamId}/media/${mediaId}/preview`;
 };
