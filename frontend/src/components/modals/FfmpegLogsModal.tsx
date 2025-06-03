@@ -11,6 +11,10 @@ interface FfmpegLogsModalProps {
   title?: string;
 }
 
+interface LogsResponse {
+  logs: string[];
+}
+
 const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
   show,
   onHide,
@@ -107,17 +111,22 @@ const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
     }
 
     try {
-      const response = await api.get(`/api/${itemType}s/${itemId}/logs`, {
+      const response = await api.get<LogsResponse>(`/api/${itemType}s/${itemId}/logs`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
 
       if (response) {
-        const text = response as string;
-        setLogs(text);
-        setError(null);
-        setTimeout(scrollToBottom, 0);
+        try {
+            const text = response.logs.join('\n');
+            setLogs(text);
+            setError(null);
+            setTimeout(scrollToBottom, 0);
+        } catch (error) {
+          console.error('Failed to parse logs:', error);
+          setError('Failed to load logs.');
+        }
       } else {
         setError('Failed to load logs.');
       }
