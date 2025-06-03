@@ -1,5 +1,6 @@
 import { getSession } from 'next-auth/react';
 import DashboardWebSocket from '@/lib/websocket';
+import { api } from '@/lib/api';
 
 export interface WebSocketMetrics {
   cpu: number;
@@ -90,19 +91,12 @@ class DashboardService {
 
   public async fetchStorageInfo(): Promise<StorageInfo> {
     const session = await getSession();
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dashboard/storage`, {
+    const data = await api.get<StorageInfo>(`api/dashboard/storage`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session?.user?.backendToken}`,
       },
-      credentials: 'include',
     });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch storage info');
-    }
-    
-    const data = await response.json();
     
     // Ensure we have default values in case the API changes
     return {
@@ -116,36 +110,26 @@ class DashboardService {
 
   public async fetchStreamStats(): Promise<StreamStats> {
     const session = await getSession();
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dashboard/streams`, {
+    const response = await api.get<StreamStats>(`/api/dashboard/streams`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session?.user?.backendToken}`,
       },
-      credentials: 'include',
     });
     
-    if (!response.ok) {
-      throw new Error('Failed to fetch stream stats');
-    }
-    
-    return response.json();
+    return response;
   }
 
   public async fetchRecentActivities(): Promise<RecentActivities> {
     const session = await getSession();
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dashboard/activities/recent`, {
+    const response = await api.get<RecentActivities>(`/api/dashboard/activities/recent`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session?.user?.backendToken}`,
       },
-      credentials: 'include',
     });
     
-    if (!response.ok) {
-      throw new Error('Failed to fetch stream stats');
-    }
-    
-    return response.json();
+    return response;
   }
 
   public connectWebSocket(

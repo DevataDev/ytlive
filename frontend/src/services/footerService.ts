@@ -1,13 +1,19 @@
 import { getSession } from 'next-auth/react';
+import { api } from '@/lib/api';
+
+export interface VersionInfo {
+    version: string;
+    commit: string;
+    date: string;
+}
 
 export async function fetchFooterInfo() {
     const session = await getSession();
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/version`, {
+    const data = await api.get<VersionInfo>(`/api/version`, {
         headers: {
             'Authorization': `Bearer ${session?.user?.backendToken}`
         }
     });
-    const data = await response.json();
     return {
         version: data.version,
         commit: data.commit,
