@@ -15,13 +15,15 @@ WORKDIR /app
 # 3. Install deps
 COPY package*.json ./
 COPY tsconfig.json ./
+COPY next.config.js ./
 
 RUN npm install
 
 # 4. Copy source
+
 COPY . .
 
-RUN ls -R src/services
+RUN ls -R .
 RUN cat tsconfig.json
 
 # 5. Build the Next.js app
