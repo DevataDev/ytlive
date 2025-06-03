@@ -22,6 +22,7 @@ RUN npm install
 COPY . .
 
 RUN ls -R src/services
+RUN cat tsconfig.json
 
 # 5. Build the Next.js app
 RUN npm run build
