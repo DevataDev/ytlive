@@ -1,9 +1,6 @@
 import { getSession } from 'next-auth/react';
+import { getConfig } from './config';
 import { Session } from 'next-auth';
-
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? process.env.NEXT_PUBLIC_API_URL // Same origin in production
-  : process.env.NEXT_PUBLIC_API_URL; // Gin server in development
 
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -60,7 +57,9 @@ export async function apiRequest<T>(
   data: any = null,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const { apiUrl } = getConfig();
+  const url = `${apiUrl}${endpoint}`;
+  console.log('API request:', method, url, data, options);
   const session = await getSession();
   
   const headers: HeadersInit = {
