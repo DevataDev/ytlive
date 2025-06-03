@@ -370,3 +370,64 @@ func (h *MediaFileHandler) ListAllMediaFilesByUser(c *gin.Context) {
 	}
 	c.JSON(200, gin.H{"files": mediaFiles, "pagination": gin.H{"total": totalFiles, "limit": limit, "offset": offset, "has_more": hasMore}})
 }
+
+func (h *MediaFileHandler) MapMediaFile(c *gin.Context) {
+	streamID := c.Param("id")
+	if streamID == "" {
+		c.JSON(400, gin.H{"error": "stream_id required"})
+		return
+	}
+
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Verify stream exists
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", streamID).Error; err != nil {
+		c.JSON(404, gin.H{"error": "stream not found"})
+		return
+	}
+
+	var req struct {
+		MediaID string `json:"media_id"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Verify media file exists
+	var mediaFile models.MediaFile
+	if err := h.DB.First(&mediaFile, "id =?", req.MediaID).Error; err != nil {
+		c.JSON(404, gin.H{"error": "media file not found"})
+		return
+	}
+
+	// Create media file record
+	t := time.Now()
+	entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
+	id := ulid.MustNew(ulid.Timestamp(t), entropy)
+
+	mediaFileNew := models.MediaFile{
+		ID:        id.String(),
+		StreamID:  streamID,
+		FileName:  mediaFile.FileName,
+		FilePath:  mediaFile.FilePath,
+		FileSize:  mediaFile.FileSize,
+		MediaType: models.MediaType(mediaFile.MediaType),
+		MimeType:  mediaFile.MimeType,
+		UserId:    userID.(string),
+	}
+
+	if err := h.DB.Create(&mediaFileNew).Error; err != nil {
+		// Clean up the uploaded file if DB operation fails
+		c.JSON(500, gin.H{"error": "failed to save media file record"})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "file uploaded successfully", "file": mediaFileNew})
+}

@@ -162,19 +162,17 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
       setShowMediaSelection(false);
       return;
     }
-
+  
     setAddingExistingMedia(true);
     try {
-      // Add the selected files to the current stream
-      // This assumes you have an API endpoint to associate existing media with a stream
+      // Add the selected files to the current stream using the correct endpoint
       const promises = selectedFiles.map(file => 
-        // You'll need to implement this API call based on your backend
-        fetch(`/api/streams/${streamId}/media`, {
+        fetch(`/api/streams/${streamId}/map`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ mediaFileId: file.ID })
+          body: JSON.stringify({ media_id: file.ID })
         })
       );
       
@@ -363,7 +361,7 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
         onHide={() => setShowMediaSelection(false)}
         onSelect={handleAddExistingMedia}
         title="Add Existing Media to Stream"
-        allowMultiple={true}
+        allowMultiple={false}
         mediaTypeFilter="all"
       />
 

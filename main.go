@@ -353,6 +353,7 @@ func main() {
 	mediaFileHandler := &handlers.MediaFileHandler{DB: db}
 	r.GET("/api/streams/:id/media", handlers.JWTMiddleware(), mediaFileHandler.ListMediaFiles)
 	r.POST("/api/streams/:id/media", handlers.JWTMiddleware(), mediaFileHandler.UploadMediaFile)
+	r.POST("/api/streams/:id/map", handlers.JWTMiddleware(), mediaFileHandler.MapMediaFile)
 	r.DELETE("/api/streams/media/:id", handlers.JWTMiddleware(), mediaFileHandler.DeleteMediaFile)
 	r.GET("/api/streams/:id/media/:mediaId/preview", mediaFileHandler.GetMediaPreview)
 	r.GET("/api/media/user", handlers.JWTMiddleware(), mediaFileHandler.ListAllMediaFilesByUser)
