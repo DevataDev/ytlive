@@ -66,6 +66,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      args:
+        - VERSION=${VERSION:-dev}
+        - COMMIT=${COMMIT:-unknown}
+        - BUILD_DATE=${BUILD_DATE:-unknown}
     container_name: ytlive-backend
     volumes:
       - ./uploads:/app/uploads

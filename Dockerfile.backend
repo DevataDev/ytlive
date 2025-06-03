@@ -13,8 +13,19 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Accept build arguments
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
+
 # Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main .
+# RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main .
+# Build the application with version info
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags "-X windsorf-youtube-live/internal/version.Version=${VERSION} \
+             -X windsorf-youtube-live/internal/version.Commit=${COMMIT} \
+             -X windsorf-youtube-live/internal/version.Date=${BUILD_DATE}" \
+    -o main .
 
 # Runtime stage
 FROM alpine:latest
