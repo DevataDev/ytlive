@@ -8,11 +8,8 @@ import { useRouter } from 'next/navigation';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { formatDistanceToNow } from 'date-fns';
-import { DashboardWebSocket } from '@/lib/websocket';
 import DashboardService from '@/services/dashboardService';
 import { 
-  WebSocketMetrics, 
-  DashboardStats, 
   StorageInfo,
   StreamStats,
   SystemMetrics,

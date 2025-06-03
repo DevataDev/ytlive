@@ -1,9 +1,6 @@
 # 1. Use official Node image
 FROM node:18-alpine AS builder
 
-# 2. Set working directory
-WORKDIR /app
-
 # 3. Set env for production
 ENV NODE_ENV=production
 ARG NEXT_PUBLIC_API_URL
@@ -14,6 +11,9 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
 ENV NEXTAUTH_URL=${NEXTAUTH_URL}
+
+# 2. Set working directory
+WORKDIR /app
 
 # 3. Install deps
 COPY package*.json ./
