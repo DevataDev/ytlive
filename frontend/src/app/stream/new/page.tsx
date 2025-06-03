@@ -36,6 +36,11 @@ export default function StreamNewPage() {
     toast.success(`${files.length} media file(s) selected`);
   };
 
+  // Add handler to clear selection when modal is hidden without selection
+  const handleModalHide = () => {
+    setShowMediaSelection(false);
+    // Don't reset selectedMediaFiles here - only reset when user explicitly clears
+  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes'
@@ -266,7 +271,15 @@ export default function StreamNewPage() {
               </Alert>
             )}
 
-            <div className="mt-4 d-flex justify-content-end">
+            <div className="mt-4 d-flex justify-content-end gap-2">
+              <Button
+                variant="outline-primary"
+                onClick={() => setShowMediaSelection(true)}
+              >
+                <i className="bi bi-file-earmark-play me-2"></i>
+                Select Existing Media Files ({selectedMediaFiles.length})
+              </Button>
+              
               <Button
                 variant="primary"
                 onClick={handleUpload}
@@ -292,27 +305,17 @@ export default function StreamNewPage() {
                   </>
                 )}
               </Button>
-
-
-
-              <Button
-                variant="outline-primary"
-                onClick={() => setShowMediaSelection(true)}
-                className="mb-3"
-              >
-                <i className="bi bi-file-earmark-play me-2"></i>
-                Select Existing Media Files ({selectedMediaFiles.length})
-              </Button>
-
-              <MediaFileSelectionModal
-                show={showMediaSelection}
-                onHide={() => setShowMediaSelection(false)}
-                onSelect={handleMediaFileSelection}
-                title="Select Media Files for New Stream"
-                allowMultiple={true}
-                mediaTypeFilter="video" // or "all" for all types
-              />
             </div>
+
+            <MediaFileSelectionModal
+              show={showMediaSelection}
+              onHide={handleModalHide}
+              onSelect={handleMediaFileSelection}
+              selectedFileIds={selectedMediaFiles.map(file => file.ID)}
+              title="Select Media Files for New Stream"
+              allowMultiple={true}
+              mediaTypeFilter="video"
+            />
           </Card.Body>
         </Card>
       </div>

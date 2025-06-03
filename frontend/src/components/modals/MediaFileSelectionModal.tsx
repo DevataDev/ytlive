@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Alert, Spinner, ListGroup, Badge, Row, Col } from 'react-bootstrap';
+import { Modal, Button, Form, Alert, Spinner, ListGroup, Badge, Row, Col, InputGroup } from 'react-bootstrap';
 import { MediaFile } from '@/services/streamService';
 import { toast } from 'react-toastify';
 import { getSession } from 'next-auth/react';
 import { api }  from '@/lib/api';
+import { MediaFileData } from '@/services/streamService';
 
 export interface MediaFileSelectionModalProps {
   show: boolean;
@@ -104,17 +105,18 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
 
       const newFiles = response.files || [];
       const mappedFiles = newFiles.map(file => ({
-        ID: file.ID,
+        ID: file.id,
         FileName: file.file_name,
         MediaType: file.media_type,
         FileSize: file.file_size,
         CreatedAt: file.created_at,
-      }))
+        MimeType : file.mime_type, 
+      } as MediaFile))
       
       if (reset) {
         setMediaFiles(mappedFiles);
       } else {
-        setMediaFiles(prev => [...prev, ...newFiles]);
+        setMediaFiles(prev => [...prev, ...mappedFiles]);
       }
       
       setPagination({
@@ -217,15 +219,20 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
           </Alert>
         )}
 
-        {/* Search and Filter Controls */}
+        {/* Simple Search and Controls */}
         <Row className="mb-3">
           <Col md={8}>
-            <Form.Control
-              type="text"
-              placeholder="Search media files..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <InputGroup>
+              <InputGroup.Text>
+                <i className="bi bi-search"></i>
+              </InputGroup.Text>
+              <Form.Control
+                type="text"
+                placeholder="Search files..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </InputGroup>
           </Col>
           <Col md={4}>
             {allowMultiple && (
@@ -254,61 +261,58 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
         {/* Selection Summary */}
         {selectedFiles.length > 0 && (
           <Alert variant="info" className="mb-3">
-            <i className="bi bi-info-circle me-2"></i>
             {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
           </Alert>
         )}
 
-        {/* Media Files List */}
+        {/* Clean File List */}
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
           {loading ? (
             <div className="text-center py-4">
               <Spinner animation="border" />
-              <div className="mt-2">Loading media files...</div>
+              <div className="mt-2">Loading files...</div>
             </div>
           ) : filteredFiles.length === 0 ? (
             <div className="text-center py-4 text-muted">
               <i className="bi bi-folder2-open fs-1 d-block mb-2"></i>
-              {searchTerm ? 'No media files match your search' : `No ${mediaTypeFilter} files available`}
+              {searchTerm ? 'No files match your search' : `No ${mediaTypeFilter} files available`}
             </div>
           ) : (
             <>
-              <ListGroup>
+              <ListGroup variant="flush">
                 {filteredFiles.map((file) => (
                   <ListGroup.Item
                     key={file.ID}
-                    className={`d-flex align-items-center justify-content-between ${
-                      selectedFiles.includes(file.ID) ? 'border-primary bg-light' : ''
+                    className={`d-flex align-items-center py-3 ${
+                      selectedFiles.includes(file.ID) ? 'bg-light border-primary' : ''
                     }`}
                     style={{ cursor: 'pointer' }}
                     onClick={() => handleFileToggle(file.ID)}
                   >
-                    <div className="d-flex align-items-center flex-grow-1">
-                      <Form.Check
-                        type={allowMultiple ? 'checkbox' : 'radio'}
-                        checked={selectedFiles.includes(file.ID)}
-                        onChange={() => handleFileToggle(file.ID)}
-                        className="me-3"
-                      />
-                      <div className="me-3">
-                        {getMediaTypeIcon(file.MediaType)}
-                      </div>
-                      <div className="flex-grow-1">
-                        <div className="fw-semibold">{file.FileName}</div>
-                        <div className="text-muted small">
-                          {formatFileSize(file.FileSize)} • {file.MediaType}
-                          <span className="ms-2">
-                            {new Date(file.CreatedAt).toLocaleDateString()}
-                          </span>
-                        </div>
+                    <Form.Check
+                      type={allowMultiple ? 'checkbox' : 'radio'}
+                      checked={selectedFiles.includes(file.ID)}
+                      onChange={() => handleFileToggle(file.ID)}
+                      className="me-3"
+                    />
+                    
+                    <div className="me-3">
+                      {getMediaTypeIcon(file.MediaType)}
+                    </div>
+                    
+                    <div className="flex-grow-1">
+                      <div className="fw-medium mb-1">{file.FileName}</div>
+                      <div className="text-muted small">
+                        {formatFileSize(file.FileSize)} • 
+                        <Badge bg="secondary" className="ms-1 me-1">{file.MediaType}</Badge> • 
+                        {new Date(file.CreatedAt).toLocaleDateString()}
                       </div>
                     </div>
-                    <Badge bg="secondary">{file.MediaType}</Badge>
                   </ListGroup.Item>
                 ))}
               </ListGroup>
               
-              {/* Load More Button */}
+              {/* Load More */}
               {pagination.has_more && (
                 <div className="text-center mt-3">
                   <Button 
@@ -331,6 +335,7 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
           )}
         </div>
       </Modal.Body>
+      
       <Modal.Footer>
         <div className="d-flex justify-content-between w-100 align-items-center">
           <small className="text-muted">
