@@ -40,3 +40,18 @@ release:
 		-w /go/src/$(PACKAGE_NAME) \
 		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --clean
+
+# Docker build and push targets
+.PHONY: docker-build docker-push docker-build-push
+
+docker-build:
+	@echo "Building Docker images..."
+	@./build-and-push.sh build-only
+
+docker-push:
+	@echo "Pushing Docker images..."
+	@./build-and-push.sh push-only
+
+docker-build-push:
+	@echo "Building and pushing Docker images..."
+	@./build-and-push.sh
