@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -636,4 +639,169 @@ func (h *MediaFileHandler) UnMapMediaFile(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"message": "file unmap successfully"})
+}
+
+// UploadMediaFile handles file upload for a stream
+// POST /api/streams/:id/media
+func (h *MediaFileHandler) UploadMediaFileOnly(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	//parsing multiple files
+	form, err := c.MultipartForm()
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid form data"})
+		return
+	}
+	files := form.File["files"]
+	if len(files) == 0 {
+		c.JSON(400, gin.H{"error": "no files uploaded"})
+		return
+	}
+
+	for _, file := range files {
+
+		// Get file extension and validate
+		ext := strings.TrimSpace(strings.ToLower(filepath.Ext(file.Filename)))
+		allowedExts := map[string]bool{
+			".mp4": true,
+			".mkv": true,
+			".wav": true,
+			".mp3": true,
+		}
+
+		log.Println("ext", ext)
+		log.Println("allowedExts", allowedExts[ext])
+
+		if !allowedExts[ext] {
+			c.JSON(400, gin.H{"error": "unsupported file type. Only MP4, MKV, WAV, and MP3 are allowed"})
+			return
+		}
+
+		// Validate MIME type
+		allowedMimeTypes := map[string]bool{
+			"video/mp4":        true,
+			"video/x-matroska": true, // MKV
+			"audio/wav":        true,
+			"audio/wave":       true,
+			"audio/x-wav":      true,
+			"audio/mpeg":       true, // MP3
+			"audio/mp3":        true,
+		}
+
+		// Open the file to check its actual content type
+		f, err := file.Open()
+		if err != nil {
+			c.JSON(500, gin.H{"error": "failed to read file"})
+			return
+		}
+		defer f.Close()
+
+		// Only read the first 512 bytes to determine the content type
+		buffer := make([]byte, 512)
+		_, err = f.Read(buffer)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "failed to read file content"})
+			return
+		}
+
+		// Reset the file read pointer
+		_, err = f.Seek(0, 0)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "failed to reset file pointer"})
+			return
+		}
+
+		header := make([]byte, 12)
+		_, err = io.ReadFull(f, header)
+		if err != nil {
+			panic(err)
+		}
+
+		// Check MKV EBML signature
+		if header[0] == 0x1A && header[1] == 0x45 && header[2] == 0xDF && header[3] == 0xA3 {
+			fmt.Println("File type: MKV (Matroska)")
+			return
+		}
+
+		_ = binary.BigEndian.Uint32(header[:4])
+		boxType := string(header[4:8])
+		if boxType != "ftyp" {
+			fmt.Printf("Unknown file type. First box is: %s\n", boxType)
+			return
+		}
+
+		majorBrand := string(header[8:12])
+		allowedMajorBrands := map[string]bool{
+			"mp42": true,
+			"isom": true,
+			"iso2": true,
+			"mp41": true,
+			"qt  ": true,
+		}
+
+		// Get the content type from the first 512 bytes
+		contentType := http.DetectContentType(buffer)
+
+		if !allowedMimeTypes[contentType] && !allowedMajorBrands[majorBrand] {
+			c.JSON(400, gin.H{"error": "invalid file content. Only MP4, MKV, WAV, and MP3 files are allowed"})
+			return
+		}
+
+		mediaType := ""
+		switch ext {
+		case ".mp4", ".mkv":
+			mediaType = "video"
+		case ".mp3", ".wav":
+			mediaType = "audio"
+		}
+
+		if mediaType == "" {
+			mediaType = "video" // default to video if type couldn't be determined
+		}
+
+		// Create uploads directory if it doesn't exist
+		uploadDir := filepath.Join("uploads", userID.(string))
+		if err := os.MkdirAll(uploadDir, 0755); err != nil {
+			c.JSON(500, gin.H{"error": "failed to create upload directory"})
+			return
+		}
+
+		// Generate unique filename
+		fileName := fmt.Sprintf("%s_%d%s", strings.TrimSuffix(filepath.Base(file.Filename), ext), time.Now().Unix(), ext)
+		filePath := filepath.Join(uploadDir, fileName)
+
+		// Save the file
+		if err := c.SaveUploadedFile(file, filePath); err != nil {
+			c.JSON(500, gin.H{"error": "failed to save file"})
+			return
+		}
+
+		// Create media file record
+		t := time.Now()
+		entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
+		id := ulid.MustNew(ulid.Timestamp(t), entropy)
+
+		mediaFile := models.MediaFile{
+			ID:        id.String(),
+			FileName:  file.Filename,
+			FilePath:  filePath,
+			FileSize:  file.Size,
+			MediaType: models.MediaType(mediaType),
+			MimeType:  file.Header.Get("Content-Type"),
+			UserId:    userID.(string),
+		}
+
+		if err := h.DB.Create(&mediaFile).Error; err != nil {
+			// Clean up the uploaded file if DB operation fails
+			os.Remove(filePath)
+			c.JSON(500, gin.H{"error": "failed to save media file record"})
+			return
+		}
+	}
+
+	c.JSON(200, gin.H{"message": "file uploaded successfully", "file": files})
 }
