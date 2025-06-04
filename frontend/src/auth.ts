@@ -65,7 +65,8 @@ export const authOptions: NextAuthOptions = {
 
         try {
           const config = await configService.getConfig();
-          const apiUrl = config?.apiUrl || 'http://localhost:8081';
+          const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+          console.log('AUTH API URL:', apiUrl);
           const res = await fetch(`${apiUrl}/api/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
