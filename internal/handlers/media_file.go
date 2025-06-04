@@ -718,20 +718,18 @@ func (h *MediaFileHandler) UploadMediaFileOnly(c *gin.Context) {
 		header := make([]byte, 12)
 		_, err = io.ReadFull(f, header)
 		if err != nil {
-			panic(err)
+			log.Println("Error reading header:", err)
 		}
 
 		// Check MKV EBML signature
 		if header[0] == 0x1A && header[1] == 0x45 && header[2] == 0xDF && header[3] == 0xA3 {
-			fmt.Println("File type: MKV (Matroska)")
-			return
+			log.Println("File type: MKV (Matroska)")
 		}
 
 		_ = binary.BigEndian.Uint32(header[:4])
 		boxType := string(header[4:8])
 		if boxType != "ftyp" {
-			fmt.Printf("Unknown file type. First box is: %s\n", boxType)
-			return
+			log.Printf("Unknown file type. First box is: %s\n", boxType)
 		}
 
 		majorBrand := string(header[8:12])
