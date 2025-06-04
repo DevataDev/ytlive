@@ -389,14 +389,11 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 			// Create media file record
 			mediaFile := models.MediaFile{
 				ID:        mediaFileID.String(),
-				StreamID:  stream.ID,
 				FileName:  downloadName,
 				FilePath:  destPath,
 				FileSize:  fileInfo.Size(),
 				MediaType: mediaType,
 				MimeType:  file.MimeType,
-				IsPrimary: true,
-				Order:     0,
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 				UserId:    userID,
@@ -543,14 +540,11 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 			// Create media file record
 			mediaFile := models.MediaFile{
 				ID:        mediaFileID.String(),
-				StreamID:  stream.ID,
 				FileName:  fileName,
 				FilePath:  uploadPath,
 				FileSize:  size,
 				MediaType: mediaType,
 				MimeType:  mimeType,
-				IsPrimary: len(results) == 0, // First file is primary
-				Order:     len(results),      // Maintain upload order
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 				UserId:    userID.(string),
@@ -559,6 +553,28 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 			// Add media file
 			if err := tx.Create(&mediaFile).Error; err != nil {
 				result.Message = "Failed to register media file: " + err.Error()
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+				return
+			}
+
+			entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+			streamMediaFileID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+
+			// Add media file to stream
+			streamMediaFile := models.StreamMediaFile{
+				ID:          streamMediaFileID,
+				StreamID:    stream.ID,
+				MediaFileID: mediaFile.ID,
+				IsPrimary:   len(results) == 0, // First file is primary
+				Order:       len(results),      // Maintain upload order
+				CreatedAt:   time.Now(),
+				UpdatedAt:   time.Now(),
+			}
+
+			if err := tx.Create(&streamMediaFile).Error; err != nil {
+				result.Message = "Failed to add media file to stream: " + err.Error()
 				mu.Lock()
 				results = append(results, result)
 				mu.Unlock()

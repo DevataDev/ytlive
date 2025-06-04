@@ -30,7 +30,10 @@ type Stream struct {
 	LoopCount        *int           `gorm:"column:loop_count;default:-1" json:"LoopCount,omitempty"`
 	UserID           string         `gorm:"not null;index" json:"UserId"`
 	ChannelID        *string        `gorm:"default:null" json:"ChannelId,omitempty"`
-	MediaFiles       []MediaFile    `gorm:"foreignKey:StreamID;constraint:OnDelete:CASCADE;" json:"media_files,omitempty"`
+
+	// Ganti relationship lama dengan many-to-many
+	// MediaFiles       []MediaFile    `gorm:"foreignKey:StreamID;constraint:OnDelete:CASCADE;" json:"media_files,omitempty"`
+	MediaFiles []MediaFile `gorm:"many2many:stream_media_files;foreignKey:ID;joinForeignKey:StreamID;References:ID;joinReferences:MediaFileID" json:"media_files,omitempty"`
 }
 
 // MigrateStreams handles database migrations for the Stream model

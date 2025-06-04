@@ -164,57 +164,15 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 
 	var countLive, countScheduled int64
 	if querySearch != "" {
-		h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Where("name LIKE ?", querySearch).Count(&countLive)
-		h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Where("name LIKE ?", querySearch).Count(&countScheduled)
+		h.DB.Preload("MediaFiles").Model(&models.Stream{}).Where("user_id = ?", userID).Where("name LIKE ?", querySearch).Count(&countLive)
+		h.DB.Preload("MediaFiles").Model(&models.Stream{}).Where("user_id = ?", userID).Where("name LIKE ?", querySearch).Count(&countScheduled)
 	} else {
-		h.DB.Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&countLive)
-		h.DB.Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&countScheduled)
-	}
-	// Prepare response
-	resp := make([]map[string]interface{}, 0, len(streams))
-	for _, s := range streams {
-		mediaFiles := make([]map[string]interface{}, len(s.MediaFiles))
-		for i, mf := range s.MediaFiles {
-			mediaFiles[i] = map[string]interface{}{
-				"ID":        mf.ID,
-				"FileName":  mf.FileName,
-				"FilePath":  mf.FilePath,
-				"FileSize":  mf.FileSize,
-				"MediaType": mf.MediaType,
-				"MimeType":  mf.MimeType,
-				"IsPrimary": mf.IsPrimary,
-				"Order":     mf.Order,
-				"CreatedAt": mf.CreatedAt,
-				"UpdatedAt": mf.UpdatedAt,
-			}
-		}
-
-		item := map[string]interface{}{
-			"ID":               s.ID,
-			"Name":             s.Name,
-			"Description":      s.Description,
-			"Status":           s.Status,
-			"ScheduledAt":      s.ScheduledAt,
-			"ScheduledStartAt": s.ScheduledStartAt,
-			"ScheduledEndAt":   s.ScheduledEndAt,
-			"StartedAt":        s.StartedAt,
-			"StoppedAt":        s.StoppedAt,
-			"StreamKey":        s.StreamKey,
-			"MaxBitrate":       s.MaxBitrate,
-			"UserID":           s.UserID,
-			"RTMPUrl":          s.RTMPUrl,
-			"LoopVideo":        s.LoopVideo,
-			"LoopCount":        s.LoopCount,
-			"FfmpegPID":        s.FfmpegPID,
-			"CreatedAt":        s.CreatedAt,
-			"UpdatedAt":        s.UpdatedAt,
-			"MediaFiles":       mediaFiles,
-		}
-		resp = append(resp, item)
+		h.DB.Preload("MediaFiles").Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&countLive)
+		h.DB.Preload("MediaFiles").Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&countScheduled)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"streams":        resp,
+		"streams":        streams,
 		"page":           page,
 		"per_page":       perPage,
 		"total":          total,
@@ -568,106 +526,6 @@ func (h *StreamHandler) SetRTMPUrl(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "RTMP URL updated"})
 }
 
-// POST /api/streams/:id/clone
-func (h *StreamHandler) CloneStream(c *gin.Context) {
-	// Get the original stream ID from URL
-	originalID := c.Param("id")
-
-	// Start a transaction
-	tx := h.DB.Begin()
-
-	// 1. Get the original stream with its media files
-	var orig models.Stream
-	if err := tx.Preload("MediaFiles").First(&orig, "id = ?", originalID).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
-		return
-	}
-
-	// 2. Generate a new stream ID
-	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
-	newStreamID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
-
-	// 3. Create a copy of the stream with a new ID
-	clone := models.Stream{
-		ID:         newStreamID,
-		Name:       fmt.Sprintf("%s (Copy)", orig.Name),
-		Status:     "stopped",
-		UserID:     orig.UserID,
-		MaxBitrate: orig.MaxBitrate,
-		RTMPUrl:    orig.RTMPUrl,
-		LoopVideo:  orig.LoopVideo,
-		LoopCount:  orig.LoopCount,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-	}
-
-	// 4. Save the cloned stream
-	if err := tx.Create(&clone).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cloned stream"})
-		return
-	}
-
-	// 5. Clone media files if they exist
-	if len(orig.MediaFiles) > 0 {
-		for _, origMedia := range orig.MediaFiles {
-			// Generate new media file ID
-			newMediaID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
-
-			// Create a new file name with timestamp
-			ext := filepath.Ext(origMedia.FileName)
-			newFileName := fmt.Sprintf("%s_clone_%d%s",
-				strings.TrimSuffix(origMedia.FileName, ext),
-				time.Now().UnixNano(),
-				ext,
-			)
-
-			// Create the new file path in the same directory
-			newFilePath := filepath.Join(filepath.Dir(origMedia.FilePath), newFileName)
-
-			// Copy the file
-			if err := copyFile(origMedia.FilePath, newFilePath); err != nil {
-				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to copy media file"})
-				return
-			}
-
-			// Create new media file record
-			newMedia := models.MediaFile{
-				ID:        newMediaID,
-				StreamID:  newStreamID,
-				FileName:  newFileName,
-				FilePath:  newFilePath,
-				FileSize:  origMedia.FileSize,
-				MediaType: origMedia.MediaType,
-				MimeType:  origMedia.MimeType,
-				IsPrimary: origMedia.IsPrimary,
-				Order:     origMedia.Order,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-			}
-
-			if err := tx.Create(&newMedia).Error; err != nil {
-				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create media file record"})
-				return
-			}
-		}
-	}
-
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Stream cloned successfully",
-		"id":      newStreamID,
-	})
-}
-
 // ServeVideoPreview serves a video file for preview, requires JWT auth
 func (h *StreamHandler) ServeVideoPreview(c *gin.Context) {
 	// Authenticate user via JWT (middleware should already do this)
@@ -892,12 +750,6 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 
 	// 5. Check if primary media file exists
 	var primaryMedia *models.MediaFile
-	for i, mf := range stream.MediaFiles {
-		if mf.IsPrimary {
-			primaryMedia = &stream.MediaFiles[i]
-			break
-		}
-	}
 
 	// If no primary media is set, use the first one
 	if primaryMedia == nil {
@@ -1261,22 +1113,17 @@ func (h *StreamHandler) CreateStreamFromExisting(c *gin.Context) {
 	for _, mediaFile := range mediaFiles {
 		entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
 		mediaId := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
-		mediaFileNew := models.MediaFile{
-			ID:        mediaId,
-			StreamID:  stream.ID,
-			FileName:  mediaFile.FileName,
-			FilePath:  mediaFile.FilePath,
-			FileSize:  mediaFile.FileSize,
-			MediaType: mediaFile.MediaType,
-			MimeType:  mediaFile.MimeType,
-			IsPrimary: mediaFile.IsPrimary,
-			UserId:    userID.(string),
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-			Order:     mediaFile.Order,
+		mediaStreamMap := models.StreamMediaFile{
+			ID:          mediaId,
+			StreamID:    stream.ID,
+			MediaFileID: mediaFile.ID,
+			IsPrimary:   false,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			Order:       0,
 		}
 
-		if err := h.DB.Create(&mediaFileNew).Error; err != nil {
+		if err := h.DB.Create(&mediaStreamMap).Error; err != nil {
 			log.Println(err)
 			continue
 		}
