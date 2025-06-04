@@ -62,7 +62,6 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
             CreatedAt: file.created_at,
             UpdatedAt: file.updated_at,
             MimeType: file.mime_type,
-            Order: file.order
         } as MediaFile))
         setMediaFiles(mappedFiles);
     };

@@ -54,6 +54,15 @@ export interface MediaFile {
 
 export interface MediaListResponse {
   files: MediaFileData[];
+  pagination: MediaListPagination;
+}
+
+
+export interface MediaListPagination {
+  has_more: boolean;
+  limit: number;
+  offset: number;
+  total: number;
 }
 
 export interface MediaFileData {
@@ -64,10 +73,11 @@ export interface MediaFileData {
   file_size: number;
   media_type: string;
   mime_type: string;
-  is_primary: boolean;
-  order: number;
   created_at: string;
   updated_at: string;
+  stream_count: number;
+  stream_names: string;
+  streams: Stream[];
 }
 
 export interface StreamListResponse {

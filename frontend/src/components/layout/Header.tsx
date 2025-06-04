@@ -135,6 +135,12 @@ export default function Header() {
                   <span>Channels</span>
                 </Link>
               </li>
+              <li className="nav-item">
+                <Link href="/media" className={`nav-link ${isActive('/media')}`}>
+                  <i className="bi bi-collection-play"></i>
+                  <span>Media Manager</span>
+                </Link>
+              </li>
             </ul>
             
             <div className="d-flex align-items-center">

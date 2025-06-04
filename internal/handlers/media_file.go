@@ -23,12 +23,12 @@ type MediaFileHandler struct {
 
 type MediaFileWithStreamCount struct {
 	models.MediaFile
-	StreamName  string `json:"stream_name"`
-	StreamCount int64  `json:"stream_count"`
+	StreamNames string          `json:"stream_names"`
+	StreamCount int64           `json:"stream_count"`
+	Streams     []models.Stream `json:"streams" gorm:"-"`
 }
 
-func (h *MediaFileHandler) GetMediaFilesWithStreamDetails(userID string, mediaType string, limit int, offset int, query string) ([]MediaFileWithStreamCount, error) {
-	var results []MediaFileWithStreamCount
+func (h *MediaFileHandler) GetMediaFilesWithFullStreamDetails(userID string, mediaType string, limit int, offset int, query string) ([]MediaFileWithStreamCount, error) {
 	var err error
 	if userID == "" {
 		return nil, fmt.Errorf("user_id is required")
@@ -44,84 +44,57 @@ func (h *MediaFileHandler) GetMediaFilesWithStreamDetails(userID string, mediaTy
 	if limit == 0 {
 		limit = 10
 	}
+
+	// First, get the media files with stream counts
+	var mediaFiles []MediaFileWithStreamCount
+	baseQuery := h.DB.Model(&models.MediaFile{}).
+		Select("media_files.*, COALESCE(stream_info.stream_names, '') as stream_names, COALESCE(stream_info.stream_count, 0) as stream_count").
+		Joins(`LEFT JOIN (
+    SELECT 
+        smf.media_file_id,
+        GROUP_CONCAT(s.name, ', ') as stream_names,
+        COUNT(DISTINCT s.id) as stream_count
+    FROM stream_media_files smf
+    LEFT JOIN streams s ON smf.stream_id = s.id
+    GROUP BY smf.media_file_id
+) as stream_info ON media_files.id = stream_info.media_file_id`)
+
 	if query != "" {
 		if mediaType == "all" {
-			// Fixed query for many-to-many relationship
-			err = h.DB.Model(&models.MediaFile{}).
-				Select("media_files.*, COALESCE(stream_info.stream_names, '') as stream_name, COALESCE(stream_info.stream_count, 0) as stream_count").
-				Joins(`LEFT JOIN (
-	SELECT 
-		smf.media_file_id,
-		GROUP_CONCAT(s.name) as stream_names,
-		COUNT(DISTINCT s.id) as stream_count
-	FROM stream_media_files smf
-	LEFT JOIN streams s ON smf.stream_id = s.id
-	GROUP BY smf.media_file_id
-) as stream_info ON media_files.id = stream_info.media_file_id`).
-				Where("media_files.user_id = ? AND (media_files.file_name LIKE ? OR media_files.file_path LIKE ?)", userID, query, query).
-				Limit(limit).
-				Offset(offset).
-				Group("media_files.file_path").
-				Find(&results).Error
+			err = baseQuery.Where("media_files.user_id = ? AND (media_files.file_name LIKE ? OR media_files.file_path LIKE ?)", userID, query, query).
+				Limit(limit).Offset(offset).Find(&mediaFiles).Error
 		} else {
-			// Fixed query for many-to-many relationship
-			err = h.DB.Model(&models.MediaFile{}).
-				Select("media_files.*, COALESCE(stream_info.stream_names, '') as stream_name, COALESCE(stream_info.stream_count, 0) as stream_count").
-				Joins(`LEFT JOIN (
-	SELECT 
-		smf.media_file_id,
-		GROUP_CONCAT(s.name) as stream_names,
-		COUNT(DISTINCT s.id) as stream_count
-	FROM stream_media_files smf
-	LEFT JOIN streams s ON smf.stream_id = s.id
-	GROUP BY smf.media_file_id
-) as stream_info ON media_files.id = stream_info.media_file_id`).
-				Where("media_files.user_id = ? AND media_files.media_type = ? AND (media_files.file_name LIKE ? OR media_files.file_path LIKE ?)", userID, mediaType, query, query).
-				Limit(limit).
-				Offset(offset).
-				Group("media_files.file_path").
-				Find(&results).Error
+			err = baseQuery.Where("media_files.user_id = ? AND media_files.media_type = ? AND (media_files.file_name LIKE ? OR media_files.file_path LIKE ?)", userID, mediaType, query, query).
+				Limit(limit).Offset(offset).Find(&mediaFiles).Error
 		}
 	} else {
 		if mediaType == "all" {
-			err = h.DB.Model(&models.MediaFile{}).
-				Select("media_files.*, COALESCE(stream_info.stream_names, '') as stream_name, COALESCE(stream_info.stream_count, 0) as stream_count").
-				Joins(`LEFT JOIN (
-				SELECT 
-					smf.media_file_id,
-					GROUP_CONCAT(s.name, ', ') as stream_names,
-					COUNT(DISTINCT s.id) as stream_count
-				FROM stream_media_files smf
-				LEFT JOIN streams s ON smf.stream_id = s.id
-				GROUP BY smf.media_file_id
-			) as stream_info ON media_files.id = stream_info.media_file_id`).
-				Where("media_files.user_id = ?", userID).
-				Limit(limit).
-				Offset(offset).
-				Group("media_files.file_path").
-				Find(&results).Error
-
+			err = baseQuery.Where("media_files.user_id = ?", userID).
+				Limit(limit).Offset(offset).Find(&mediaFiles).Error
 		} else {
-			err = h.DB.Model(&models.MediaFile{}).
-				Select("media_files.*, COALESCE(stream_info.stream_names, '') as stream_name, COALESCE(stream_info.stream_count, 0) as stream_count").
-				Joins(`LEFT JOIN (
-        SELECT 
-            smf.media_file_id,
-            GROUP_CONCAT(s.name, ', ') as stream_names,
-            COUNT(DISTINCT s.id) as stream_count
-        FROM stream_media_files smf
-        LEFT JOIN streams s ON smf.stream_id = s.id
-        GROUP BY smf.media_file_id
-    ) as stream_info ON media_files.id = stream_info.media_file_id`).
-				Where("media_files.user_id = ? AND media_files.media_type = ?", userID, mediaType).
-				Limit(limit).
-				Offset(offset).
-				Group("media_files.file_path").
-				Find(&results).Error
+			err = baseQuery.Where("media_files.user_id = ? AND media_files.media_type = ?", userID, mediaType).
+				Limit(limit).Offset(offset).Find(&mediaFiles).Error
 		}
 	}
 
-	return results, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Now get the full stream details for each media file
+	for i, mediaFile := range mediaFiles {
+		var streams []models.Stream
+		err = h.DB.Table("streams").
+			Joins("JOIN stream_media_files ON streams.id = stream_media_files.stream_id").
+			Where("stream_media_files.media_file_id = ?", mediaFile.ID).
+			Find(&streams).Error
+		if err != nil {
+			return nil, err
+		}
+		mediaFiles[i].Streams = streams
+	}
+
+	return mediaFiles, nil
 }
 
 // ListMediaFiles returns all media files for a stream
@@ -440,59 +413,21 @@ func (h *MediaFileHandler) ListAllMediaFilesByUser(c *gin.Context) {
 		query = "%" + query + "%"
 	}
 
-	// if typeFile == "all" {
-	// 	// Get all media files for this stream
-	// 	var mediaFiles []models.MediaFile
-	// 	var totalFiles int64
-
-	// 	if query != "" {
-	// 		if err := h.DB.Distinct("file_path").Model(&models.MediaFile{}).Where("user_id =? AND file_name LIKE?", userID, query).Group("file_path").Group("file_name").Count(&totalFiles).Error; err != nil {
-	// 			c.JSON(500, gin.H{"error": "failed to fetch media files"})
-	// 			return
-	// 		}
-	// 	} else {
-	// 		if err := h.DB.Distinct("file_path").Model(&models.MediaFile{}).Where("user_id =?", userID).Group("file_path").Group("file_name").Count(&totalFiles).Error; err != nil {
-	// 			c.JSON(500, gin.H{"error": "failed to fetch media files"})
-	// 			return
-	// 		}
-	// 	}
-	// 	if query != "" {
-	// 		if err := h.DB.Where("user_id =? AND file_name LIKE?", userID, query).Limit(limit).Offset(offset).Group("file_path").Group("file_name").Order("created_at DESC").Find(&mediaFiles).Error; err != nil {
-	// 			c.JSON(500, gin.H{"error": "failed to fetch media files"})
-	// 			return
-	// 		}
-	// 	} else {
-	// 		if err := h.DB.Where("user_id =?", userID).Limit(limit).Offset(offset).Group("file_path").Group("file_name").Order("created_at DESC").Find(&mediaFiles).Error; err != nil {
-	// 			c.JSON(500, gin.H{"error": "failed to fetch media files"})
-	// 			return
-	// 		}
-	// 	}
-
-	// 	var hasMore bool
-	// 	if offset+limit < int(totalFiles) {
-	// 		hasMore = true
-	// 	} else {
-	// 		hasMore = false
-	// 	}
-	// 	c.JSON(200, gin.H{"files": mediaFiles, "pagination": gin.H{"total": totalFiles, "limit": limit, "offset": offset, "has_more": hasMore}})
-	// 	return
-	// }
-
 	var totalFiles int64
 	if query != "" {
-		if err := h.DB.Model(&models.MediaFile{}).Where("user_id =? AND media_type =? AND file_name LIKE ?", userID, typeFile, query).Group("file_path").Group("file_name").Count(&totalFiles).Error; err != nil {
+		if err := h.DB.Model(&models.MediaFile{}).Where("user_id =? AND media_type =? AND file_name LIKE ?", userID, typeFile, query).Count(&totalFiles).Error; err != nil {
 			c.JSON(500, gin.H{"error": "failed to fetch media files"})
 			return
 		}
 	} else {
-		if err := h.DB.Model(&models.MediaFile{}).Where("user_id = ? AND media_type = ?", userID, typeFile).Group("file_path").Group("file_name").Count(&totalFiles).Error; err != nil {
+		if err := h.DB.Model(&models.MediaFile{}).Where("user_id = ? AND media_type = ?", userID, typeFile).Count(&totalFiles).Error; err != nil {
 			c.JSON(500, gin.H{"error": "failed to fetch media files"})
 			return
 		}
 	}
 
 	// Get all media files for this stream
-	mediaFilesStream, err := h.GetMediaFilesWithStreamDetails(userID.(string), typeFile, limit, offset, query)
+	mediaFilesStream, err := h.GetMediaFilesWithFullStreamDetails(userID.(string), typeFile, limit, offset, query)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "failed to fetch media files"})
 		return
@@ -512,7 +447,7 @@ func (h *MediaFileHandler) MapMediaFile(c *gin.Context) {
 		return
 	}
 
-	userID, ok := c.Get("user_id")
+	_, ok := c.Get("user_id")
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
@@ -541,31 +476,10 @@ func (h *MediaFileHandler) MapMediaFile(c *gin.Context) {
 		return
 	}
 
-	// Create media file record
-	t := time.Now()
-	entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
-	id := ulid.MustNew(ulid.Timestamp(t), entropy)
-
-	mediaFileNew := models.MediaFile{
-		ID:        id.String(),
-		FileName:  mediaFile.FileName,
-		FilePath:  mediaFile.FilePath,
-		FileSize:  mediaFile.FileSize,
-		MediaType: models.MediaType(mediaFile.MediaType),
-		MimeType:  mediaFile.MimeType,
-		UserId:    userID.(string),
-	}
-
-	if err := h.DB.Create(&mediaFileNew).Error; err != nil {
-		// Clean up the uploaded file if DB operation fails
-		c.JSON(500, gin.H{"error": "failed to save media file record"})
-		return
-	}
-
 	// map media file to stream
 	streamMediaFile := models.StreamMediaFile{
 		StreamID:    streamID,
-		MediaFileID: mediaFileNew.ID,
+		MediaFileID: mediaFile.ID,
 		Order:       0,
 		IsPrimary:   false,
 	}
@@ -576,7 +490,7 @@ func (h *MediaFileHandler) MapMediaFile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "file uploaded successfully", "file": mediaFileNew})
+	c.JSON(200, gin.H{"message": "file uploaded successfully", "file": mediaFile})
 }
 
 // 5. Update Handler untuk Many-to-Many Operations
