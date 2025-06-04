@@ -9,6 +9,7 @@ const nextConfig = {
     API_URL: process.env.API_URL,
     API_BASE_URL: process.env.API_BASE_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    JWT_SECRET: process.env.JWT_SECRET,
   },
   reactStrictMode: true,
   trailingSlash: true,
