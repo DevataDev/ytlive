@@ -50,6 +50,7 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
   });
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasLoadedInitial, setHasLoadedInitial] = useState(false);
+  const config = useConfig();
 
   const loadUserMediaFiles = useCallback(async (reset = false) => {
     try {
@@ -61,7 +62,6 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
         setLoadingMore(true);
       }
 
-      const config = useConfig();
       const apiUrl = config.config?.apiUrl || process.env.API_URL || 'http://localhost:8081'
       const session = await getSession();
       if (!session) {
