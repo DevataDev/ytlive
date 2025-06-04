@@ -10,6 +10,7 @@ import DeleteConfirmModal from './DeleteConfirmModal';
 import Pagination from './Pagination';
 import { api } from '@/lib/api';
 import { MediaListResponse, Stream } from '@/services/streamService';
+import MediaUploadModal from './MediaUploadModal';
 
 interface MediaFile {
   id: string;
@@ -53,6 +54,7 @@ export default function MediaManager() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<MediaFile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const limit = 20;
 
@@ -169,6 +171,10 @@ export default function MediaManager() {
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleUploadComplete = () => {
+    fetchMediaFiles(); // Refresh the media files list
+  };
+
   if (!session) {
     return (
       <div className="container-xxl py-4">
@@ -187,7 +193,17 @@ export default function MediaManager() {
                 <i className="bi bi-collection-play me-2"></i>
                 Media Manager
               </h4>
-              <Badge bg="secondary">{total} files</Badge>
+              <div className="d-flex align-items-center gap-2">
+                <Badge bg="secondary">{total} files</Badge>
+                <Button 
+                  variant="primary" 
+                  size="sm"
+                  onClick={() => setShowUploadModal(true)}
+                >
+                  <i className="bi bi-cloud-upload me-2"></i>
+                  Upload Files
+                </Button>
+              </div>
             </Card.Header>
             <Card.Body>
               {/* Search and Filter Controls */}
@@ -358,6 +374,13 @@ export default function MediaManager() {
         onConfirm={confirmDelete}
         file={fileToDelete}
         loading={deleting}
+      />
+
+      {/* Upload Modal */}
+      <MediaUploadModal
+        show={showUploadModal}
+        onHide={() => setShowUploadModal(false)}
+        onUploadComplete={handleUploadComplete}
       />
     </div>
   );

@@ -87,3 +87,27 @@ export const fetchAllUserMediaFiles = async (
   );
   return response;
 };
+
+export const uploadUserMediaFiles = async (
+  files: File[]
+): Promise<{ success: boolean; message: string }> => {
+  const session = await getSession();
+  const formData = new FormData();
+  
+  files.forEach(file => {
+    formData.append('files', file);
+  });
+
+  const response = await api.post<{ success: boolean; message: string }>(
+    '/api/media/upload',
+    formData,
+    {
+      headers: {
+        Authorization: `Bearer ${session?.user?.backendToken}`,
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+
+  return response;
+};
