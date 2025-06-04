@@ -26,6 +26,7 @@ export class DashboardWebSocket {
     this.callbacks = callbacks;
 
     const config = configService.getConfigSync();
+    console.log('Config Websocket:', config);
     
     // Get the base URL from environment variables or use a default
     // Remove any trailing slashes and ensure we use the correct WebSocket protocol
