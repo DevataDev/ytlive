@@ -3,6 +3,7 @@ import { Modal, Button, Card, ProgressBar, Alert, Spinner } from 'react-bootstra
 import { Upload, X, CameraVideo, MusicNote, FileEarmark, ExclamationCircle } from 'react-bootstrap-icons';
 import { getSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
+import { useConfig } from '@/hooks/useConfig';
 
 interface FilePreview {
   file: File;
@@ -24,6 +25,8 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
   const [success, setSuccess] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const config = useConfig();
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -155,7 +158,7 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
         }
       };
 
-      xhr.open('POST', `${process.env.NEXT_PUBLIC_API_URL}/api/media/upload`, true);
+      xhr.open('POST', `${config?.config?.apiUrl}/api/media/upload`, true);
       xhr.setRequestHeader('Authorization', `Bearer ${session?.user?.backendToken}`);
       xhr.send(formData);
     } catch (err) {

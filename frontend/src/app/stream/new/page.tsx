@@ -7,6 +7,7 @@ import { Upload, X, CameraVideo, MusicNote, FileEarmark, ExclamationCircle } fro
 import styles from './page.module.css'
 import { getSession } from 'next-auth/react'
 import { toast } from 'react-toastify';
+import { useConfig } from '@/hooks/useConfig';
 
 import MediaFileSelectionModal from '@/components/modals/MediaFileSelectionModal';
 import { CreateStreamNewData, MediaFile, createStreamNew } from '@/services/streamService';
@@ -29,6 +30,8 @@ export default function StreamNewPage() {
   // Add to your component state
   const [showMediaSelection, setShowMediaSelection] = useState(false);
   const [selectedMediaFiles, setSelectedMediaFiles] = useState<MediaFile[]>([]);
+
+  const config = useConfig();
 
   // Add handler for media file selection
   const handleMediaFileSelection = (files: MediaFile[]) => {
@@ -195,7 +198,7 @@ export default function StreamNewPage() {
         }
       }
 
-      xhr.open('POST', `${process.env.NEXT_PUBLIC_API_URL}/api/streams/upload`, true)
+      xhr.open('POST', `${config?.config?.apiUrl}/api/streams/upload`, true)
       xhr.setRequestHeader('Authorization', `Bearer ${session?.user?.backendToken}`)
       xhr.send(formData)
     } catch (err) {
