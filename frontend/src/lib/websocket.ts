@@ -24,25 +24,7 @@ export class DashboardWebSocket {
 
   constructor(callbacks: WebSocketCallbacks) {
     this.callbacks = callbacks;
-
-    const config = configService.getConfigSync();
-    console.log('Config Websocket:', config);
-    
-    // Get the base URL from environment variables or use a default
-    // Remove any trailing slashes and ensure we use the correct WebSocket protocol
-    let baseUrl = config?.apiUrl || process.env.NEXT_PUBLIC_API_URL  || process.env.API_URL 
-    
-    if (!baseUrl && baseUrl?.startsWith('http')) {
-      // Convert http:// or https:// to ws:// or wss://
-      baseUrl = baseUrl
-        .replace(/^http(s?):/, 'ws$1:')
-        .replace(/\/+$/, ''); // Remove trailing slashes
-    }
-    
-    // Default to localhost if no URL is provided
-    this.wsUrl = `${baseUrl || 'ws://localhost:8080'}/ws`;
-    
-    console.log('WebSocket URL:', this.wsUrl);
+    this.wsUrl = `${configService.getConfigSync()?.apiUrl}/ws`;
   }
 
   async connect() {
@@ -54,6 +36,21 @@ export class DashboardWebSocket {
         console.error('No authentication token available');
         return;
       }
+
+      const config = await configService.getConfig();
+      let baseUrl = config?.apiUrl || process.env.NEXT_PUBLIC_API_URL  || process.env.API_URL 
+    
+      if (!baseUrl && baseUrl?.startsWith('http')) {
+        // Convert http:// or https:// to ws:// or wss://
+        baseUrl = baseUrl
+          .replace(/^http(s?):/, 'ws$1:')
+          .replace(/\/+$/, ''); // Remove trailing slashes
+      }
+      
+      // Default to localhost if no URL is provided
+      this.wsUrl = `${baseUrl || 'ws://localhost:8080'}/ws`;
+      
+      console.log('WebSocket URL:', this.wsUrl);
 
       // Create WebSocket URL with token
       const url = new URL(this.wsUrl);
