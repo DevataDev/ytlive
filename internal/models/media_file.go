@@ -31,5 +31,8 @@ type MediaFile struct {
 	UserId        string         `gorm:"not null;index;default:''" json:"UserId"`
 
 	// Many-to-many relationship dengan Stream melalui StreamMediaFile
-	Streams []Stream `gorm:"many2many:stream_media_files;foreignKey:ID;joinForeignKey:MediaFileID;References:ID;joinReferences:StreamID" json:"streams,omitempty"`
+	// Streams []Stream `gorm:"many2many:stream_media_files;foreignKey:ID;joinForeignKey:MediaFileID;References:ID;joinReferences:StreamID" json:"streams,omitempty"`
+
+	// In MediaFile model:
+	StreamMediaFiles []StreamMediaFile `gorm:"foreignKey:MediaFileID" json:"stream_media_files,omitempty"`
 }

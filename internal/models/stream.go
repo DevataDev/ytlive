@@ -33,7 +33,9 @@ type Stream struct {
 
 	// Ganti relationship lama dengan many-to-many
 	// MediaFiles       []MediaFile    `gorm:"foreignKey:StreamID;constraint:OnDelete:CASCADE;" json:"media_files,omitempty"`
-	MediaFiles []MediaFile `gorm:"many2many:stream_media_files;foreignKey:ID;joinForeignKey:StreamID;References:ID;joinReferences:MediaFileID" json:"media_files,omitempty"`
+	// MediaFiles []MediaFile `gorm:"many2many:stream_media_files;foreignKey:ID;joinForeignKey:StreamID;References:ID;joinReferences:MediaFileID" json:"media_files,omitempty"`
+	// In Stream model:
+	StreamMediaFiles []StreamMediaFile `gorm:"foreignKey:StreamID" json:"stream_media_files,omitempty"`
 }
 
 // MigrateStreams handles database migrations for the Stream model
@@ -99,7 +101,7 @@ func MigrateStreams(db *gorm.DB) error {
 		} else {
 			log.Println("No NOT NULL constraint detected on name column. Using standard migration.")
 			// drop file_name column and ignore error
-			err := db.Exec(`ALTER TABLE streams DROP COLUMN file_name`).Error
+			err = db.Exec(`ALTER TABLE streams DROP COLUMN file_name`).Error
 			if err != nil {
 				log.Printf("Warning: Failed to drop file_name column: %v", err)
 			}

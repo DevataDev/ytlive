@@ -285,16 +285,16 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 
 	// Create stream record
 	stream := models.Stream{
-		ID:         streamID,
-		Name:       streamName,
-		Status:     "stopped",
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-		LoopVideo:  true,
-		RTMPUrl:    rtmpUrl,
-		LoopCount:  &defaultLoopCount,
-		UserID:     userID.(string),
-		MediaFiles: []models.MediaFile{},
+		ID:               streamID,
+		Name:             streamName,
+		Status:           "stopped",
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+		LoopVideo:        true,
+		RTMPUrl:          rtmpUrl,
+		LoopCount:        &defaultLoopCount,
+		UserID:           userID.(string),
+		StreamMediaFiles: []models.StreamMediaFile{},
 	}
 
 	// Handle Google Drive links
@@ -371,13 +371,13 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 			// Create stream record
 			streamName := fmt.Sprintf("Stream %s", time.Now().Format("2006-01-02 15:04:05"))
 			stream := models.Stream{
-				ID:         streamID.String(),
-				Name:       streamName,
-				Status:     "stopped",
-				UserID:     userID,
-				CreatedAt:  time.Now(),
-				UpdatedAt:  time.Now(),
-				MediaFiles: []models.MediaFile{},
+				ID:               streamID.String(),
+				Name:             streamName,
+				Status:           "stopped",
+				UserID:           userID,
+				CreatedAt:        time.Now(),
+				UpdatedAt:        time.Now(),
+				StreamMediaFiles: []models.StreamMediaFile{},
 			}
 
 			if err := tx.Create(&stream).Error; err != nil {
@@ -559,12 +559,8 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 				return
 			}
 
-			entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
-			streamMediaFileID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
-
 			// Add media file to stream
 			streamMediaFile := models.StreamMediaFile{
-				ID:          streamMediaFileID,
 				StreamID:    stream.ID,
 				MediaFileID: mediaFile.ID,
 				IsPrimary:   len(results) == 0, // First file is primary

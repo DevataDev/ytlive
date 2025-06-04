@@ -250,11 +250,19 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 	}
 
 	// find media files
-	if err := database.Where("stream_id = ? AND media_type = 'video'", streamID).Find(&worker.Videos).Error; err != nil {
+	var streamMediaFiles []models.StreamMediaFile
+	if err := database.Preload("MediaFile").Where("stream_id = ?", streamID).Find(&streamMediaFiles).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := database.Where("stream_id = ? AND media_type = 'audio'", streamID).Find(&worker.Audio).Error; err != nil {
-		return nil, 0, err
+
+	// Separate video and audio files
+	for _, smf := range streamMediaFiles {
+		switch smf.MediaFile.MediaType {
+		case "video":
+			worker.Videos = append(worker.Videos, smf.MediaFile)
+		case "audio":
+			worker.Audio = append(worker.Audio, smf.MediaFile)
+		}
 	}
 
 	// if no video or audio, return error

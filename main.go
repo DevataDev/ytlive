@@ -267,6 +267,25 @@ func main() {
 		log.Fatalf("failed to migrate activities table: %v", err)
 	}
 
+	// Now run AutoMigrate
+	err = db.AutoMigrate(&models.StreamMediaFile{})
+	if err != nil {
+		log.Printf("failed to migrate stream media files table: %v", err)
+	}
+
+	// For SQLite, dropping columns with foreign keys requires special handling
+	if db.Migrator().HasColumn(&models.MediaFile{}, "stream_id") {
+		// Disable foreign key checks temporarily
+		db.Exec("PRAGMA foreign_keys=off")
+
+		// Drop the column
+		if err := db.Migrator().DropColumn(&models.MediaFile{}, "stream_id"); err != nil {
+			log.Printf("Warning: Could not drop stream_id column: %v", err)
+		}
+
+		// Re-enable foreign key checks
+		db.Exec("PRAGMA foreign_keys=on")
+	}
 	// Init device presets
 	tiktok.InitDevicePresets()
 
@@ -339,7 +358,6 @@ func main() {
 	r.PUT("/api/streams/:id/loop", handlers.JWTMiddleware(), streamHandler.SetLoopVideo)
 	r.PUT("/api/streams/:id/loopcount", handlers.JWTMiddleware(), streamHandler.SetLoopCount)
 	r.PUT("/api/streams/:id/rtmpurl", handlers.JWTMiddleware(), streamHandler.SetRTMPUrl)
-	r.POST("/api/streams/:id/clone", handlers.JWTMiddleware(), streamHandler.CloneStream)
 	r.GET("/api/streams/:id/preview", streamHandler.ServeVideoPreviewByID)
 	r.GET("/api/streams/:id/logs", handlers.JWTMiddleware(), streamHandler.GetStreamLogs)
 

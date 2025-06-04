@@ -142,7 +142,8 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 			return
 		}
 	} else {
-		if err := h.DB.Preload("MediaFiles").
+		if err := h.DB.Preload("StreamMediaFiles").
+			Preload("StreamMediaFiles.MediaFile").
 			Where("user_id = ?", userID).
 			Order("created_at DESC").
 			Limit(perPage).
@@ -155,9 +156,9 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 
 	// Get file sizes for all media files
 	for i := range streams {
-		for j := range streams[i].MediaFiles {
-			if fi, err := os.Stat(streams[i].MediaFiles[j].FilePath); err == nil {
-				streams[i].MediaFiles[j].FileSize = fi.Size()
+		for j := range streams[i].StreamMediaFiles {
+			if fi, err := os.Stat(streams[i].StreamMediaFiles[j].MediaFile.FilePath); err == nil {
+				streams[i].StreamMediaFiles[j].MediaFile.FileSize = fi.Size()
 			}
 		}
 	}
@@ -721,7 +722,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 
 	// 1. Get the stream with its media files
 	var stream models.Stream
-	if err := tx.Preload("MediaFiles").First(&stream, "id = ?", id).Error; err != nil {
+	if err := tx.Preload("StreamMediaFiles").Preload("StreamMediaFiles.MediaFile").First(&stream, "id = ?", id).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
 		return
@@ -742,7 +743,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 	}
 
 	// 4. Check if there are any media files associated with the stream
-	if len(stream.MediaFiles) == 0 {
+	if len(stream.StreamMediaFiles) == 0 {
 		tx.Rollback()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No media files found for this stream"})
 		return
@@ -753,7 +754,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 
 	// If no primary media is set, use the first one
 	if primaryMedia == nil {
-		primaryMedia = &stream.MediaFiles[0]
+		primaryMedia = &stream.StreamMediaFiles[0].MediaFile
 	}
 
 	// 6. Check if media file exists
@@ -818,7 +819,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 			// Start a new transaction for the scheduled start
 			tx := h.DB.Begin()
 			var s models.Stream
-			if err := tx.Preload("MediaFiles").First(&s, "id = ?", streamID).Error; err != nil {
+			if err := tx.Preload("StreamMediaFiles").Preload("StreamMediaFiles.MediaFile").First(&s, "id = ?", streamID).Error; err != nil {
 				tx.Rollback()
 				log.Printf("Error fetching stream for scheduled start: %v", err)
 				return
@@ -1094,14 +1095,14 @@ func (h *StreamHandler) CreateStreamFromExisting(c *gin.Context) {
 	streamID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
 
 	stream := models.Stream{
-		ID:         streamID,
-		Name:       req.Name,
-		Status:     "stopped",
-		UserID:     userID.(string),
-		MaxBitrate: nil,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-		MediaFiles: []models.MediaFile{},
+		ID:               streamID,
+		Name:             req.Name,
+		Status:           "stopped",
+		UserID:           userID.(string),
+		MaxBitrate:       nil,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+		StreamMediaFiles: []models.StreamMediaFile{},
 	}
 
 	if err := h.DB.Create(&stream).Error; err != nil {
@@ -1111,10 +1112,7 @@ func (h *StreamHandler) CreateStreamFromExisting(c *gin.Context) {
 
 	// create new medial files entries
 	for _, mediaFile := range mediaFiles {
-		entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
-		mediaId := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
 		mediaStreamMap := models.StreamMediaFile{
-			ID:          mediaId,
 			StreamID:    stream.ID,
 			MediaFileID: mediaFile.ID,
 			IsPrimary:   false,
