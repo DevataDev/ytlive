@@ -48,6 +48,16 @@ export default function RootLayout({
     require('bootstrap/dist/js/bootstrap.bundle.min.js');
   }, []);
 
+  // preload config
+  useEffect(() => {
+    const preloadConfig = async () => {
+      const res = await fetch('/api/config');
+      const data = await res.json();
+      console.log('preload config', data);
+    };
+    preloadConfig();
+  })
+
   const shouldHide = hideHeaderFooter.includes(pathname);
 
   return (
