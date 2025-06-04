@@ -58,6 +58,7 @@ export async function apiRequest<T>(
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
   const apiUrl = await getApiUrl(); // instead of process.env.NEXT_PUBLIC_API_URL
+  console.log('API URL:', apiUrl);
   const url = `${apiUrl}${endpoint}`;
   console.log('API request:', method, url, data, options);
   const session = await getSession();
