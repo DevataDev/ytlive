@@ -34,7 +34,7 @@ class ConfigService {
         };
       }
     } catch (error) {
-      console.warn('Failed to load runtime config, falling back to environment variables');
+      console.warn('Failed to load runtime config, falling back to environment variables : ', error);
     }
 
     // Fallback to build-time environment variables
