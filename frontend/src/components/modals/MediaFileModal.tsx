@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Alert, Spinner, ListGroup, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { MediaFile, MediaFileData } from '@/services/streamService';
-import { fetchMediaFiles, uploadMediaFile, deleteMediaFile, getMediaPreview, MediaFileUploadData } from '@/services/mediaFileService';
+import { fetchMediaFiles, uploadMediaFile, deleteMapMediaFile, getMediaPreview, MediaFileUploadData } from '@/services/mediaFileService';
 import PlayerPreviewModal from './PlayerPreviewModal';
 import MediaFileSelectionModal from './MediaFileSelectionModal';
 import { getSession } from 'next-auth/react';
@@ -111,8 +111,8 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
 
     const handleDeleteFile = async (fileId: string) => {
         try {
-            await deleteMediaFile(fileId);
-            toast.success('Media file deleted successfully');
+            await deleteMapMediaFile(streamId, fileId);
+            toast.success('Media file unmapped successfully');
             setShowDeleteConfirm(null);
             await loadMediaFiles();
         } catch (err) {
@@ -381,10 +381,10 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
             {/* Delete Confirmation Modal */}
             <Modal show={!!showDeleteConfirm} onHide={() => setShowDeleteConfirm(null)} centered>
                 <Modal.Header closeButton>
-                    <Modal.Title>Delete Media File</Modal.Title>
+                    <Modal.Title>Unmap Media File</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <p>Are you sure you want to delete this media file? This action cannot be undone.</p>
+                    <p>Are you sure you want to unmap this media file from the stream? This action cannot be undone.</p>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowDeleteConfirm(null)}>

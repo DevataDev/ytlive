@@ -50,6 +50,13 @@ export const deleteMediaFile = async (fileId: string): Promise<void> => {
   });
 };
 
+export const deleteMapMediaFile = async (streamId: string, fileId: string): Promise<void> => {
+    const session = await getSession();
+    await api.put(`/api/streams/${streamId}/media/${fileId}/unmap`, null, {
+      headers: { Authorization: `Bearer ${session?.user?.backendToken}` },
+    });
+  };
+
 export const getMediaPreview = (streamId: string, mediaId: string): string => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
   return `${apiUrl}/api/streams/${streamId}/media/${mediaId}/preview`;

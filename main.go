@@ -374,6 +374,7 @@ func main() {
 	r.POST("/api/streams/:id/map", handlers.JWTMiddleware(), mediaFileHandler.MapMediaFile)
 	r.DELETE("/api/streams/media/:id", handlers.JWTMiddleware(), mediaFileHandler.DeleteMediaFile)
 	r.GET("/api/streams/:id/media/:mediaId/preview", mediaFileHandler.GetMediaPreview)
+	r.PUT("/api/streams/:id/media/:mediaId/unmap", handlers.JWTMiddleware(), mediaFileHandler.UnMapMediaFile)
 	r.GET("/api/media/user", handlers.JWTMiddleware(), mediaFileHandler.ListAllMediaFilesByUser)
 
 	// Handle video upload (file or Google Drive link)

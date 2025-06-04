@@ -118,7 +118,7 @@ func (h *MediaFileHandler) ListMediaFiles(c *gin.Context) {
 	var mediaFiles []models.MediaFile
 	if err := h.DB.Preload("StreamMediaFiles").Preload("StreamMediaFiles.Stream").
 		Joins("JOIN stream_media_files ON media_files.id = stream_media_files.media_file_id").
-		Where("stream_media_files.stream_id = ?", streamID).
+		Where("stream_media_files.stream_id = ? AND stream_media_files.deleted_at IS NULL", streamID).
 		Order("media_files.created_at DESC").
 		Find(&mediaFiles).Error; err != nil {
 		c.JSON(500, gin.H{"error": "failed to fetch media files"})
@@ -586,4 +586,40 @@ func (h *MediaFileHandler) GetStreamsUsingMediaFile(c *gin.Context) {
 		"streams":      mediaFile.StreamMediaFiles,
 		"stream_count": len(mediaFile.StreamMediaFiles),
 	})
+}
+
+func (h *MediaFileHandler) UnMapMediaFile(c *gin.Context) {
+	streamID := c.Param("id")
+	if streamID == "" {
+		c.JSON(400, gin.H{"error": "stream_id required"})
+		return
+	}
+
+	_, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Verify stream exists
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id = ?", streamID).Error; err != nil {
+		c.JSON(404, gin.H{"error": "stream not found"})
+		return
+	}
+
+	mediaId := c.Param("mediaId")
+
+	// map media file to stream
+	var streamMediaFile models.StreamMediaFile
+	if err := h.DB.Where("stream_id =? AND media_file_id =?", streamID, mediaId).First(&streamMediaFile).Error; err != nil {
+		c.JSON(404, gin.H{"error": "media file not found"})
+		return
+	}
+	if err := h.DB.Delete(&streamMediaFile).Error; err != nil {
+		c.JSON(500, gin.H{"error": "failed to unmap media file record"})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "file unmap successfully"})
 }
