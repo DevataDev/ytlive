@@ -23,7 +23,7 @@ class ConfigService {
   private async loadConfig(): Promise<AppConfig> {
     try {
       // Try to load from runtime config endpoint first
-      const response = await fetch('/api/config');
+      const response = await fetch('/config.json');
       const config = await response.json();
       console.log(`Loaded config got status ${response.status} and text ${JSON.stringify(config)}`);
       if (response.ok) {
