@@ -158,30 +158,38 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
 
   // New function to handle adding existing media files
   const handleAddExistingMedia = async (selectedFiles: MediaFile[]) => {
+    console.log('handleAddExistingMedia called with:', selectedFiles);
+    
     if (selectedFiles.length === 0) {
+      console.log('No files selected, closing modal');
       setShowMediaSelection(false);
       return;
     }
   
+    console.log('Starting to add existing media files...');
     setAddingExistingMedia(true);
     try {
       // Add the selected files to the current stream using the correct endpoint
-      const promises = selectedFiles.map(file => 
-        fetch(`/api/streams/${streamId}/map`, {
+      const promises = selectedFiles.map(file => {
+        console.log('Making API call for file:', file.ID);
+        return fetch(`/api/streams/${streamId}/map`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ media_id: file.ID })
-        })
-      );
+        });
+      });
       
+      console.log('Waiting for API calls to complete...');
       await Promise.all(promises);
       
+      console.log('API calls completed successfully');
       toast.success(`Added ${selectedFiles.length} existing media file(s) to stream`);
       setShowMediaSelection(false);
       await loadMediaFiles(); // Refresh the media files list
     } catch (err) {
+      console.error('Error adding existing media files:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to add existing media files';
       toast.error(errorMessage);
     } finally {

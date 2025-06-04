@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Form, Alert, Spinner, ListGroup, Badge, Row, Col, InputGroup } from 'react-bootstrap';
 import { MediaFile } from '@/services/streamService';
 import { toast } from 'react-toastify';
@@ -50,14 +50,100 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasLoadedInitial, setHasLoadedInitial] = useState(false);
 
+  const loadUserMediaFiles = useCallback(async (reset = false) => {
+    try {
+      if (reset) {
+        setLoading(true);
+        setMediaFiles([]);
+        setPagination({ total: 0, limit: 20, offset: 0, has_more: false });
+      } else {
+        setLoadingMore(true);
+      }
+
+      const session = await getSession();
+      if (!session) {
+        setError('Please log in to view media files');
+        return;
+      }
+
+      const sessionToken = await session.user?.backendToken;
+      if (!sessionToken) {
+        throw new Error('No session token available');
+      }
+
+      const params = new URLSearchParams({
+        limit: pagination.limit.toString(),
+        offset: (reset ? 0 : pagination.offset).toString(),
+      });
+
+      if (currentFilter && currentFilter !== 'all') {
+        params.append('type', currentFilter);
+      } else {
+        params.append('type', 'all');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/media/user?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch media files: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const newFiles: MediaFile[] = data.files?.map((file: any) => ({
+        ID: file.id,
+        FileName: file.file_name,
+        FilePath: file.file_path,
+        FileSize: file.file_size,
+        MediaType: file.media_type,
+        MimeType: file.mime_type,
+        CreatedAt: file.created_at,
+        UpdatedAt: file.updated_at,
+      } as MediaFile)) || [];
+
+      if (reset) {
+        setMediaFiles(newFiles);
+      } else {
+        setMediaFiles(prev => [...prev, ...newFiles]);
+      }
+
+      setPagination({
+        total: data.total || 0,
+        limit: data.limit || 20,
+        offset: data.offset || 0,
+        has_more: data.has_more || false,
+      });
+    } catch (err) {
+      console.error('Error loading media files:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load media files');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [pagination.limit, pagination.offset, currentFilter]);
+
   // Load media files when modal opens
   useEffect(() => {
     if (show && !hasLoadedInitial) {
       loadUserMediaFiles(true);
-      setSelectedFiles(selectedFileIds);
       setHasLoadedInitial(true);
     }
-  }, [show, mediaTypeFilter]);
+  }, [show, hasLoadedInitial, loadUserMediaFiles]);
+
+  // Handle filter changes
+  useEffect(() => {
+    setCurrentFilter(mediaTypeFilter);
+  }, [mediaTypeFilter]);
+
+  // Reload when filter changes
+  useEffect(() => {
+    if (show && hasLoadedInitial) {
+      loadUserMediaFiles(true);
+    }
+  }, [currentFilter, show, hasLoadedInitial, loadUserMediaFiles]);
 
   // Update selected files when selectedFileIds prop changes
   useEffect(() => {
@@ -76,65 +162,6 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
       setHasLoadedInitial(false);
     }
   }, [show]);
-
-  const loadUserMediaFiles = async (reset = false) => {
-    try {
-      if (reset) {
-        setLoading(true);
-        setMediaFiles([]);
-        setPagination(prev => ({ ...prev, offset: 0 }));
-      } else {
-        setLoadingMore(true);
-      }
-      setError('');
-      
-      const session = await getSession();
-      if (!session) {
-        setError('Please log in to view media files');
-        return;
-      }
-
-      const offset = reset ? 0 : pagination.offset;
-      const typeParam = mediaTypeFilter === 'video' ? 'video' : mediaTypeFilter; // API defaults to video, we'll handle 'all' client-side
-      
-      const response = await api.get<UserMediaFilesResponse>(
-        `/api/media/user?limit=${pagination.limit}&offset=${offset}&type=${typeParam}`,
-        {
-          headers: { Authorization: `Bearer ${session.user?.backendToken}` },
-        }
-      );
-
-      const newFiles = response.files || [];
-      const mappedFiles = newFiles.map(file => ({
-        ID: file.id,
-        FileName: file.file_name,
-        MediaType: file.media_type,
-        FileSize: file.file_size,
-        CreatedAt: file.created_at,
-        MimeType : file.mime_type, 
-      } as MediaFile))
-      
-      if (reset) {
-        setMediaFiles(mappedFiles);
-      } else {
-        setMediaFiles(prev => [...prev, ...mappedFiles]);
-      }
-      
-      setPagination({
-        total: response.pagination?.total || 0,
-        limit: response.pagination?.limit || 20,
-        offset: offset + newFiles.length,
-        has_more: response.pagination?.has_more || false
-      });
-      
-    } catch (err) {
-      setError('Failed to load media files');
-      console.error('Error loading media files:', err);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
 
   const handleLoadMore = () => {
     if (!loadingMore && pagination.has_more) {
