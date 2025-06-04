@@ -57,8 +57,7 @@ export const deleteMapMediaFile = async (streamId: string, fileId: string): Prom
     });
   };
 
-export const getMediaPreview = (streamId: string, mediaId: string): string => {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
+export const getMediaPreview = (apiUrl: string, streamId: string, mediaId: string): string => {
   return `${apiUrl}/api/streams/${streamId}/media/${mediaId}/preview`;
 };
 

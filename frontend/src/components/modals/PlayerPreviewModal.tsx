@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert, Spinner } from 'react-bootstrap';
 import { MediaFile } from '@/services/streamService';
 import { getMediaPreview } from '@/services/mediaFileService';
+import { useConfig } from '@/hooks/useConfig';
 
 export interface PlayerPreviewModalProps {
     show: boolean;
@@ -19,6 +20,8 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [previewUrl, setPreviewUrl] = useState('');
+
+    const config = useConfig();
 
     const playerStyles = `/* Player Preview Modal Styles */
 .player-preview-modal .modal-dialog {
@@ -72,7 +75,8 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
         if (show && mediaFile && streamId) {
             setLoading(true);
             setError('');
-            const url = getMediaPreview(streamId, mediaFile.ID);
+            const apiUrl = config?.config?.apiUrl || process.env.API_URL || '';
+            const url = getMediaPreview(apiUrl, streamId, mediaFile.ID);
             setPreviewUrl(url);
             setLoading(false);
         } else {
