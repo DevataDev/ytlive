@@ -20,6 +20,8 @@ echo "JWT_SECRET: [HIDDEN]"
 # Injecting to .env.local
 echo "NEXT_PUBLIC_API_URL=$API_URL" > /app/.env.local
 echo "NEXT_PUBLIC_API_BASE_URL=$API_BASE_URL" >> /app/.env.local
+echo "API_URL=$API_URL" >> /app/.env.local
+echo "API_BASE_URL=$API_BASE_URL" >> /app/.env.local
 echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> /app/.env.local
 echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /app/.env.local
 echo "JWT_SECRET=$JWT_SECRET" >> /app/.env.local
