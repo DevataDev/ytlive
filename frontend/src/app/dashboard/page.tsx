@@ -16,6 +16,7 @@ import {
   RecentActivities
 } from '@/services/dashboardService';
 import styles from './dashboard.module.css';
+import { useConfig } from '@/hooks/useConfig';
 
 // Register ChartJS components
 ChartJS.register(
@@ -64,6 +65,8 @@ export default function DashboardPage() {
     success: false,
   });
 
+  const config = useConfig();
+
   // Format bytes to human readable format
   const formatBytes = (bytes: number, decimals = 2) => {
     if (bytes === 0) return '0 Bytes';
@@ -109,7 +112,7 @@ export default function DashboardPage() {
 
     if (status !== 'authenticated') return;
 
-    DashboardService.connectWebSocket((metrics: SystemMetrics) => {
+    DashboardService.connectWebSocket(config?.config?.apiUrl || '', (metrics: SystemMetrics) => {
       updateSystemMetrics(metrics);
     }, (error) => {
       console.error('WebSocket error:', error);

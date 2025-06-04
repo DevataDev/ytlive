@@ -21,10 +21,12 @@ export class DashboardWebSocket {
   private reconnectDelay = 2000;
   private shouldReconnect = true;
   private wsUrl: string;
+  private apiUrl: string;
 
-  constructor(callbacks: WebSocketCallbacks) {
+  constructor(callbacks: WebSocketCallbacks, apiUrl: string) {
     this.callbacks = callbacks;
     this.wsUrl = `${configService.getConfigSync()?.apiUrl}/ws`;
+    this.apiUrl = apiUrl;
   }
 
   async connect() {
@@ -37,8 +39,7 @@ export class DashboardWebSocket {
         return;
       }
 
-      const config = await configService.getConfig();
-      let baseUrl = config?.apiUrl || process.env.NEXT_PUBLIC_API_URL  || process.env.API_URL 
+      let baseUrl = this.apiUrl || process.env.NEXT_PUBLIC_API_URL  || process.env.API_URL 
     
       if (!baseUrl && baseUrl?.startsWith('http')) {
         // Convert http:// or https:// to ws:// or wss://
@@ -113,7 +114,7 @@ export class DashboardWebSocket {
     console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
     
     setTimeout(() => {
-      this.connect();
+      this.connect(a);
     }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts));
   }
 

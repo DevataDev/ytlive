@@ -5,8 +5,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'react-toastify/dist/ReactToastify.css';
 import './globals.css';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { ConfigPreloader } from '@/components/ConfigPreloader'; // Add this
+import { AuthProvider } from '@/contexts/AuthContext';this
 import { SessionProvider } from 'next-auth/react';
 import { ToastContainer } from 'react-toastify';
 import Header from '@/components/layout/Header';
@@ -55,7 +54,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="d-flex flex-column min-vh-100">
-        <ConfigPreloader> {/* Server-side config preloading */}
           <SessionProvider>
             <AuthProvider>
               {shouldHide ? null : <Header />}
@@ -77,7 +75,6 @@ export default function RootLayout({
               {shouldHide ? null : <Footer />}
             </AuthProvider>
           </SessionProvider>
-        </ConfigPreloader>
       </body>
     </html>
   );

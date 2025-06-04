@@ -133,6 +133,7 @@ class DashboardService {
   }
 
   public connectWebSocket(
+    apiUrl: string,
     onMetricsUpdate: (metrics: SystemMetrics) => void,
     onError?: (error: Event) => void
   ) {
@@ -167,7 +168,7 @@ class DashboardService {
       onOpen: () => {
         console.log('WebSocket connection established');
       }
-    });
+    }, apiUrl);
 
     this.ws.connect();
   }
