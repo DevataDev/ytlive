@@ -29,6 +29,7 @@ const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const logsContentRef = useRef<HTMLPreElement>(null);
+  const config = useConfig();
 
   const scrollToBottom = () => {
     if (logsContentRef.current) {
@@ -56,8 +57,6 @@ const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
       setIsLoading(false);
       return;
     }
-
-    const config = await useConfig();
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const apiUrl = config?.config?.apiUrl ?? 'http://localhost:8081';

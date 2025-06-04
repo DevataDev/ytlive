@@ -35,6 +35,7 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
     // New state for existing media selection
     const [showMediaSelection, setShowMediaSelection] = useState(false);
     const [addingExistingMedia, setAddingExistingMedia] = useState(false);
+    const config = useConfig();
 
     // Load media files when modal opens
     useEffect(() => {
@@ -171,8 +172,6 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
         console.log('Starting to add existing media files...');
         setAddingExistingMedia(true);
         try {
-
-            const config = useConfig();
             const apiUrl = config.config?.apiUrl || process.env.API_URL || 'http://localhost:8081';
 
             const session = await getSession();
