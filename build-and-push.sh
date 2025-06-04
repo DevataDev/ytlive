@@ -5,6 +5,7 @@ set -e
 
 # Configuration
 DOCKER_REGISTRY="registry.ppn.net.id"  # Change this to your Docker registry
+PROJECT_NAME="ytlive"    # Based on your go.mod module name
 IMAGE_NAME="ytlive"    # Based on your go.mod module name
 TAG="${1:-latest}"                    # Use first argument as tag, default to 'latest'
 
@@ -44,8 +45,8 @@ docker build \
   --build-arg VERSION="$VERSION" \
   --build-arg COMMIT="$COMMIT" \
   --build-arg BUILD_DATE="$BUILD_DATE" \
-  --tag "${DOCKER_REGISTRY}/${IMAGE_NAME}-backend:${TAG}" \
-  --tag "${DOCKER_REGISTRY}/${IMAGE_NAME}-backend:latest" \
+  --tag "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:${TAG}" \
+  --tag "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:latest" \
   .
 
 echo -e "${GREEN}✓ Backend image built successfully${NC}"
@@ -56,8 +57,8 @@ docker build \
   --file frontend/Dockerfile \
   --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}" \
   --build-arg NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-}" \
-  --tag "${DOCKER_REGISTRY}/${IMAGE_NAME}-frontend:${TAG}" \
-  --tag "${DOCKER_REGISTRY}/${IMAGE_NAME}-frontend:latest" \
+  --tag "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}" \
+  --tag "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:latest" \
   frontend/
 
 echo -e "${GREEN}✓ Frontend image built successfully${NC}"
@@ -71,22 +72,22 @@ fi
 
 # Push backend image
 echo -e "${BLUE}Pushing backend image...${NC}"
-docker push "${DOCKER_REGISTRY}/${IMAGE_NAME}-backend:${TAG}"
-docker push "${DOCKER_REGISTRY}/${IMAGE_NAME}-backend:latest"
+docker push "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:${TAG}"
+docker push "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:latest"
 echo -e "${GREEN}✓ Backend image pushed successfully${NC}"
 
 # Push frontend image
 echo -e "${BLUE}Pushing frontend image...${NC}"
-docker push "${DOCKER_REGISTRY}/${IMAGE_NAME}-frontend:${TAG}"
-docker push "${DOCKER_REGISTRY}/${IMAGE_NAME}-frontend:latest"
+docker push "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}"
+docker push "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:latest"
 echo -e "${GREEN}✓ Frontend image pushed successfully${NC}"
 
 # Summary
 echo ""
 echo -e "${GREEN}=== Build and Push Complete ===${NC}"
-echo -e "${GREEN}Backend Image: ${DOCKER_REGISTRY}/${IMAGE_NAME}-backend:${TAG}${NC}"
-echo -e "${GREEN}Frontend Image: ${DOCKER_REGISTRY}/${IMAGE_NAME}-frontend:${TAG}${NC}"
+echo -e "${GREEN}Backend Image: ${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:${TAG}${NC}"
+echo -e "${GREEN}Frontend Image: ${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}${NC}"
 echo ""
 echo -e "${YELLOW}To pull and run these images:${NC}"
-echo "docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}-backend:${TAG}"
-echo "docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}-frontend:${TAG}"
+echo "docker pull ${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:${TAG}"
+echo "docker pull ${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}"

@@ -5,6 +5,7 @@ set -e
 
 # Configuration
 DOCKER_REGISTRY="registry.ppn.net.id"  # Change this to your Docker registry
+PROJECT_NAME="ytlive"    # Based on your go.mod module name
 IMAGE_NAME="ytlive"
 TAG="${1:-latest}"
 
@@ -34,16 +35,16 @@ docker compose build --no-cache
 
 # Tag images for registry
 echo -e "${BLUE}Tagging images...${NC}"
-docker tag "$(docker compose images -q backend)" "${DOCKER_REGISTRY}/${IMAGE_NAME}-backend:${TAG}"
-docker tag "$(docker compose images -q backend)" "${DOCKER_REGISTRY}/${IMAGE_NAME}-backend:latest"
-docker tag "$(docker compose images -q frontend)" "${DOCKER_REGISTRY}/${IMAGE_NAME}-frontend:${TAG}"
-docker tag "$(docker compose images -q frontend)" "${DOCKER_REGISTRY}/${IMAGE_NAME}-frontend:latest"
+docker tag "$(docker compose images -q backend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:${TAG}"
+docker tag "$(docker compose images -q backend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:latest"
+docker tag "$(docker compose images -q frontend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}"
+docker tag "$(docker compose images -q frontend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:latest"
 
 # Push images
 echo -e "${BLUE}Pushing images...${NC}"
-docker push "${DOCKER_REGISTRY}/${IMAGE_NAME}-backend:${TAG}"
-docker push "${DOCKER_REGISTRY}/${IMAGE_NAME}-backend:latest"
-docker push "${DOCKER_REGISTRY}/${IMAGE_NAME}-frontend:${TAG}"
-docker push "${DOCKER_REGISTRY}/${IMAGE_NAME}-frontend:latest"
+docker push "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:${TAG}"
+docker push "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:latest"
+docker push "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}"
+docker push "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:latest"
 
 echo -e "${GREEN}✓ All images pushed successfully${NC}"
