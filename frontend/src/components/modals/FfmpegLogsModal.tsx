@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Button, Spinner, Badge } from 'react-bootstrap';
 import { getSession } from 'next-auth/react';
 import { api } from '@/lib/api';
+import { useConfig } from '@/hooks/useConfig';
 
 interface FfmpegLogsModalProps {
   show: boolean;
@@ -56,8 +57,10 @@ const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
       return;
     }
 
+    const config = await useConfig();
+
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8081';
+    const apiUrl = config?.config?.apiUrl ?? 'http://localhost:8081';
     const wsHost = apiUrl?.replace(/^https?/, protocol);
     const wsUrl = `${wsHost}/ws/ffmpeg-logs/${itemType}/${itemId}?token=${encodeURIComponent(token)}`;
 

@@ -1,4 +1,5 @@
 import { getSession } from 'next-auth/react';
+import { configService } from './config';
 
 type WebSocketMessage = {
   type: string;
@@ -23,14 +24,16 @@ export class DashboardWebSocket {
 
   constructor(callbacks: WebSocketCallbacks) {
     this.callbacks = callbacks;
+
+    const config = configService.getConfigSync();
     
     // Get the base URL from environment variables or use a default
     // Remove any trailing slashes and ensure we use the correct WebSocket protocol
-    let baseUrl = process.env.NEXT_PUBLIC_WS_URL;
+    let baseUrl = config?.apiUrl || process.env.NEXT_PUBLIC_API_URL  || process.env.API_URL 
     
-    if (!baseUrl && process.env.NEXT_PUBLIC_API_BASE_URL) {
+    if (!baseUrl && baseUrl?.startsWith('http')) {
       // Convert http:// or https:// to ws:// or wss://
-      baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+      baseUrl = baseUrl
         .replace(/^http(s?):/, 'ws$1:')
         .replace(/\/+$/, ''); // Remove trailing slashes
     }
