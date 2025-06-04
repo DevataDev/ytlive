@@ -415,14 +415,28 @@ func (h *MediaFileHandler) ListAllMediaFilesByUser(c *gin.Context) {
 
 	var totalFiles int64
 	if query != "" {
-		if err := h.DB.Model(&models.MediaFile{}).Where("user_id =? AND media_type =? AND file_name LIKE ?", userID, typeFile, query).Count(&totalFiles).Error; err != nil {
-			c.JSON(500, gin.H{"error": "failed to fetch media files"})
-			return
+		if typeFile == "all" {
+			if err := h.DB.Model(&models.MediaFile{}).Where("user_id = ? AND (file_name LIKE ? OR file_path LIKE ?)", userID, query, query).Count(&totalFiles).Error; err != nil {
+				c.JSON(500, gin.H{"error": "failed to fetch media files"})
+				return
+			}
+		} else {
+			if err := h.DB.Model(&models.MediaFile{}).Where("user_id = ? AND media_type = ? AND (file_name LIKE ? OR file_path LIKE ?)", userID, typeFile, query, query).Count(&totalFiles).Error; err != nil {
+				c.JSON(500, gin.H{"error": "failed to fetch media files"})
+				return
+			}
 		}
 	} else {
-		if err := h.DB.Model(&models.MediaFile{}).Where("user_id = ? AND media_type = ?", userID, typeFile).Count(&totalFiles).Error; err != nil {
-			c.JSON(500, gin.H{"error": "failed to fetch media files"})
-			return
+		if typeFile == "all" {
+			if err := h.DB.Model(&models.MediaFile{}).Where("user_id = ?", userID).Count(&totalFiles).Error; err != nil {
+				c.JSON(500, gin.H{"error": "failed to fetch media files"})
+				return
+			}
+		} else {
+			if err := h.DB.Model(&models.MediaFile{}).Where("user_id = ? AND media_type = ?", userID, typeFile).Count(&totalFiles).Error; err != nil {
+				c.JSON(500, gin.H{"error": "failed to fetch media files"})
+				return
+			}
 		}
 	}
 

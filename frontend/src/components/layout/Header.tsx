@@ -137,7 +137,7 @@ export default function Header() {
               </li>
               <li className="nav-item">
                 <Link href="/media" className={`nav-link ${isActive('/media')}`}>
-                  <i className="bi bi-collection-play"></i>
+                  <i className="bi bi-folder2-open"></i>
                   <span>Media Manager</span>
                 </Link>
               </li>

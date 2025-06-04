@@ -977,20 +977,10 @@ func (h *StreamHandler) DeleteStream(c *gin.Context) {
 		_ = job.StopStreamWorker(stream.ID, true)
 	}
 
-	// Remove video file if exists
-	var mediaFiles []models.MediaFile
-	if err := h.DB.Where("stream_id = ?", id).Find(&mediaFiles).Error; err != nil {
-		c.JSON(500, gin.H{"error": "Failed to list media files."})
+	// Delete mapping in stream files
+	if err := h.DB.Where("stream_id =?", stream.ID).Delete(&models.StreamMediaFile{}).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to delete stream media files."})
 		return
-	}
-
-	// Delete all media files
-	for _, mediaFile := range mediaFiles {
-		if mediaFile.FilePath != "" {
-			if err := os.Remove(mediaFile.FilePath); err != nil {
-				log.Printf("Failed to delete media file %s: %v", mediaFile.FilePath, err)
-			}
-		}
 	}
 
 	// Delete the stream from database
