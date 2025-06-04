@@ -58,33 +58,33 @@ const StreamSettingsModal: React.FC<StreamSettingsModalProps> = ({
     if (!stream) return;
 
     // Set start and end times if available
-    if (stream.ScheduledStartAt) {
-      setStartTime(toDatetimeLocal(stream.ScheduledStartAt));
+    if (stream.scheduledStartAt) {
+      setStartTime(toDatetimeLocal(stream.scheduledStartAt));
     }
-    if (stream.ScheduledEndAt) {
-      setEndTime(toDatetimeLocal(stream.ScheduledEndAt));
+    if (stream.scheduledEndAt) {
+      setEndTime(toDatetimeLocal(stream.scheduledEndAt));
     }
 
     // Calculate duration if only end time is set (no start time)
-    if (!stream.ScheduledStartAt && stream.ScheduledEndAt) {
-      const scheduleAt = stream.ScheduledAt ? new Date(stream.ScheduledAt) : new Date();
-      const scheduleEndAt = new Date(stream.ScheduledEndAt);
+    if (!stream.scheduledStartAt && stream.scheduledEndAt) {
+      const scheduleAt = stream.scheduledAt ? new Date(stream.scheduledAt) : new Date();
+      const scheduleEndAt = new Date(stream.scheduledEndAt);
       const gapHours = (scheduleEndAt.getTime() - scheduleAt.getTime()) / (1000 * 60 * 60);
       setDuration(Math.round(gapHours));
     }
 
     // Set loop count
-    if (stream.LoopCount !== undefined && stream.LoopCount !== null) {
-      setLoopCount(stream.LoopCount);
+    if (stream.loopCount !== undefined && stream.loopCount !== null) {
+      setLoopCount(stream.loopCount);
     }
 
     // Determine mode based on stream settings
-    if (stream.ScheduledStartAt) {
+    if (stream.scheduledStartAt) {
       setMode('SCHEDULER');
-    } else if (stream.ScheduledEndAt && !stream.ScheduledStartAt && 
-               stream.LoopCount !== undefined && stream.LoopCount !== null && stream.LoopCount < 0) {
+    } else if (stream.scheduledEndAt && !stream.scheduledStartAt && 
+               stream.loopCount !== undefined && stream.loopCount !== null && stream.loopCount < 0) {
       setMode('DURATION');
-    } else if (stream.LoopCount !== undefined && stream.LoopCount !== null && stream.LoopCount > 0) {
+    } else if (stream.loopCount !== undefined && stream.loopCount !== null && stream.loopCount > 0) {
       setMode('LOOPCOUNT');
     } else {
       setMode('LIVE');
@@ -101,7 +101,7 @@ const StreamSettingsModal: React.FC<StreamSettingsModalProps> = ({
 
       switch (mode) {
         case 'LIVE':
-          await setStreamSchedule(stream.ID, {
+          await setStreamSchedule(stream.id, {
             ScheduledAt: null,
             StoppedAt: null,
             Timezone: timezone
@@ -131,7 +131,7 @@ const StreamSettingsModal: React.FC<StreamSettingsModalProps> = ({
             }
           }
           
-          await setStreamSchedule(stream.ID, {
+          await setStreamSchedule(stream.id, {
             ScheduledAt: startTime,
             StoppedAt: endTime || null,
             Timezone: timezone
@@ -146,23 +146,23 @@ const StreamSettingsModal: React.FC<StreamSettingsModalProps> = ({
           }
           
           if (duration === 0) {
-            await setStreamSchedule(stream.ID, {
+            await setStreamSchedule(stream.id, {
               ScheduledAt: null,
               StoppedAt: null,
               Timezone: timezone
             });
             toast.success('Stream mode set to live');
           } else {
-            await setStreamDuration(stream.ID, { DurationHours: duration });
+            await setStreamDuration(stream.id, { DurationHours: duration });
             toast.success('Stream duration set successfully');
             // Auto-start the stream for duration mode
-            await startStream(stream.ID);
+            await startStream(stream.id);
           }
           break;
 
         case 'LOOPCOUNT':
           const validLoopCount = loopCount < -1 ? -1 : loopCount;
-          await setStreamLoopCount(stream.ID, { LoopCount: validLoopCount });
+          await setStreamLoopCount(stream.id, { LoopCount: validLoopCount });
           toast.success('Stream loop count set successfully');
           break;
       }

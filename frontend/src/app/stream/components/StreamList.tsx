@@ -314,7 +314,7 @@ export default function StreamList() {
             ) : (
               <div className="row g-4 p-3">
                 {streams.map((stream) => (
-                  <div key={stream.ID} className="col-12 col-md-6 col-xl-4 mb-4">
+                  <div key={stream.id} className="col-12 col-md-6 col-xl-4 mb-4">
                     <StreamCard
                       stream={stream}
                       onStartStream={handleStartStream}
@@ -326,7 +326,7 @@ export default function StreamList() {
                       onToggleLoopVideo={handleToggleLoopVideo}
                       onBindChannel={handleBindChannel}
                       onViewMediaFiles={() => {}} // Remove router navigation
-                      onViewLogs={() => router.push(`/streams/${stream.ID}/logs`)}
+                      onViewLogs={() => router.push(`/streams/${stream.id}/logs`)}
                       onViewSettings={() => {}} // Add this line
                     />
                   </div>

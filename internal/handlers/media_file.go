@@ -55,7 +55,7 @@ func (h *MediaFileHandler) GetMediaFilesWithFullStreamDetails(userID string, med
         GROUP_CONCAT(s.name, ', ') as stream_names,
         COUNT(DISTINCT s.id) as stream_count
     FROM stream_media_files smf
-    LEFT JOIN streams s ON smf.stream_id = s.id
+    LEFT JOIN streams s ON smf.stream_id = s.id AND s.deleted_at IS NULL
     GROUP BY smf.media_file_id
 ) as stream_info ON media_files.id = stream_info.media_file_id`)
 
@@ -86,7 +86,7 @@ func (h *MediaFileHandler) GetMediaFilesWithFullStreamDetails(userID string, med
 		var streams []models.Stream
 		err = h.DB.Table("streams").
 			Joins("JOIN stream_media_files ON streams.id = stream_media_files.stream_id").
-			Where("stream_media_files.media_file_id = ?", mediaFile.ID).
+			Where("stream_media_files.media_file_id = ? AND streams.deleted_at is NULL", mediaFile.ID).
 			Find(&streams).Error
 		if err != nil {
 			return nil, err

@@ -131,7 +131,8 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 
 	var streams []models.Stream
 	if querySearch != "" {
-		if err := h.DB.Preload("MediaFiles").
+		if err := h.DB.Preload("StreamMediaFiles").
+			Preload("StreamMediaFiles.MediaFile").
 			Where("user_id = ?", userID).
 			Where("name LIKE ?", querySearch).
 			Order("created_at DESC").

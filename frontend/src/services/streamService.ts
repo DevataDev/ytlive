@@ -2,42 +2,42 @@ import { api, ApiResponse } from '@/lib/api';
 import { getSession } from 'next-auth/react';
 
 export interface Stream {
-  ID: string;
-  Name: string;
-  Description?: string;
-  RTMPUrl: string;
-  StreamKey: string;
-  Status: 'live' | 'idle' | 'scheduled' | 'error' | string;
-  CreatedAt: string;
-  UpdatedAt: string;
-  StartedAt?: string;
-  StoppedAt?: string;
-  ScheduledAt?: string;
-  ScheduledStartAt?: string;
-  ScheduledEndAt?: string;
-  LoopCount?: number;
-  LoopVideo: boolean;
-  MaxBitrate?: number;
-  FileSizeBytes?: number;
-  MediaFiles: MediaFile[];
-  FileSize?: number;
-  FilePath?: string;
-  MimeType?: string;
-  ThumbnailUrl?: string;
-  IsActive?: boolean;
-  UserID?: string;
-  ChannelID?: string;
-  ChannelTitle?: string;
-  StreamURL?: string;
-  PlaybackURL?: string;
-  HLSPlaybackURL?: string;
-  DashPlaybackURL?: string;
-  RecordingEnabled?: boolean;
-  RecordingPath?: string;
-  RecordingRetentionDays?: number;
-  IsArchived?: boolean;
-  Tags?: string[];
-  Metadata?: Record<string, any>;
+  id: string;
+  name: string;
+  description?: string;
+  rtmpUrl: string;
+  streamKey: string;
+  status: 'live' | 'idle' | 'scheduled' | 'error' | string;
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string;
+  stoppedAt?: string;
+  scheduledAt?: string;
+  scheduledStartAt?: string;
+  scheduledEndAt?: string;
+  loopCount?: number;
+  loopVideo: boolean;
+  maxBitrate?: number;
+  fileSizeBytes?: number;
+  mediaFiles: MediaFile[];
+  fileSize?: number;
+  filePath?: string;
+  mimeType?: string;
+  thumbnailUrl?: string;
+  isActive?: boolean;
+  userID?: string;
+  channelID?: string;
+  channelTitle?: string;
+  streamURL?: string;
+  playbackURL?: string;
+  hlsPlaybackURL?: string;
+  dashPlaybackURL?: string;
+  recordingEnabled?: boolean;
+  recordingPath?: string;
+  recordingRetentionDays?: number;
+  isArchived?: boolean;
+  tags?: string[];
+  metadata?: Record<string, any>;
 }
 
 export interface MediaFile {
@@ -96,17 +96,17 @@ export interface SuccessResponse {
 export const fetchStreams = async (page = 1, pageSize = 10, search = ''): Promise<StreamListResponse> => {
   const session = await getSession();
   let url = `/api/streams?page=${page}&per_page=${pageSize}&search=${search}`;
-  const response = await api.getRaw<StreamListResponse>(url, { 
+  const response = await api.get<StreamListResponse>(url, { 
     headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` } 
   });
-  return response.data;
+  return response;
 };
 
 export const updateStream = async (id: string, streamData: Partial<Stream>): Promise<Stream> => {
   const session = await getSession();
   const jsonData = {
-    "name": streamData.Name,
-    "description": streamData.Description,
+    "name": streamData.name,
+    "description": streamData.description,
   }
   const response = await api.putRaw<Stream>(`/api/streams/${id}`, jsonData, {
     headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }

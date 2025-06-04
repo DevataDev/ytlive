@@ -43,14 +43,14 @@ const StreamCard: React.FC<StreamCardProps> = ({
   className = '',
 }) => {
   const [showPassword, setShowPassword] = useState(false);
-  const [streamKey, setStreamKey] = useState(stream.StreamKey || '');
-  const [rtmpUrl, setRtmpUrl] = useState(stream.RTMPUrl || 'rtmp://a.rtmp.youtube.com/live2/');
-  const [isLooping, setIsLooping] = useState(stream.LoopVideo || false);
+  const [streamKey, setStreamKey] = useState(stream.streamKey || '');
+  const [rtmpUrl, setRtmpUrl] = useState(stream.rtmpUrl || 'rtmp://a.rtmp.youtube.com/live2/');
+  const [isLooping, setIsLooping] = useState(stream.loopVideo || false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showRenameModal, setShowRenameModal] = useState(false);
-  const [newName, setNewName] = useState(stream.Name || '');
-  const [newDescription, setNewDescription] = useState(stream.Description || '');
+  const [newName, setNewName] = useState(stream.name || '');
+  const [newDescription, setNewDescription] = useState(stream.description || '');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBindModal, setShowBindModal] = useState(false);
   const [bindModalError, setBindModalError] = useState('');
@@ -86,9 +86,9 @@ const StreamCard: React.FC<StreamCardProps> = ({
     openModal(streamId, 'stream');
   };
 
-  const isLive = stream.Status === 'live';
-  const isScheduled = stream.Status === 'scheduled';
-  const streamKeyIsSet = !!(stream.StreamKey && stream.StreamKey.trim().length > 0);
+  const isLive = stream.status === 'live';
+  const isScheduled = stream.status === 'scheduled';
+  const streamKeyIsSet = !!(stream.streamKey && stream.streamKey.trim().length > 0);
 
   // Status badge
   const renderStatusBadge = () => {
@@ -125,7 +125,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
     try {
       setIsStarting(true);
       setError('');
-      await onStartStream(stream.ID);
+      await onStartStream(stream.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start stream');
     } finally {
@@ -138,7 +138,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
     try {
       setIsStopping(true);
       setError('');
-      await onStopStream(stream.ID);
+      await onStopStream(stream.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to stop stream');
     } finally {
@@ -151,7 +151,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
     try {
       setIsLoading(true);
       setError('');
-      await onUpdateStreamKey(stream.ID, streamKey);
+      await onUpdateStreamKey(stream.id, streamKey);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update stream key');
     } finally {
@@ -164,7 +164,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
     try {
       setIsLoading(true);
       setError('');
-      await onUpdateRtmpUrl(stream.ID, rtmpUrl);
+      await onUpdateRtmpUrl(stream.id, rtmpUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update RTMP URL');
     } finally {
@@ -177,7 +177,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
     const newLoopState = !isLooping;
     setIsLooping(newLoopState);
     try {
-      await onToggleLoopVideo(stream.ID, newLoopState);
+      await onToggleLoopVideo(stream.id, newLoopState);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update loop setting');
       // Revert on error
@@ -190,7 +190,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
     try {
       setIsLoading(true);
       setError('');
-      await onRenameStream(stream.ID, newName, newDescription);
+      await onRenameStream(stream.id, newName, newDescription);
       setShowRenameModal(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to rename stream');
@@ -204,7 +204,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
     try {
       setIsLoading(true);
       setError('');
-      await onDeleteStream(stream.ID);
+      await onDeleteStream(stream.id);
       setShowDeleteConfirm(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete stream');
@@ -218,7 +218,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
     try {
       setIsLoading(true);
       setBindModalError('');
-      await onBindChannel(stream.ID, channelId, streamKey);
+      await onBindChannel(stream.id, channelId, streamKey);
       setShowBindModal(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to bind channel';
@@ -231,15 +231,15 @@ const StreamCard: React.FC<StreamCardProps> = ({
 
   // Effect to update local state when stream prop changes
   useEffect(() => {
-    setStreamKey(stream.StreamKey || '');
-    setRtmpUrl(stream.RTMPUrl || 'rtmp://a.rtmp.youtube.com/live2/');
-    setIsLooping(stream.LoopVideo || false);
-    setNewName(stream.Name || '');
-    setNewDescription(stream.Description || '');
+    setStreamKey(stream.streamKey || '');
+    setRtmpUrl(stream.rtmpUrl || 'rtmp://a.rtmp.youtube.com/live2/');
+    setIsLooping(stream.loopVideo || false);
+    setNewName(stream.name || '');
+    setNewDescription(stream.description || '');
   }, [stream]);
 
   // Get file size from either FileSize or FileSizeBytes
-  const fileSize = stream.FileSize || stream.FileSizeBytes;
+  const fileSize = stream.fileSize || stream.fileSizeBytes;
 
   return (
     <div >
@@ -248,15 +248,15 @@ const StreamCard: React.FC<StreamCardProps> = ({
         <Card.Header className="bg-white">
           <div className="d-flex justify-content-between align-items-center mb-1">
             <div className="d-flex align-items-center">
-              <h5 className="card-title mb-0 text-truncate" style={{ maxWidth: '180px' }} title={stream.Name || 'Untitled Stream'}>
-                {stream.Name || 'Untitled Stream'}
+              <h5 className="card-title mb-0 text-truncate" style={{ maxWidth: '180px' }} title={stream.name || 'Untitled Stream'}>
+                {stream.name || 'Untitled Stream'}
               </h5>
               <span className="ms-2">{renderStatusBadge()}</span>
             </div>
 
             {/* Dropdown Menu */}
             <Dropdown>
-              <Dropdown.Toggle variant="outline-secondary" size="sm" id={`dropdown-${stream.ID}`}>
+              <Dropdown.Toggle variant="outline-secondary" size="sm" id={`dropdown-${stream.id}`}>
                 <i className="bi bi-three-dots-vertical"></i>
               </Dropdown.Toggle>
               <Dropdown.Menu align="end">
@@ -270,7 +270,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
                   <i className="bi bi-folder2-open me-2"></i>Media Files
                 </Dropdown.Item>
                 <Dropdown.Item
-                  onClick={() => handleViewLogs(stream.ID)}>
+                  onClick={() => handleViewLogs(stream.id)}>
                   <i className="bi bi-terminal me-2"></i>View Logs
                 </Dropdown.Item>
                 <Dropdown.Item onClick={() => { handleViewSettings() }}>
@@ -287,7 +287,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
             </Dropdown>
           </div>
           <div className="d-flex justify-content-between align-items-center">
-            <small className="text-muted">ID: {stream.ID || 'N/A'}</small>
+            <small className="text-muted">ID: {stream.id || 'N/A'}</small>
           </div>
         </Card.Header>
 
@@ -295,14 +295,14 @@ const StreamCard: React.FC<StreamCardProps> = ({
         <Card.Body className="p-3">
           {/* Stream Info */}
           <div className="d-flex flex-column gap-1 mb-3">
-            {stream.CreatedAt && (
+            {stream.createdAt && (
               <div className="text-muted small">
-                <i className="bi bi-calendar3 me-1"></i> {new Date(stream.CreatedAt).toLocaleString()}
+                <i className="bi bi-calendar3 me-1"></i> {new Date(stream.createdAt).toLocaleString()}
               </div>
             )}
-            {stream.FileSizeBytes && (
+            {stream.fileSizeBytes && (
               <div className="text-muted small">
-                <i className="bi bi-file-earmark me-1"></i> {formatFileSize(stream.FileSizeBytes)}
+                <i className="bi bi-file-earmark me-1"></i> {formatFileSize(stream.fileSizeBytes)}
               </div>
             )}
           </div>
@@ -366,7 +366,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
           {/* Loop Toggle */}
           <Form.Check
             type="switch"
-            id={`loop-switch-${stream.ID}`}
+            id={`loop-switch-${stream.id}`}
             label={
               <>
                 <i className="bi bi-arrow-repeat me-1"></i> Loop Video
@@ -415,7 +415,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
               <Button
                 variant="outline-secondary"
                 size="sm"
-                onClick={() => handleViewLogs(stream.ID)}
+                onClick={() => handleViewLogs(stream.id)}
                 className="me-2"
                 title="View Logs"
               >
@@ -477,7 +477,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
         </Modal.Header>
         <Modal.Body>
           <p>Are you sure you want to delete this stream? This action cannot be undone.</p>
-          <p className="mb-0"><strong>Stream ID:</strong> {stream.ID}</p>
+          <p className="mb-0"><strong>Stream ID:</strong> {stream.id}</p>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
@@ -506,7 +506,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
           setBindModalError('');
         }}
         onBind={handleBindChannelSubmit}
-        streamName={stream.Name}
+        streamName={stream.name}
         fetchChannels={async () => []} // TODO: Implement channel fetching if needed
         fetchStreams={async () => []} // TODO: Implement stream fetching if needed
         title="Bind Channel to Stream"
@@ -518,8 +518,8 @@ const StreamCard: React.FC<StreamCardProps> = ({
       <MediaFileModal
         show={showMediaModal}
         onHide={() => handleCloseMediaModal()}
-        streamId={stream.ID}
-        streamName={stream.Name || 'Untitled Stream'}
+        streamId={stream.id}
+        streamName={stream.name || 'Untitled Stream'}
       />
 
       {/* Stream Settings Modal */}
