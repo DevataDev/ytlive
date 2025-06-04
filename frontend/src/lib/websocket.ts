@@ -39,7 +39,9 @@ export class DashboardWebSocket {
         return;
       }
 
-      let baseUrl = this.apiUrl || process.env.NEXT_PUBLIC_API_URL  || process.env.API_URL 
+      const config = await configService.getConfig();
+
+      let baseUrl = config.apiUrl || process.env.NEXT_PUBLIC_API_URL  || process.env.API_URL 
     
       if (!baseUrl && baseUrl?.startsWith('http')) {
         // Convert http:// or https:// to ws:// or wss://
