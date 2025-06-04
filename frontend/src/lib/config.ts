@@ -6,19 +6,17 @@ interface AppConfig {
 
 class ConfigService {
   private config: AppConfig | null = null;
-  private configPromise: Promise<AppConfig> | null = null;
+  private isLoaded = false;
 
   async getConfig(): Promise<AppConfig> {
-    if (this.config) {
+    if (this.config?.apiUrl && this.isLoaded) {
+      // If already loaded, return it
+      console.log('Returning existing config : ', this.config);
       return this.config;
     }
 
-    if (this.configPromise) {
-      return this.configPromise;
-    }
-
-    this.configPromise = this.loadConfig();
-    this.config = await this.configPromise;
+    this.config = await this.loadConfig();
+    console.log('Loaded config : ', this.config);
     return this.config;
   }
 
@@ -26,8 +24,11 @@ class ConfigService {
     try {
       // Try to load from runtime config endpoint first
       const response = await fetch('/api/config');
+      const text = await response.text();
+      console.log(`Loaded config got status ${response.status} and text ${text}`);
       if (response.ok) {
         const config = await response.json();
+        console.log(`Loaded config got status ${response.status} and text ${JSON.stringify(config)}`);
         return {
           apiUrl: config.apiUrl || config.NEXT_PUBLIC_API_URL,
           apiBaseUrl: config.apiBaseUrl || config.NEXT_PUBLIC_API_BASE_URL

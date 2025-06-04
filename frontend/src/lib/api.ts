@@ -57,6 +57,7 @@ export async function apiRequest<T>(
   data: any = null,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
+  console.log('API request:', method, endpoint, data, options);
   const apiUrl = await getApiUrl(); // instead of process.env.NEXT_PUBLIC_API_URL
   console.log('API URL:', apiUrl);
   const url = `${apiUrl}${endpoint}`;
@@ -272,6 +273,7 @@ export const userApi = {
 
 // Replace the direct process.env usage with config service
 export async function getApiUrl(): Promise<string> {
+  console.log('Getting API URL');
   const config = await configService.getConfig();
   return config.apiUrl;
 }
