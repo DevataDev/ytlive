@@ -24,11 +24,10 @@ class ConfigService {
     try {
       // Try to load from runtime config endpoint first
       const response = await fetch('/api/config');
-      const text = await response.text();
-      console.log(`Loaded config got status ${response.status} and text ${text}`);
+      const config = await response.json();
+      console.log(`Loaded config got status ${response.status} and text ${JSON.stringify(config)}`);
       if (response.ok) {
-        const config = await response.json();
-        console.log(`Loaded config got status ${response.status} and text ${JSON.stringify(config)}`);
+        this.isLoaded = true;
         return {
           apiUrl: config.apiUrl || config.NEXT_PUBLIC_API_URL,
           apiBaseUrl: config.apiBaseUrl || config.NEXT_PUBLIC_API_BASE_URL
@@ -37,6 +36,8 @@ class ConfigService {
     } catch (error) {
       console.warn('Failed to load runtime config, falling back to environment variables : ', error);
     }
+
+    console.log('Returning fallback config');
 
     // Fallback to build-time environment variables
     return {
