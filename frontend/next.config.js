@@ -13,11 +13,6 @@ const nextConfig = {
   reactStrictMode: true,
   trailingSlash: true,
   distDir: 'out',
-  // Remove build-time environment variables for universal build
-  env: {
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-  },
   images: {
     unoptimized: true,
   },
