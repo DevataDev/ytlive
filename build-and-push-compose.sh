@@ -4,8 +4,8 @@
 set -e
 
 # Configuration
-DOCKER_REGISTRY="your-registry.com"  # Change this to your Docker registry
-IMAGE_NAME="windsorf-youtube-live"
+DOCKER_REGISTRY="registry.ppn.net.id"  # Change this to your Docker registry
+IMAGE_NAME="ytlive"
 TAG="${1:-latest}"
 
 # Colors for output
