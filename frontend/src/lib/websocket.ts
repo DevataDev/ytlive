@@ -114,7 +114,7 @@ export class DashboardWebSocket {
     console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
     
     setTimeout(() => {
-      this.connect(a);
+      this.connect();
     }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts));
   }
 
