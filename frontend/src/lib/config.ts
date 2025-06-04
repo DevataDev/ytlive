@@ -1,0 +1,59 @@
+// Runtime configuration service
+interface AppConfig {
+  apiUrl: string;
+  apiBaseUrl: string;
+}
+
+class ConfigService {
+  private config: AppConfig | null = null;
+  private configPromise: Promise<AppConfig> | null = null;
+
+  async getConfig(): Promise<AppConfig> {
+    if (this.config) {
+      return this.config;
+    }
+
+    if (this.configPromise) {
+      return this.configPromise;
+    }
+
+    this.configPromise = this.loadConfig();
+    this.config = await this.configPromise;
+    return this.config;
+  }
+
+  private async loadConfig(): Promise<AppConfig> {
+    try {
+      // Try to load from runtime config endpoint first
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const config = await response.json();
+        return {
+          apiUrl: config.apiUrl || config.NEXT_PUBLIC_API_URL,
+          apiBaseUrl: config.apiBaseUrl || config.NEXT_PUBLIC_API_BASE_URL
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load runtime config, falling back to environment variables');
+    }
+
+    // Fallback to build-time environment variables
+    return {
+      apiUrl: process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081',
+      apiBaseUrl: process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8081'
+    };
+  }
+
+  // Synchronous getter for cases where config is already loaded
+  getConfigSync(): AppConfig | null {
+    return this.config;
+  }
+
+  // Method to set config manually (useful for testing or manual override)
+  setConfig(config: AppConfig): void {
+    this.config = config;
+  }
+}
+
+export const configService = new ConfigService();
+export type { AppConfig };

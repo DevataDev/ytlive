@@ -132,13 +132,11 @@ export default function MediaManager() {
 
     try {
       setDeleting(true);
-      const response = await fetch(`/api/media-files/${fileToDelete.id}?user_id=${session.user.id}`, {
-        method: 'DELETE',
+      const response = await api.delete<void>(`/api/media/${fileToDelete.id}`, {
+        headers: {
+          'Authorization': `Bearer ${session.user?.backendToken}`,
+        }
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete media file');
-      }
 
       toast.success('Media file deleted successfully');
       setShowDeleteModal(false);

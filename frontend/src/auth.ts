@@ -1,6 +1,7 @@
 import NextAuth, { type NextAuthOptions, type DefaultSession, type User } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import type { JWT } from 'next-auth/jwt';
+import { configService } from '@/lib/config';
 
 declare module 'next-auth' {
   interface Session extends DefaultSession {
@@ -63,7 +64,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/login`, {
+          const config = await configService.getConfig();
+          const apiUrl = config?.apiUrl || 'http://localhost:8081';
+          const res = await fetch(`${apiUrl}/api/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

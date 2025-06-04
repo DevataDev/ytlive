@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { getSession } from 'next-auth/react';
 import { api }  from '@/lib/api';
 import { MediaFileData } from '@/services/streamService';
+import { useConfig } from '@/hooks/useConfig';
 
 export interface MediaFileSelectionModalProps {
   show: boolean;
@@ -60,6 +61,8 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
         setLoadingMore(true);
       }
 
+      const config = useConfig();
+      const apiUrl = config.config?.apiUrl || process.env.API_URL || 'http://localhost:8081'
       const session = await getSession();
       if (!session) {
         setError('Please log in to view media files');
@@ -82,7 +85,7 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
         params.append('type', 'all');
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/media/user?${params}`, {
+      const response = await fetch(`${apiUrl}/api/media/user?${params}`, {
         headers: {
           'Authorization': `Bearer ${sessionToken}`,
         },

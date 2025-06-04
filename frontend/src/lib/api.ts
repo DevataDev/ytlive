@@ -1,5 +1,6 @@
 import { getSession } from 'next-auth/react';
 import { Session } from 'next-auth';
+import { configService } from './config';
 
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -56,7 +57,7 @@ export async function apiRequest<T>(
   data: any = null,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+  const apiUrl = await getApiUrl(); // instead of process.env.NEXT_PUBLIC_API_URL
   const url = `${apiUrl}${endpoint}`;
   console.log('API request:', method, url, data, options);
   const session = await getSession();
@@ -267,3 +268,14 @@ export const userApi = {
   deleteUser: (userId: string) =>
     api.delete(`/api/users/${userId}`),
 };
+
+// Replace the direct process.env usage with config service
+export async function getApiUrl(): Promise<string> {
+  const config = await configService.getConfig();
+  return config.apiUrl;
+}
+
+export async function getApiBaseUrl(): Promise<string> {
+  const config = await configService.getConfig();
+  return config.apiBaseUrl;
+}

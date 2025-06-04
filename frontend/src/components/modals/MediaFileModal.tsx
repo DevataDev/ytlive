@@ -6,6 +6,7 @@ import { fetchMediaFiles, uploadMediaFile, deleteMapMediaFile, getMediaPreview, 
 import PlayerPreviewModal from './PlayerPreviewModal';
 import MediaFileSelectionModal from './MediaFileSelectionModal';
 import { getSession } from 'next-auth/react';
+import { useConfig } from '@/hooks/useConfig';
 
 export interface MediaFileModalProps {
     show: boolean;
@@ -171,11 +172,14 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
         setAddingExistingMedia(true);
         try {
 
+            const config = useConfig();
+            const apiUrl = config.config?.apiUrl || process.env.API_URL || 'http://localhost:8081';
+
             const session = await getSession();
             // Add the selected files to the current stream using the correct endpoint
             const promises = selectedFiles.map(file => {
-                console.log('Making API call for file:', file.ID);
-                return fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/streams/${streamId}/map`, {
+                
+                return fetch(`${apiUrl}/api/streams/${streamId}/map`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

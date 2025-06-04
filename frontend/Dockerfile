@@ -12,18 +12,11 @@ COPY next.config.js ./
 RUN npm install
 
 # 4. Copy source
-
 COPY . .
 
-# 3. Set env for production
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_API_BASE_URL
-
-ENV NODE_ENV=production \
-    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
-
-# 5. Build the Next.js app
+# 5. Build the Next.js app without environment variables
+# This creates a universal build that can work with any API URL
+ENV NODE_ENV=production
 RUN npm run build
 
 # --- Final stage: run optimized production build ---
@@ -38,8 +31,13 @@ COPY --from=builder /app ./
 # 8. Set env for production
 ENV NODE_ENV=production
 
-# 9. Expose port
+# 9. Create entrypoint script for runtime configuration
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# 10. Expose port
 EXPOSE 3000
 
-# 10. Start app
+# 11. Use entrypoint script
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["npm", "start"]
