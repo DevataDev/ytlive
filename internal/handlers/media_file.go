@@ -708,45 +708,54 @@ func (h *MediaFileHandler) UploadMediaFileOnly(c *gin.Context) {
 			return
 		}
 
-		// Reset the file read pointer
-		_, err = f.Seek(0, 0)
-		if err != nil {
-			c.JSON(500, gin.H{"error": "failed to reset file pointer"})
-			return
-		}
-
-		header := make([]byte, 12)
-		_, err = io.ReadFull(f, header)
-		if err != nil {
-			log.Println("Error reading header:", err)
-		}
-
-		// Check MKV EBML signature
-		if header[0] == 0x1A && header[1] == 0x45 && header[2] == 0xDF && header[3] == 0xA3 {
-			log.Println("File type: MKV (Matroska)")
-		}
-
-		_ = binary.BigEndian.Uint32(header[:4])
-		boxType := string(header[4:8])
-		if boxType != "ftyp" {
-			log.Printf("Unknown file type. First box is: %s\n", boxType)
-		}
-
-		majorBrand := string(header[8:12])
-		allowedMajorBrands := map[string]bool{
-			"mp42": true,
-			"isom": true,
-			"iso2": true,
-			"mp41": true,
-			"qt  ": true,
-		}
-
 		// Get the content type from the first 512 bytes
 		contentType := http.DetectContentType(buffer)
 
-		if !allowedMimeTypes[contentType] && !allowedMajorBrands[majorBrand] {
-			c.JSON(400, gin.H{"error": "invalid file content. Only MP4, MKV, WAV, and MP3 files are allowed"})
-			return
+		if ext == ".mp4" || ext == ".mkv" || ext == ".mov" {
+
+			// Reset the file read pointer
+			_, err = f.Seek(0, 0)
+			if err != nil {
+				c.JSON(500, gin.H{"error": "failed to reset file pointer"})
+				return
+			}
+
+			header := make([]byte, 12)
+			_, err = io.ReadFull(f, header)
+			if err != nil {
+				log.Println("Error reading header:", err)
+			}
+
+			// Check MKV EBML signature
+			if header[0] == 0x1A && header[1] == 0x45 && header[2] == 0xDF && header[3] == 0xA3 {
+				log.Println("File type: MKV (Matroska)")
+			}
+
+			_ = binary.BigEndian.Uint32(header[:4])
+			boxType := string(header[4:8])
+			if boxType != "ftyp" {
+				log.Printf("Unknown file type. First box is: %s\n", boxType)
+			}
+
+			majorBrand := string(header[8:12])
+			allowedMajorBrands := map[string]bool{
+				"mp42": true,
+				"isom": true,
+				"iso2": true,
+				"mp41": true,
+				"qt  ": true,
+			}
+
+			if !allowedMimeTypes[contentType] && !allowedMajorBrands[majorBrand] {
+				log.Println("Unknown file type. Major brand:", majorBrand)
+				c.JSON(400, gin.H{"error": "invalid file content. Only MP4, MKV, WAV, and MP3 files are allowed"})
+				return
+			}
+		} else {
+			if !allowedMimeTypes[contentType] {
+				c.JSON(400, gin.H{"error": "invalid file content. Only MP4, MKV, WAV, and MP3 files are allowed"})
+				return
+			}
 		}
 
 		mediaType := ""
