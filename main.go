@@ -274,17 +274,20 @@ func main() {
 	}
 
 	// For SQLite, dropping columns with foreign keys requires special handling
-	if db.Migrator().HasColumn(&models.MediaFile{}, "stream_id") {
-		// Disable foreign key checks temporarily
-		db.Exec("PRAGMA foreign_keys=off")
+	if cfg.App.Sql == "sqlite3" {
 
-		// Drop the column
-		if err := db.Migrator().DropColumn(&models.MediaFile{}, "stream_id"); err != nil {
-			log.Printf("Warning: Could not drop stream_id column: %v", err)
+		if db.Migrator().HasColumn(&models.MediaFile{}, "stream_id") {
+			// Disable foreign key checks temporarily
+			db.Exec("PRAGMA foreign_keys=off")
+
+			// Drop the column
+			if err := db.Migrator().DropColumn(&models.MediaFile{}, "stream_id"); err != nil {
+				log.Printf("Warning: Could not drop stream_id column: %v", err)
+			}
+
+			// Re-enable foreign key checks
+			db.Exec("PRAGMA foreign_keys=on")
 		}
-
-		// Re-enable foreign key checks
-		db.Exec("PRAGMA foreign_keys=on")
 	}
 	// Init device presets
 	tiktok.InitDevicePresets()
