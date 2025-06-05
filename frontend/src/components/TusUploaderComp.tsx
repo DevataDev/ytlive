@@ -52,7 +52,7 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
     return allowedExtensions.some(ext => fileName.endsWith(ext.toLowerCase()));
   };
 
-  const validateFileSize = (file: File, maxSizeMB: number = 500): boolean => {
+  const validateFileSize = (file: File, maxSizeMB: number = 2000): boolean => {
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
     return file.size <= maxSizeBytes;
   };
