@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Form, Alert, Spinner, ListGroup, Badge, Row, Col, InputGroup } from 'react-bootstrap';
-import { MediaFile } from '@/services/streamService';
+import { MediaFile, MediaListResponse } from '@/services/streamService';
 import { toast } from 'react-toastify';
 import { getSession } from 'next-auth/react';
 import { api }  from '@/lib/api';
@@ -85,18 +85,13 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
         params.append('type', 'all');
       }
 
-      const response = await fetch(`${apiUrl}/api/media/user?${params}`, {
+      const response = await api.get<MediaListResponse>(`/api/media/user?${params}`, {
         headers: {
           'Authorization': `Bearer ${sessionToken}`,
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch media files: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const newFiles: MediaFile[] = data.files?.map((file: any) => ({
+      const newFiles: MediaFile[] = response.files?.map((file: any) => ({
         ID: file.id,
         FileName: file.file_name,
         FilePath: file.file_path,
@@ -114,10 +109,10 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
       }
 
       setPagination({
-        total: data.total || 0,
-        limit: data.limit || 20,
-        offset: data.offset || 0,
-        has_more: data.has_more || false,
+        total: response.pagination?.total || 0,
+        limit: response.pagination?.limit || 20,
+        offset: response.pagination?.offset || 0,
+        has_more: response.pagination?.has_more || false,
       });
     } catch (err) {
       console.error('Error loading media files:', err);
