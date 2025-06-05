@@ -45,6 +45,7 @@
     "react-dom": "^18.2.0",
     "react-icons": "^5.5.0",
     "react-player": "^2.16.0",
-    "react-toastify": "^11.0.5"
+    "react-toastify": "^11.0.5",
+    "tus-js-client": "^4.3.1"
   }
 }

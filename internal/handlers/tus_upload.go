@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/models"
@@ -86,6 +88,30 @@ func (h *TusUploadHandler) processCompletedUpload(event handler.HookEvent) {
 	streamID := metadata["streamId"]
 	mediaType := metadata["mediaType"]
 
+	var createdStreamId string
+	if streamID == "" || strings.Contains(streamID, "temp") {
+		createdStreamId = generateULID()
+		streamName := fmt.Sprintf("Stream %s", time.Now().Format("2006-01-02 15:04:05"))
+		defaultLoopCount := -1
+		rtmpUrl := "rtmp://a.rtmp.youtube.com/live2/"
+		stream := models.Stream{
+			ID:        createdStreamId,
+			Name:      streamName,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			UserID:    userID,
+			Status:    "stopped",
+			LoopCount: &defaultLoopCount,
+			RTMPUrl:   rtmpUrl,
+		}
+		if err := h.DB.Create(&stream).Error; err != nil {
+			log.Printf("Failed to create stream: %s", err)
+			return
+		}
+	} else {
+		createdStreamId = streamID
+	}
+
 	// Generate a unique ID for the media file
 	id := generateULID()
 
@@ -111,9 +137,13 @@ func (h *TusUploadHandler) processCompletedUpload(event handler.HookEvent) {
 	}
 
 	// If streamID is provided, associate the media file with the stream
-	if streamID != "" {
+	if createdStreamId != "" {
+		log.Println("Associating media file with stream ID: ", createdStreamId)
+		log.Println("Media file ID: ", mediaFile.ID)
+		log.Println("User ID: ", userID)
+		log.Println("Stream ID: ", createdStreamId)
 		streamMediaFile := models.StreamMediaFile{
-			StreamID:    streamID,
+			StreamID:    createdStreamId,
 			MediaFileID: mediaFile.ID,
 			Order:       0,
 			IsPrimary:   false,

@@ -59,9 +59,11 @@ export default function TusUploaderComp({
       onError(new Error('Session expired. Please login again.'));
       return;
     }
-
+  
+    // Generate a single streamId for all files if not provided
+    const uploadStreamId = streamId || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
     filesToUpload.forEach(file => {
-      // Create a new tus upload
       const upload = new tus.Upload(file, {
         endpoint: `${config?.config?.apiUrl}/files/`,
         retryDelays: [0, 3000, 5000, 10000, 20000],
@@ -70,7 +72,7 @@ export default function TusUploaderComp({
           filename: file.name,
           filetype: file.type,
           userId: session.user?.id as string,
-          streamId: streamId || '',
+          streamId: uploadStreamId, // Use the same streamId for all files
           mediaType: mediaType
         },
         headers: {
