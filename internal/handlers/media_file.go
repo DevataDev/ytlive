@@ -857,6 +857,12 @@ func (h *MediaFileHandler) DeleteMediaFileByID(c *gin.Context) {
 		return
 	}
 
+	// delete file .info if exist
+	fileInfoPath := strings.TrimSuffix(mediaFile.FilePath, filepath.Ext(mediaFile.FilePath)) + ".info"
+	if err := os.Remove(fileInfoPath); err != nil && !os.IsNotExist(err) {
+		log.Println("Error deleting file.info:", err)
+	}
+
 	// Delete record from database
 	if err := h.DB.Delete(&mediaFile).Error; err != nil {
 		c.JSON(500, gin.H{"error": "failed to delete media file record"})
