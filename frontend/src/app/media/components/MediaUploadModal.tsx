@@ -96,14 +96,33 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
   };
 
   // Inside your component
+  // const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
+  //   setSuccess('Files uploaded successfully!');
+  //   setFiles([]);
+  //   toast.success('Media files uploaded successfully!');
+  //   setTimeout(() => {
+  //     onUploadComplete();
+  //     handleClose();
+  //   }, 1500);
+  // };
+
   const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
-    setSuccess('Files uploaded successfully!');
-    setFiles([]);
-    toast.success('Media files uploaded successfully!');
-    setTimeout(() => {
-      onUploadComplete();
-      handleClose();
-    }, 1500);
+    setCompletedFiles(prev => {
+      const newCompleted = new Set(prev);
+      newCompleted.add(fileId);
+      
+      // Don't redirect here - wait for all uploads to complete
+      if (newCompleted.size < uploadingFiles.size) {
+        setSuccess(`Uploaded ${newCompleted.size} of ${uploadingFiles.size} files...`);
+      }
+      
+      return newCompleted;
+    });
+  };
+
+  const handleAllUploadsComplete = () => {
+    setAllUploadsComplete(true);
+    setSuccess('All files uploaded successfully!');
   };
 
 
@@ -271,6 +290,7 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
           ref={tusUploaderRef}
           onSuccess={handleUploadSuccess}
           onProgress={setUploadProgress}
+          onAllUploadsComplete={handleAllUploadsComplete} // New callback
           onUploadStart={handleUploadStart}
           onError={(error) => setError(error.message)}
           onFilesSelected={handleFilesFromUploader} // New callback

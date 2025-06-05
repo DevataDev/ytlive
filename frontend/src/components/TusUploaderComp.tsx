@@ -77,6 +77,7 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
     
     // Only auto-upload if parent doesn't want to manage files
     if (!onFilesSelected) {
+      console.log('Auto-uploading files...');
       startUploads();
     }
   };

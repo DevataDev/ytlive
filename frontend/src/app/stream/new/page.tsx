@@ -148,17 +148,12 @@ export default function StreamNewPage() {
         setError('No files selected');
         return;
       } else {
-        // Handle existing media files only
-        try {
-          setSuccess('Stream created! Redirecting...');
-          setFiles([]);
-          setTimeout(() => {
-            router.push('/stream');
-          }, 1500);
-        } catch (error) {
-          setError('Error creating stream');
+        // Create the stream with the selected media files
+        const session = await getSession();
+        if (!session) {
+          setError('Session expired. Please login again.');
+          return;
         }
-        return;
       }
     }
 
@@ -188,6 +183,7 @@ export default function StreamNewPage() {
           <TusUploaderComp
                 ref={tusUploaderRef}
                 onSuccess={handleUploadSuccess}
+                onAllUploadsComplete={handleAllUploadsComplete}
                 onProgress={setUploadProgress}
                 onUploadStart={handleUploadStart}
                 onError={(error) => setError(error.message)}
