@@ -123,6 +123,8 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
   const handleAllUploadsComplete = () => {
     setAllUploadsComplete(true);
     setSuccess('All files uploaded successfully!');
+    onUploadComplete();
+    handleClose();
   };
 
 
