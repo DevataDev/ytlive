@@ -70,31 +70,6 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
     setFiles(prev => prev.filter(f => f.id !== id));
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFiles(e.dataTransfer.files);
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      handleFiles(e.target.files);
-    }
-  };
-
   // Inside your component
   // const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
   //   setSuccess('Files uploaded successfully!');
@@ -123,6 +98,9 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
   const handleAllUploadsComplete = () => {
     setAllUploadsComplete(true);
     setSuccess('All files uploaded successfully!');
+    setIsUploading(false);
+    setUploadProgress(0);
+    toast.success('All files uploaded successfully!');
     onUploadComplete();
     handleClose();
   };
