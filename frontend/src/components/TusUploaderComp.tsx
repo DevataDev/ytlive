@@ -5,6 +5,7 @@ import { getSession } from 'next-auth/react';
 import * as tus from 'tus-js-client';
 import { ulid } from 'ulid';
 import { flushSync } from 'react-dom';
+import { toast } from 'react-toastify';
 
 // Add interface for ref methods
 export interface TusUploaderRef {
@@ -136,6 +137,7 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
       // Only auto-upload if parent doesn't want to manage files
       if (!onFilesSelected) {
         console.log('Auto-uploading files...');
+        toast.info('Start uploading files ... please wait....');
         setTimeout(() => {
           startUploads();
         }, 500);
