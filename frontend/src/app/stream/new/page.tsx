@@ -8,7 +8,8 @@ import styles from './page.module.css'
 import { getSession } from 'next-auth/react'
 import { toast } from 'react-toastify';
 import { useConfig } from '@/hooks/useConfig';
-import TusUploaderComp from '@/components/TusUploaderComp'
+import { TusUploaderRef } from '@/components/TusUploaderComp'
+import TusUploaderComp from '@/components/TusUploaderComp';
 
 import MediaFileSelectionModal from '@/components/modals/MediaFileSelectionModal';
 import { CreateStreamNewData, MediaFile, createStreamNew } from '@/services/streamService';
@@ -26,7 +27,6 @@ export default function StreamNewPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   // Add to your component state
   const [showMediaSelection, setShowMediaSelection] = useState(false);
@@ -99,122 +99,84 @@ export default function StreamNewPage() {
     }
   }
 
+  // Add these state variables
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  const [completedFiles, setCompletedFiles] = useState<Set<string>>(new Set());
+  const [allUploadsComplete, setAllUploadsComplete] = useState(false);
+  
   const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
-    setSuccess('Files uploaded successfully! Redirecting...');
-    setFiles([]);
-    setTimeout(() => {
-      router.push('/stream');
-    }, 1500);
+    setCompletedFiles(prev => {
+      const newCompleted = new Set(prev);
+      newCompleted.add(fileId);
+      
+      // Don't redirect here - wait for all uploads to complete
+      if (newCompleted.size < uploadingFiles.size) {
+        setSuccess(`Uploaded ${newCompleted.size} of ${uploadingFiles.size} files...`);
+      }
+      
+      return newCompleted;
+    });
   };
+  
+  const handleUploadStart = (fileId: string) => {
+    setUploadingFiles(prev => {
+      const newUploading = new Set(prev);
+      newUploading.add(fileId);
+      return newUploading;
+    });
+  };
+  
+  const handleAllUploadsComplete = () => {
+    setAllUploadsComplete(true);
+    setSuccess('All files uploaded successfully!');
+  };
+
+  const handleFilesFromUploader = (selectedFiles: File[]) => {
+    const fileArray = selectedFiles.map(file => ({
+      file,
+      id: Math.random().toString(36).substr(2, 9)
+    }));
+    setFiles(prev => [...prev, ...fileArray]);
+  };
+
+
+  const tusUploaderRef = useRef<TusUploaderRef>(null);
 
   const handleUpload = async () => {
     if (files.length === 0) {
       if (selectedMediaFiles.length === 0) {
-        setError('No files selected')
-        return
+        setError('No files selected');
+        return;
       } else {
-        // If there are no files to upload, but there are selected media files, proceed with the stream creation
+        // Handle existing media files only
         try {
-          const mediaFileIds = selectedMediaFiles.map(file => file.ID);
-          console.log(mediaFileIds)
-          const data = {
-            MediaFileIds: mediaFileIds,
-            Name: `Stream ${new Date().toISOString().split('T')[0]} ${new Date().toLocaleTimeString()}`,
-            Description: '',
-          }
-          const response = await createStreamNew(data as CreateStreamNewData)
-          setSuccess('Stream created! Redirecting...')
-          setFiles([])
+          setSuccess('Stream created! Redirecting...');
+          setFiles([]);
           setTimeout(() => {
-            router.push('/stream')
-          }, 1500)
+            router.push('/stream');
+          }, 1500);
         } catch (error) {
-          setError('Error creating stream')
-          return
+          setError('Error creating stream');
         }
-        return
+        return;
       }
     }
 
-    setIsUploading(true)
-    setError(null)
-    setSuccess(null)
-    setUploadProgress(0)
-
-    const formData = new FormData()
-    files.forEach(({ file }) => {
-      formData.append('videoFiles', file)
-    })
-
-    try {
-      const session = await getSession()
-      if (!session) {
-        router.push('/')
-        return
-      }
-
-      const xhr = new XMLHttpRequest()
-
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const percentComplete = Math.round((e.loaded / e.total) * 100)
-          setUploadProgress(percentComplete)
-        }
-      })
-
-      xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4) {
-          setIsUploading(false)
-
-          if (xhr.status === 200) {
-            try {
-              const response = JSON.parse(xhr.responseText)
-              setSuccess('Files uploaded successfully! Redirecting...')
-              setFiles([])
-              setTimeout(() => {
-                router.push('/stream')
-              }, 1500)
-            } catch (e) {
-              setError('Error processing response')
-            }
-          } else {
-            let errorMessage = 'Error uploading files'
-
-            try {
-              if (xhr.responseText) {
-                const errorResponse = JSON.parse(xhr.responseText)
-                if (errorResponse?.error) {
-                  errorMessage = errorResponse.error
-                }
-              }
-            } catch (e) {
-              // Ignore parse error
-            }
-
-            if (xhr.status === 413) {
-              errorMessage = 'File size too large. Maximum 2GB per file.'
-            } else if (xhr.status === 401) {
-              errorMessage = 'Session expired. Please login again.'
-              setTimeout(() => {
-                router.push('/')
-              }, 2000)
-            } else if (xhr.status === 0) {
-              errorMessage = 'Cannot connect to server. Check your internet connection.'
-            }
-
-            setError(errorMessage)
-          }
-        }
-      }
-
-      xhr.open('POST', `${config?.config?.apiUrl}/api/streams/upload`, true)
-      xhr.setRequestHeader('Authorization', `Bearer ${session?.user?.backendToken}`)
-      xhr.send(formData)
-    } catch (err) {
-      setIsUploading(false)
-      setError('An unexpected error occurred')
+    // For new file uploads, use TusUploaderComp
+    setIsUploading(true);
+    setError(null);
+    setSuccess(null);
+    
+    // Reset upload tracking
+    setUploadingFiles(new Set());
+    setCompletedFiles(new Set());
+    setAllUploadsComplete(false);
+    
+    // Start tus uploads
+    if (tusUploaderRef.current) {
+      tusUploaderRef.current.startUploads();
     }
-  }
+  };
 
   return (
     <div className="container-xxl py-4">
@@ -224,9 +186,14 @@ export default function StreamNewPage() {
         <Card>
           <Card.Body className="p-4">
           <TusUploaderComp
+                ref={tusUploaderRef}
                 onSuccess={handleUploadSuccess}
                 onProgress={setUploadProgress}
+                onUploadStart={handleUploadStart}
                 onError={(error) => setError(error.message)}
+                onFilesSelected={handleFilesFromUploader} // New callback
+                hideMediaList={true} 
+                uploadOnly={false}
               />
 
             {files.length > 0 && (

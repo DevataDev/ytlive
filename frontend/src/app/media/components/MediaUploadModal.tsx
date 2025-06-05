@@ -5,7 +5,11 @@ import { getSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
 import { useConfig } from '@/hooks/useConfig';
 
+import { MediaFile } from '@/services/streamService'
+import { useRouter } from 'next/navigation'
+
 import TusUploaderComp from '@/components/TusUploaderComp';
+import { TusUploaderRef } from '@/components/TusUploaderComp';
 
 interface FilePreview {
   file: File;
@@ -25,8 +29,16 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [selectedMediaFiles, setSelectedMediaFiles] = useState<MediaFile[]>([]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter()
+
+  // Add these state variables
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  const [completedFiles, setCompletedFiles] = useState<Set<string>>(new Set());
+  const [allUploadsComplete, setAllUploadsComplete] = useState(false);
+
+
 
   const config = useConfig();
 
@@ -84,103 +96,141 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
   };
 
   // Inside your component
-const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
-  setSuccess('Files uploaded successfully!');
-  setFiles([]);
-  toast.success('Media files uploaded successfully!');
-  setTimeout(() => {
-    onUploadComplete();
-    handleClose();
-  }, 1500);
-};
+  const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
+    setSuccess('Files uploaded successfully!');
+    setFiles([]);
+    toast.success('Media files uploaded successfully!');
+    setTimeout(() => {
+      onUploadComplete();
+      handleClose();
+    }, 1500);
+  };
 
+
+  // const handleUpload = async () => {
+  //   if (files.length === 0) {
+  //     setError('No files selected');
+  //     return;
+  //   }
+
+  //   setIsUploading(true);
+  //   setError(null);
+  //   setSuccess(null);
+  //   setUploadProgress(0);
+
+  //   const formData = new FormData();
+  //   files.forEach(({ file }) => {
+  //     formData.append('files', file);
+  //   });
+
+  //   try {
+  //     const session = await getSession();
+  //     if (!session) {
+  //       setError('Session expired. Please login again.');
+  //       return;
+  //     }
+
+  //     const xhr = new XMLHttpRequest();
+
+  //     xhr.upload.addEventListener('progress', (e) => {
+  //       if (e.lengthComputable) {
+  //         const percentComplete = Math.round((e.loaded / e.total) * 100);
+  //         setUploadProgress(percentComplete);
+  //       }
+  //     });
+
+  //     xhr.onreadystatechange = function () {
+  //       if (xhr.readyState === 4) {
+  //         setIsUploading(false);
+
+  //         if (xhr.status === 200) {
+  //           try {
+  //             const response = JSON.parse(xhr.responseText);
+  //             setSuccess('Files uploaded successfully!');
+  //             setFiles([]);
+  //             toast.success('Media files uploaded successfully!');
+  //             setTimeout(() => {
+  //               onUploadComplete();
+  //               handleClose();
+  //             }, 1500);
+  //           } catch (e) {
+  //             setError('Error processing response');
+  //           }
+  //         } else {
+  //           let errorMessage = 'Error uploading files';
+
+  //           try {
+  //             if (xhr.responseText) {
+  //               const errorResponse = JSON.parse(xhr.responseText);
+  //               if (errorResponse?.error) {
+  //                 errorMessage = errorResponse.error;
+  //               }
+  //             }
+  //           } catch (e) {
+  //             // Ignore parse error
+  //           }
+
+  //           if (xhr.status === 413) {
+  //             errorMessage = 'File size too large. Maximum 2GB per file.';
+  //           } else if (xhr.status === 401) {
+  //             errorMessage = 'Session expired. Please login again.';
+  //           } else if (xhr.status === 0) {
+  //             errorMessage = 'Cannot connect to server. Check your internet connection.';
+  //           }
+
+  //           setError(errorMessage);
+  //           toast.error(errorMessage);
+  //         }
+  //       }
+  //     };
+
+  //     xhr.open('POST', `${config?.config?.apiUrl}/api/media/upload`, true);
+  //     xhr.setRequestHeader('Authorization', `Bearer ${session?.user?.backendToken}`);
+  //     xhr.send(formData);
+  //   } catch (err) {
+  //     setIsUploading(false);
+  //     setError('An unexpected error occurred');
+  //   }
+  // };
 
   const handleUpload = async () => {
     if (files.length === 0) {
-      setError('No files selected');
-      return;
+      if (selectedMediaFiles.length === 0) {
+        setError('No files selected');
+        return;
+      } else {
+        // Handle existing media files only
+        try {
+          setSuccess('Stream created! Redirecting...');
+          setFiles([]);
+          setUploadProgress(0);
+          toast.success('Stream created! Redirecting...');
+          setTimeout(() => {
+            onUploadComplete();
+            handleClose();
+          })
+        } catch (error) {
+          setError('Error creating stream');
+        }
+        return;
+      }
     }
 
+    // For new file uploads, use TusUploaderComp
     setIsUploading(true);
     setError(null);
     setSuccess(null);
-    setUploadProgress(0);
 
-    const formData = new FormData();
-    files.forEach(({ file }) => {
-      formData.append('files', file);
-    });
+    // Reset upload tracking
+    setUploadingFiles(new Set());
+    setCompletedFiles(new Set());
+    setAllUploadsComplete(false);
 
-    try {
-      const session = await getSession();
-      if (!session) {
-        setError('Session expired. Please login again.');
-        return;
-      }
-
-      const xhr = new XMLHttpRequest();
-
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const percentComplete = Math.round((e.loaded / e.total) * 100);
-          setUploadProgress(percentComplete);
-        }
-      });
-
-      xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4) {
-          setIsUploading(false);
-
-          if (xhr.status === 200) {
-            try {
-              const response = JSON.parse(xhr.responseText);
-              setSuccess('Files uploaded successfully!');
-              setFiles([]);
-              toast.success('Media files uploaded successfully!');
-              setTimeout(() => {
-                onUploadComplete();
-                handleClose();
-              }, 1500);
-            } catch (e) {
-              setError('Error processing response');
-            }
-          } else {
-            let errorMessage = 'Error uploading files';
-
-            try {
-              if (xhr.responseText) {
-                const errorResponse = JSON.parse(xhr.responseText);
-                if (errorResponse?.error) {
-                  errorMessage = errorResponse.error;
-                }
-              }
-            } catch (e) {
-              // Ignore parse error
-            }
-
-            if (xhr.status === 413) {
-              errorMessage = 'File size too large. Maximum 2GB per file.';
-            } else if (xhr.status === 401) {
-              errorMessage = 'Session expired. Please login again.';
-            } else if (xhr.status === 0) {
-              errorMessage = 'Cannot connect to server. Check your internet connection.';
-            }
-
-            setError(errorMessage);
-            toast.error(errorMessage);
-          }
-        }
-      };
-
-      xhr.open('POST', `${config?.config?.apiUrl}/api/media/upload`, true);
-      xhr.setRequestHeader('Authorization', `Bearer ${session?.user?.backendToken}`);
-      xhr.send(formData);
-    } catch (err) {
-      setIsUploading(false);
-      setError('An unexpected error occurred');
+    // Start tus uploads
+    if (tusUploaderRef.current) {
+      tusUploaderRef.current.startUploads();
     }
   };
-
   const handleClose = () => {
     if (!isUploading) {
       setFiles([]);
@@ -191,6 +241,23 @@ const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
     }
   };
 
+  const handleUploadStart = (fileId: string) => {
+    setUploadingFiles(prev => {
+      const newUploading = new Set(prev);
+      newUploading.add(fileId);
+      return newUploading;
+    });
+  };
+
+  const handleFilesFromUploader = (selectedFiles: File[]) => {
+    const fileArray = selectedFiles.map(file => ({
+      file,
+      id: Math.random().toString(36).substr(2, 9)
+    }));
+    setFiles(prev => [...prev, ...fileArray]);
+  };
+  const tusUploaderRef = useRef<TusUploaderRef>(null);
+
   return (
     <Modal show={show} onHide={handleClose} size="lg" backdrop={isUploading ? 'static' : true}>
       <Modal.Header closeButton={!isUploading}>
@@ -200,11 +267,16 @@ const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
-      <TusUploaderComp 
-        onSuccess={handleUploadSuccess}
-        onProgress={setUploadProgress}
-        onError={(error) => setError(error.message)}
-      />
+        <TusUploaderComp
+          ref={tusUploaderRef}
+          onSuccess={handleUploadSuccess}
+          onProgress={setUploadProgress}
+          onUploadStart={handleUploadStart}
+          onError={(error) => setError(error.message)}
+          onFilesSelected={handleFilesFromUploader} // New callback
+          hideMediaList={true}
+          uploadOnly={true}
+        />
 
         {files.length > 0 && (
           <div className="mb-3">

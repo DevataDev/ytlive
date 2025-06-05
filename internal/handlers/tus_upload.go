@@ -1,10 +1,10 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/models"
@@ -87,82 +87,103 @@ func (h *TusUploadHandler) processCompletedUpload(event handler.HookEvent) {
 	fileName := metadata["filename"]
 	streamID := metadata["streamId"]
 	mediaType := metadata["mediaType"]
+	uploadOnly := metadata["uploadOnly"] == "true" // Convert string to bool
 
-	var createdStreamId string
-	if streamID == "" || strings.Contains(streamID, "temp") {
-		createdStreamId = generateULID()
-		streamName := fmt.Sprintf("Stream %s", time.Now().Format("2006-01-02 15:04:05"))
-		defaultLoopCount := -1
-		rtmpUrl := "rtmp://a.rtmp.youtube.com/live2/"
-		stream := models.Stream{
-			ID:        createdStreamId,
-			Name:      streamName,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-			UserID:    userID,
-			Status:    "stopped",
-			LoopCount: &defaultLoopCount,
-			RTMPUrl:   rtmpUrl,
-		}
-		if err := h.DB.Create(&stream).Error; err != nil {
-			log.Printf("Failed to create stream: %s", err)
-			return
-		}
-	} else {
-		createdStreamId = streamID
-	}
-
-	// Generate a unique ID for the media file
-	id := generateULID()
-
-	// Create media file record
-	mediaFile := models.MediaFile{
-		ID:        id,
-		FileName:  fileName,
-		FilePath:  filePath,
-		FileSize:  fileInfo.Size(),
-		MediaType: models.MediaType(mediaType),
-		MimeType:  metadata["filetype"],
-		UserId:    userID,
-	}
-
-	// Start a transaction
-	tx := h.DB.Begin()
-
-	// Create the media file record
-	if err := tx.Create(&mediaFile).Error; err != nil {
-		tx.Rollback()
-		log.Printf("Failed to create media file record: %s", err)
-		return
-	}
-
-	// If streamID is provided, associate the media file with the stream
-	if createdStreamId != "" {
-		log.Println("Associating media file with stream ID: ", createdStreamId)
-		log.Println("Media file ID: ", mediaFile.ID)
-		log.Println("User ID: ", userID)
-		log.Println("Stream ID: ", createdStreamId)
-		streamMediaFile := models.StreamMediaFile{
-			StreamID:    createdStreamId,
-			MediaFileID: mediaFile.ID,
-			Order:       0,
-			IsPrimary:   false,
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
+	if !uploadOnly {
+		if streamID == "" {
+			log.Println("No stream ID provided, creating new stream")
+			streamID = generateULID()
 		}
 
-		if err := tx.Create(&streamMediaFile).Error; err != nil {
+		var stream models.Stream
+		result := h.DB.Where("id = ?", streamID).First(&stream)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				// Create new stream
+				stream = models.Stream{
+					ID:        streamID,
+					Name:      fmt.Sprintf("Stream %s", time.Now().Format("2006-01-02 15:04:05")),
+					RTMPUrl:   fmt.Sprintf("rtmp://a.rtmp.youtube.com/live2/"),
+					UserID:    userID,
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
+				}
+				if err := h.DB.Create(&stream).Error; err != nil {
+					log.Printf("Error creating stream: %v", err)
+					return
+				}
+			} else {
+				log.Printf("Error retrieving stream: %v", result.Error)
+			}
+		}
+
+		// Generate a unique ID for the media file
+		id := generateULID()
+
+		// Create media file record
+		mediaFile := models.MediaFile{
+			ID:        id,
+			FileName:  fileName,
+			FilePath:  filePath,
+			FileSize:  fileInfo.Size(),
+			MediaType: models.MediaType(mediaType),
+			MimeType:  metadata["filetype"],
+			UserId:    userID,
+		}
+
+		// Start a transaction
+		tx := h.DB.Begin()
+
+		// Create the media file record
+		if err := tx.Create(&mediaFile).Error; err != nil {
 			tx.Rollback()
-			log.Printf("Failed to associate media file with stream: %s", err)
+			log.Printf("Failed to create media file record: %s", err)
 			return
 		}
-	}
 
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		log.Printf("Failed to commit transaction: %s", err)
-		return
-	}
+		// If streamID is provided, associate the media file with the stream
+		if streamID != "" {
+			log.Println("Associating media file with stream ID: ", streamID)
+			log.Println("Media file ID: ", mediaFile.ID)
+			log.Println("User ID: ", userID)
+			log.Println("Stream ID: ", streamID)
+			streamMediaFile := models.StreamMediaFile{
+				StreamID:    streamID,
+				MediaFileID: mediaFile.ID,
+				Order:       0,
+				IsPrimary:   false,
+				CreatedAt:   time.Now(),
+				UpdatedAt:   time.Now(),
+			}
 
-	log.Printf("Successfully processed completed upload: %s", mediaFile.ID)
+			if err := tx.Create(&streamMediaFile).Error; err != nil {
+				tx.Rollback()
+				log.Printf("Failed to associate media file with stream: %s", err)
+				return
+			}
+		}
+
+		// Commit the transaction
+		if err := tx.Commit().Error; err != nil {
+			log.Printf("Failed to commit transaction: %s", err)
+			return
+		}
+		log.Printf("Successfully processed completed upload: %s", mediaFile.ID)
+	} else {
+		log.Println("Upload only flag is set, skipping stream creation")
+		mediaFile := models.MediaFile{
+			ID:        generateULID(),
+			FileName:  fileName,
+			FilePath:  filePath,
+			FileSize:  fileInfo.Size(),
+			MediaType: models.MediaType(mediaType),
+			MimeType:  metadata["filetype"],
+			UserId:    userID,
+		}
+		if err := h.DB.Create(&mediaFile).Error; err != nil {
+			log.Printf("Failed to create media file record: %s", err)
+			return
+		}
+		log.Printf("Successfully processed completed upload: %s", mediaFile.ID)
+	}
 }
