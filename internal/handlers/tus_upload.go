@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/models"
@@ -30,7 +32,7 @@ func (h *TusUploadHandler) SetupTusHandler(router *gin.Engine) {
 
 	// Create a filestore and configure it
 	store := filestore.New(uploadPath)
-	locker := filelocker.New("./uploads")
+	locker := filelocker.New(uploadPath)
 
 	// Create a new tus handler
 	composer := handler.NewStoreComposer()
@@ -72,14 +74,52 @@ func (h *TusUploadHandler) SetupTusHandler(router *gin.Engine) {
 	log.Println("Tus upload handler setup routing completed")
 }
 
+func parseMediaType(filePathStr string) (string, error) {
+	// Implement your logic to determine the media type based on the file path
+	// For example, you can check the file extension or use a library like ffprobe
+	// to determine the media type.
+	// Get file extension and validate
+	ext := strings.ToLower(filepath.Ext(filePathStr))
+	log.Println("File extension: ", ext)
+	allowedExts := map[string]bool{
+		".mp4": true,
+		".mkv": true,
+		".wav": true,
+		".mp3": true,
+	}
+
+	if !allowedExts[ext] && ext != "" {
+		err := errors.New("invalid file extension, " + ext)
+		return "", err
+	}
+
+	mediaType := ""
+	switch ext {
+	case ".mp4", ".mkv":
+		mediaType = "video"
+	case ".mp3", ".wav":
+		mediaType = "audio"
+	}
+
+	if mediaType == "" {
+		mediaType = "video" // default to video if type couldn't be determined
+	}
+
+	log.Println("Media type detected: ", mediaType)
+
+	return mediaType, nil
+}
+
 func (h *TusUploadHandler) processCompletedUpload(event handler.HookEvent) {
 	// Get file info
-	filePath := event.Upload.Storage["Path"]
-	fileInfo, err := os.Stat(filePath)
+	filePathStr := event.Upload.Storage["Path"]
+	fileInfo, err := os.Stat(filePathStr)
 	if err != nil {
 		log.Printf("Error getting file info: %s", err)
 		return
 	}
+
+	log.Println("Processing completed upload, file path : ", fileInfo.Name(), filePathStr)
 
 	// Extract metadata from the upload
 	metadata := event.Upload.MetaData
@@ -89,11 +129,29 @@ func (h *TusUploadHandler) processCompletedUpload(event handler.HookEvent) {
 	mediaType := metadata["mediaType"]
 	uploadOnly := metadata["uploadOnly"] == "true" // Convert string to bool
 
+	log.Println("Processing completed upload, mediaType : ", mediaType)
+	if mediaType == "detect" {
+		log.Println("No media type provided, skipping processing, detecting media type : ", filePathStr, fileName)
+		// Fix line 170 - change from:
+
+		// To:
+		mediaType, err = parseMediaType(fileName)
+		if err != nil {
+			log.Printf("Error parsing media type: %s", err)
+			return
+		}
+	}
+
 	if !uploadOnly {
 		if streamID == "" {
 			log.Println("No stream ID provided, creating new stream")
 			streamID = generateULID()
 		}
+
+		log.Println("Checking Stream ID: ", streamID)
+		log.Println("Checking User ID: ", userID)
+		log.Println("Checking Media Type: ", mediaType)
+		log.Println("Checking File Name: ", fileName)
 
 		var stream models.Stream
 		result := h.DB.Where("id = ?", streamID).First(&stream)
@@ -124,7 +182,7 @@ func (h *TusUploadHandler) processCompletedUpload(event handler.HookEvent) {
 		mediaFile := models.MediaFile{
 			ID:        id,
 			FileName:  fileName,
-			FilePath:  filePath,
+			FilePath:  filePathStr,
 			FileSize:  fileInfo.Size(),
 			MediaType: models.MediaType(mediaType),
 			MimeType:  metadata["filetype"],
@@ -174,7 +232,7 @@ func (h *TusUploadHandler) processCompletedUpload(event handler.HookEvent) {
 		mediaFile := models.MediaFile{
 			ID:        generateULID(),
 			FileName:  fileName,
-			FilePath:  filePath,
+			FilePath:  filePathStr,
 			FileSize:  fileInfo.Size(),
 			MediaType: models.MediaType(mediaType),
 			MimeType:  metadata["filetype"],

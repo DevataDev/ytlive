@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Form, Alert, Spinner, ListGroup, Badge } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { MediaFile, MediaFileData } from '@/services/streamService';
@@ -7,6 +7,7 @@ import PlayerPreviewModal from './PlayerPreviewModal';
 import MediaFileSelectionModal from './MediaFileSelectionModal';
 import { getSession } from 'next-auth/react';
 import { useConfig } from '@/hooks/useConfig';
+import TusUploaderComp from '@/components/TusUploaderComp';
 
 export interface MediaFileModalProps {
     show: boolean;
@@ -25,14 +26,13 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [mediaType, setMediaType] = useState<'video' | 'audio'>('video');
+    // Remove selectedFile and mediaType states as TusUploaderComp will handle this
+    // const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    // const [mediaType, setMediaType] = useState<'video' | 'audio'>('video');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [selectedMediaFile, setSelectedMediaFile] = useState<MediaFile | null>(null);
     const [selectedMediaFiles, setSelectedMediaFiles] = useState<MediaFile[]>([]);
-
-    // New state for existing media selection
     const [showMediaSelection, setShowMediaSelection] = useState(false);
     const [addingExistingMedia, setAddingExistingMedia] = useState(false);
     const config = useConfig();
@@ -82,34 +82,6 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
         }
     };
 
-    const handleFileUpload = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedFile) {
-            setError('Please select a file to upload');
-            return;
-        }
-
-        try {
-            setUploading(true);
-            setError('');
-
-            const uploadData: MediaFileUploadData = {
-                file: selectedFile,
-                mediaType
-            };
-
-            await uploadMediaFile(streamId, uploadData);
-            toast.success('Media file uploaded successfully');
-            resetForm();
-            await loadMediaFiles();
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to upload media file';
-            setError(errorMessage);
-            toast.error(errorMessage);
-        } finally {
-            setUploading(false);
-        }
-    };
 
     const handleDeleteFile = async (fileId: string) => {
         try {
@@ -124,9 +96,6 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
     };
 
     const resetForm = () => {
-        setSelectedFile(null);
-        setMediaType('video');
-        setError('');
         setShowDeleteConfirm(null);
     };
 
@@ -203,6 +172,30 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
             setAddingExistingMedia(false);
         }
     };
+
+    // Handle successful upload from TusUploaderComp
+    const handleUploadSuccess = useCallback((fileId: string, fileName: string) => {
+        toast.success(`File ${fileName} uploaded successfully!`);
+        // Reload media files to show the new upload
+        loadMediaFiles();
+    }, []);
+
+    // Handle upload progress
+    const handleUploadProgress = useCallback((progress: number) => {
+        // You can add progress tracking here if needed
+    }, []);
+
+    // Handle upload errors
+    const handleUploadError = useCallback((error: Error) => {
+        setError(error.message);
+        toast.error(`Upload failed: ${error.message}`);
+    }, []);
+
+    // Handle when all uploads complete
+    const handleAllUploadsComplete = useCallback(() => {
+        toast.success('All files uploaded successfully!');
+        loadMediaFiles(); // Refresh the media files list
+    }, []);
 
     return (
         <>
@@ -307,59 +300,18 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
                             <hr className="flex-grow-1" />
                         </div>
 
-                        {/* Upload New Media File */}
+                        {/* Replace Upload New Media File section with TusUploaderComp */}
                         <div>
-                            <h6 className="mb-3">Upload New Media File</h6>
-                            <Form onSubmit={handleFileUpload}>
-                                <div className="row">
-                                    <div className="col-md-4 mb-3">
-                                        <Form.Label>Media Type</Form.Label>
-                                        <Form.Select
-                                            value={mediaType}
-                                            onChange={(e) => setMediaType(e.target.value as 'video' | 'audio')}
-                                            disabled={uploading}
-                                        >
-                                            <option value="video">Video</option>
-                                            <option value="audio">Audio</option>
-                                        </Form.Select>
-                                    </div>
-                                    <div className="col-md-8 mb-3">
-                                        <Form.Label>Select File</Form.Label>
-                                        <Form.Control
-                                            type="file"
-                                            onChange={(e) => {
-                                                const target = e.target as HTMLInputElement;
-                                                setSelectedFile(target.files?.[0] || null);
-                                            }}
-                                            accept={mediaType === 'video' ? '.mp4,.mkv' : mediaType === 'audio' ? '.wav,.mp3' : '.jpg,.jpeg,.png,.gif'}
-                                            disabled={uploading}
-                                        />
-                                        <Form.Text className="text-muted">
-                                            {mediaType === 'video' && 'Supported formats: MP4, MKV'}
-                                            {mediaType === 'audio' && 'Supported formats: WAV, MP3'}
-                                        </Form.Text>
-                                    </div>
-                                </div>
-                                <div className="d-flex justify-content-end">
-                                    <Button
-                                        type="submit"
-                                        variant="primary"
-                                        disabled={!selectedFile || uploading}
-                                    >
-                                        {uploading ? (
-                                            <>
-                                                <Spinner animation="border" size="sm" className="me-2" />
-                                                Uploading...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <i className="bi bi-upload me-2"></i>
-                                                Upload File
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                            </Form>
+                            <h6 className="mb-3">Upload New Media Files</h6>
+                            <TusUploaderComp
+                                streamId={streamId}
+                                onSuccess={handleUploadSuccess}
+                                onProgress={handleUploadProgress}
+                                onError={handleUploadError}
+                                onAllUploadsComplete={handleAllUploadsComplete}
+                                hideMediaList={true}
+                                uploadOnly={false}
+                            />
                         </div>
                     </div>
                 </Modal.Body>

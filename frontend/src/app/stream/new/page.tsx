@@ -147,6 +147,8 @@ export default function StreamNewPage() {
   const tusUploaderRef = useRef<TusUploaderRef>(null);
 
   const handleUpload = async () => {
+    console.log(`Uploading ${files.length} files...`)
+    console.log('Selected media files:', selectedMediaFiles);
     if (files.length === 0) {
       if (selectedMediaFiles.length === 0) {
         setError('No files selected');
@@ -158,6 +160,8 @@ export default function StreamNewPage() {
           setError('Session expired. Please login again.');
           return;
         }
+
+
       }
     }
 
@@ -170,6 +174,8 @@ export default function StreamNewPage() {
     setUploadingFiles(new Set());
     setCompletedFiles(new Set());
     setAllUploadsComplete(false);
+
+    console.log('Uploading files...');
 
     // Start tus uploads
     if (tusUploaderRef.current) {

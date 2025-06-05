@@ -299,7 +299,7 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
         />
 
         {files.length > 0 && (
-          <div className="mb-3">
+          <div className="mb-3 mt-4">
             <h6 className="mb-2">Selected Files ({files.length})</h6>
             <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
               {files.map(({ file, id }) => (
