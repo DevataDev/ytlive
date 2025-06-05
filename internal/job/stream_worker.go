@@ -252,8 +252,21 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 	// find media files
 	var streamMediaFiles []models.StreamMediaFile
 	if err := database.Preload("MediaFile").Where("stream_id = ?", streamID).Find(&streamMediaFiles).Error; err != nil {
-		return nil, 0, err
+	    return nil, 0, err
 	}
+
+	// Deduplicate media files
+	var uniqueMediaFileIDs = make(map[string]bool)
+	var uniqueStreamMediaFiles []models.StreamMediaFile
+
+	for _, smf := range streamMediaFiles {
+	    if !uniqueMediaFileIDs[smf.MediaFileID] {
+	        uniqueMediaFileIDs[smf.MediaFileID] = true
+	        uniqueStreamMediaFiles = append(uniqueStreamMediaFiles, smf)
+	    }
+	}
+
+	streamMediaFiles = uniqueStreamMediaFiles
 
 	// Separate video and audio files
 	for _, smf := range streamMediaFiles {
