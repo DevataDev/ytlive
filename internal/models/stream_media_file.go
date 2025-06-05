@@ -1,7 +1,7 @@
 package models
 
 import (
-	"errors"
+	"log"
 	"math/rand"
 	"time"
 
@@ -12,8 +12,8 @@ import (
 // StreamMediaFile adalah junction table untuk many-to-many relationship
 type StreamMediaFile struct {
 	ID          string         `gorm:"primaryKey" json:"id"`
-	StreamID    string         `gorm:"not null;index" json:"stream_id"`
-	MediaFileID string         `gorm:"not null;index" json:"media_file_id"`
+	StreamID    string         `gorm:"not null;index;uniqueIndex:idx_stream_media" json:"stream_id"`
+	MediaFileID string         `gorm:"not null;index;uniqueIndex:idx_stream_media" json:"media_file_id"`
 	Order       int            `gorm:"default:0" json:"order"`          // Urutan file dalam stream
 	IsPrimary   bool           `gorm:"default:false" json:"is_primary"` // Apakah file utama dalam stream
 	CreatedAt   time.Time      `json:"created_at"`
@@ -48,7 +48,8 @@ func (smf *StreamMediaFile) BeforeCreate(tx *gorm.DB) error {
 	}
 
 	if count > 0 {
-		return errors.New("media file already associated with this stream")
+		log.Println("media file already associated with this stream")
+		return nil
 	}
 
 	return nil
