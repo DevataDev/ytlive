@@ -753,6 +753,7 @@ func (h *MediaFileHandler) UploadMediaFileOnly(c *gin.Context) {
 			}
 		} else {
 			if !allowedMimeTypes[contentType] {
+				log.Println("Unknown file type. Content type:", contentType)
 				c.JSON(400, gin.H{"error": "invalid file content. Only MP4, MKV, WAV, and MP3 files are allowed"})
 				return
 			}
@@ -773,6 +774,7 @@ func (h *MediaFileHandler) UploadMediaFileOnly(c *gin.Context) {
 		// Create uploads directory if it doesn't exist
 		uploadDir := filepath.Join("uploads", userID.(string))
 		if err := os.MkdirAll(uploadDir, 0755); err != nil {
+			log.Println("Error creating upload directory:", err)
 			c.JSON(500, gin.H{"error": "failed to create upload directory"})
 			return
 		}
@@ -783,6 +785,7 @@ func (h *MediaFileHandler) UploadMediaFileOnly(c *gin.Context) {
 
 		// Save the file
 		if err := c.SaveUploadedFile(file, filePath); err != nil {
+			log.Println("Error saving file:", err) // Log the error for debuggin
 			c.JSON(500, gin.H{"error": "failed to save file"})
 			return
 		}
@@ -804,6 +807,7 @@ func (h *MediaFileHandler) UploadMediaFileOnly(c *gin.Context) {
 
 		if err := h.DB.Create(&mediaFile).Error; err != nil {
 			// Clean up the uploaded file if DB operation fails
+			log.Println("Error saving media file record:", err) // Log the error for debuggin
 			os.Remove(filePath)
 			c.JSON(500, gin.H{"error": "failed to save media file record"})
 			return
