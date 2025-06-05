@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"math/rand"
 	"time"
 
@@ -25,18 +26,30 @@ type StreamMediaFile struct {
 }
 
 // TableName menentukan nama tabel
+// Add this to your StreamMediaFile struct or in a migration
 func (StreamMediaFile) TableName() string {
 	return "stream_media_files"
 }
 
-// BeforeCreate generates ULID for new records
-func (smf *StreamMediaFile) BeforeCreate(tx *gorm.DB) (err error) {
-	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
-	ms := ulid.Timestamp(time.Now())
-	id, err := ulid.New(ms, entropy)
-	if err != nil {
-		return
+// Add a BeforeCreate hook to check for duplicates
+func (smf *StreamMediaFile) BeforeCreate(tx *gorm.DB) error {
+	// Generate ULID if not provided
+	if smf.ID == "" {
+		t := time.Now()
+		entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
+		id := ulid.MustNew(ulid.Timestamp(t), entropy)
+		smf.ID = id.String()
 	}
-	smf.ID = id.String()
-	return
+
+	// Check for existing association
+	var count int64
+	if err := tx.Model(&StreamMediaFile{}).Where("stream_id = ? AND media_file_id = ?", smf.StreamID, smf.MediaFileID).Count(&count).Error; err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return errors.New("media file already associated with this stream")
+	}
+
+	return nil
 }

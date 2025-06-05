@@ -751,10 +751,24 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 	}
 
 	// 5. Check if primary media file exists
+	// First, deduplicate media files to avoid processing duplicates
+	var uniqueMediaFiles = make(map[string]bool)
+	var uniqueStreamMediaFiles []models.StreamMediaFile
+
+	for _, smf := range stream.StreamMediaFiles {
+		if !uniqueMediaFiles[smf.MediaFileID] {
+			uniqueMediaFiles[smf.MediaFileID] = true
+			uniqueStreamMediaFiles = append(uniqueStreamMediaFiles, smf)
+		}
+	}
+
+	// Replace stream.StreamMediaFiles with uniqueStreamMediaFiles for further processing
+	stream.StreamMediaFiles = uniqueStreamMediaFiles
+
 	var primaryMedia *models.MediaFile
 
 	// If no primary media is set, use the first one
-	if primaryMedia == nil {
+	if primaryMedia == nil && len(stream.StreamMediaFiles) > 0 {
 		primaryMedia = &stream.StreamMediaFiles[0].MediaFile
 	}
 
