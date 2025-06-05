@@ -1,5 +1,5 @@
 // Add forwardRef and useImperativeHandle
-import React, { useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { useConfig } from '@/hooks/useConfig';
 import { getSession } from 'next-auth/react';
 import * as tus from 'tus-js-client';
@@ -23,9 +23,9 @@ interface TusUploaderProps {
   uploadOnly?: boolean;
 }
 
-const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({ 
-  onSuccess, 
-  onProgress, 
+const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
+  onSuccess,
+  onProgress,
   onError,
   onUploadStart,
   onAllUploadsComplete,
@@ -55,7 +55,7 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFiles(Array.from(e.dataTransfer.files));
     }
@@ -69,12 +69,14 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
 
   const handleFiles = (selectedFiles: File[]) => {
     setFiles(selectedFiles);
-    
-    // Notify parent component about file selection
+
+    // Defer the parent notification to avoid state updates during render
     if (onFilesSelected) {
-      onFilesSelected(selectedFiles);
+      setTimeout(() => {
+        onFilesSelected(selectedFiles);
+      }, 0);
     }
-    
+
     // Only auto-upload if parent doesn't want to manage files
     if (!onFilesSelected) {
       console.log('Auto-uploading files...');
@@ -85,24 +87,24 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
 
   const startUploads = async () => {
     if (files.length === 0) return;
-    
+
     const session = await getSession();
     if (!session) {
       onError(new Error('Session expired. Please login again.'));
       return;
     }
-  
+
     const uploadStreamId = streamId || ulid();
     const uploadIds = new Set<string>();
-    
+
     files.forEach((file, index) => {
       const fileId = `${file.name}_${index}_${Date.now()}`;
       uploadIds.add(fileId);
-      
+
       if (onUploadStart) {
         onUploadStart(fileId);
       }
-      
+
       const upload = new tus.Upload(file, {
         endpoint: `${config?.config?.apiUrl}/files/`,
         retryDelays: [0, 3000, 5000, 10000, 20000],
@@ -113,12 +115,12 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
           userId: session.user?.id as string,
           streamId: uploadStreamId,
           mediaType: mediaType,
-          uploadOnly: uploadOnly? 'true' : 'false'
+          uploadOnly: uploadOnly ? 'true' : 'false'
         },
         headers: {
           'Authorization': `Bearer ${session?.user?.backendToken}`
         },
-        onError: function(error) {
+        onError: function (error) {
           setActiveUploads(prev => {
             const newActive = new Set(prev);
             newActive.delete(fileId);
@@ -126,31 +128,31 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
           });
           onError(error);
         },
-        onProgress: function(bytesUploaded, bytesTotal) {
+        onProgress: function (bytesUploaded, bytesTotal) {
           const percentage = ((bytesUploaded / bytesTotal) * 100);
           onProgress(percentage);
         },
-        onSuccess: function() {
+        onSuccess: function () {
           setCompletedUploads(prev => {
             const newCompleted = new Set(prev);
             newCompleted.add(fileId);
-            
+
             // Check if all uploads are complete
             if (newCompleted.size === uploadIds.size) {
               if (onAllUploadsComplete) {
                 onAllUploadsComplete();
               }
             }
-            
+
             return newCompleted;
           });
-          
+
           setActiveUploads(prev => {
             const newActive = new Set(prev);
             newActive.delete(fileId);
             return newActive;
           });
-          
+
           onSuccess(upload.url ?? '', fileId);
         }
       });
@@ -161,7 +163,7 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
         return newActive;
       });
 
-      upload.findPreviousUploads().then(function(previousUploads) {
+      upload.findPreviousUploads().then(function (previousUploads) {
         if (previousUploads.length) {
           upload.resumeFromPreviousUpload(previousUploads[0]);
         }
@@ -181,32 +183,32 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
 
   return (
     <div>
-    <div
-      className={`border border-2 rounded p-5 text-center ${isDragging ? 'border-primary bg-light' : 'border-secondary border-opacity-25'}`}
-      style={{
-        borderStyle: 'dashed',
-        transition: 'all 0.3s ease',
-        cursor: 'pointer'
-      }}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={() => fileInputRef.current?.click()}
-    >
-      <h5 className="mb-2">Drag and drop files here</h5>
-      <p className="text-muted mb-3">or</p>
-      <button className="btn btn-outline-primary">Browse Files</button>
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        onChange={handleFileSelect}
-        className="d-none"
-        accept="video/*,audio/*"
-      />
-    </div>
-    {/* File list */}
-    { !hideMediaList && files.length > 0 && (
+      <div
+        className={`border border-2 rounded p-5 text-center ${isDragging ? 'border-primary bg-light' : 'border-secondary border-opacity-25'}`}
+        style={{
+          borderStyle: 'dashed',
+          transition: 'all 0.3s ease',
+          cursor: 'pointer'
+        }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <h5 className="mb-2">Drag and drop files here</h5>
+        <p className="text-muted mb-3">or</p>
+        <button className="btn btn-outline-primary">Browse Files</button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={handleFileSelect}
+          className="d-none"
+          accept="video/*,audio/*"
+        />
+      </div>
+      {/* File list */}
+      {!hideMediaList && files.length > 0 && (
         <div className="mt-4">
           {files.map((file, index) => (
             <div key={index} className="flex items-center justify-between p-3 border rounded mb-2">
@@ -222,7 +224,7 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
               </button>
             </div>
           ))}
-          
+
           <button
             onClick={startUploads}
             disabled={activeUploads.size > 0}

@@ -103,21 +103,21 @@ export default function StreamNewPage() {
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
   const [completedFiles, setCompletedFiles] = useState<Set<string>>(new Set());
   const [allUploadsComplete, setAllUploadsComplete] = useState(false);
-  
+
   const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
     setCompletedFiles(prev => {
       const newCompleted = new Set(prev);
       newCompleted.add(fileId);
-      
+
       // Don't redirect here - wait for all uploads to complete
       if (newCompleted.size < uploadingFiles.size) {
         setSuccess(`Uploaded ${newCompleted.size} of ${uploadingFiles.size} files...`);
       }
-      
+
       return newCompleted;
     });
   };
-  
+
   const handleUploadStart = (fileId: string) => {
     setUploadingFiles(prev => {
       const newUploading = new Set(prev);
@@ -125,19 +125,23 @@ export default function StreamNewPage() {
       return newUploading;
     });
   };
-  
+
   const handleAllUploadsComplete = () => {
     setAllUploadsComplete(true);
-    setSuccess('All files uploaded successfully!');
+    setSuccess('All files uploaded successfully! Redirecting...');
+    //redirect to stream page
+    setTimeout(() => {
+      router.push('/stream')
+    }, 1000);
   };
 
-  const handleFilesFromUploader = (selectedFiles: File[]) => {
+  const handleFilesFromUploader = useCallback((selectedFiles: File[]) => {
     const fileArray = selectedFiles.map(file => ({
       file,
       id: Math.random().toString(36).substr(2, 9)
     }));
     setFiles(prev => [...prev, ...fileArray]);
-  };
+  }, []);
 
 
   const tusUploaderRef = useRef<TusUploaderRef>(null);
@@ -161,12 +165,12 @@ export default function StreamNewPage() {
     setIsUploading(true);
     setError(null);
     setSuccess(null);
-    
+
     // Reset upload tracking
     setUploadingFiles(new Set());
     setCompletedFiles(new Set());
     setAllUploadsComplete(false);
-    
+
     // Start tus uploads
     if (tusUploaderRef.current) {
       tusUploaderRef.current.startUploads();
@@ -180,17 +184,17 @@ export default function StreamNewPage() {
 
         <Card>
           <Card.Body className="p-4">
-          <TusUploaderComp
-                ref={tusUploaderRef}
-                onSuccess={handleUploadSuccess}
-                onAllUploadsComplete={handleAllUploadsComplete}
-                onProgress={setUploadProgress}
-                onUploadStart={handleUploadStart}
-                onError={(error) => setError(error.message)}
-                onFilesSelected={handleFilesFromUploader} // New callback
-                hideMediaList={true} 
-                uploadOnly={false}
-              />
+            <TusUploaderComp
+              ref={tusUploaderRef}
+              onSuccess={handleUploadSuccess}
+              onAllUploadsComplete={handleAllUploadsComplete}
+              onProgress={setUploadProgress}
+              onUploadStart={handleUploadStart}
+              onError={(error) => setError(error.message)}
+              onFilesSelected={handleFilesFromUploader} // New callback
+              hideMediaList={true}
+              uploadOnly={false}
+            />
 
             {files.length > 0 && (
               <div className="mt-4">
