@@ -881,7 +881,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 	// Log stream started activity
 	userID, _ := c.Get("user_id")
 
-	if err := tx.Save(&stream).Error; err != nil {
+	if err := tx.Omit("StreamMediaFiles").Save(&stream).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start stream"})
 		return
