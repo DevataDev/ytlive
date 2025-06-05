@@ -329,8 +329,9 @@ func main() {
 		clientReqOrigin := c.Request.Header.Get("Origin")
 		c.Header("Access-Control-Allow-Origin", clientReqOrigin)
 		c.Header("Access-Control-Allow-Credentials", "true")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, tus-resumable, x-requested-with, x-tus-resumable, x-tus-version, x-tus-max-size, x-tus-offset, x-tus-checksum-algorithm, x-tus-checksum, x-tus-checksum-complete, x-tus-checksum-complete-defer-length, upload-metadata, upload-length, Location, upload-offset")
+		c.Header("Access-Control-Expose-Headers", "Location, tus-resumable, tus-version, tus-max-size, tus-extension, upload-offset, upload-length, upload-metadata, upload-offset")
 		// return ok response for preflight request
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusOK)
@@ -380,6 +381,7 @@ func main() {
 	r.PUT("/api/streams/:id/media/:mediaId/unmap", handlers.JWTMiddleware(), mediaFileHandler.UnMapMediaFile)
 	r.GET("/api/media/user", handlers.JWTMiddleware(), mediaFileHandler.ListAllMediaFilesByUser)
 	r.POST("/api/media/upload", handlers.JWTMiddleware(), mediaFileHandler.UploadMediaFileOnly)
+	r.DELETE("/api/media/:id", handlers.JWTMiddleware(), mediaFileHandler.DeleteMediaFileByID)
 
 	// Handle video upload (file or Google Drive link)
 	r.POST("/api/streams/upload", handlers.JWTMiddleware(), fileUploadHandler.UploadStream)
@@ -566,6 +568,13 @@ func main() {
 	// FFmpeg log WebSocket endpoints for mirrors and streams
 	r.GET("/ws/ffmpeg-logs/mirror/:mirror_id", handlers.JWTMiddleware(), handlers.FFmpegLogMirrorWebSocket)
 	r.GET("/ws/ffmpeg-logs/stream/:stream_id", handlers.JWTMiddleware(), handlers.FFmpegLogStreamWebSocket)
+
+	// Add this to your route setup
+	tusHandler := handlers.TusUploadHandler{DB: db, Config: cfg}
+	tusHandler.SetupTusHandler(r)
+
+	// Add the endpoint to create tus uploads
+	r.POST("/api/uploads/create", handlers.JWTMiddleware(), mediaFileHandler.CreateTusUpload)
 
 	log.Println("Starting YukLive...")
 	log.Println("Version: " + version.Version)

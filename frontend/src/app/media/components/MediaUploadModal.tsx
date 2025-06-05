@@ -5,6 +5,8 @@ import { getSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
 import { useConfig } from '@/hooks/useConfig';
 
+import TusUploaderComp from '@/components/TusUploaderComp';
+
 interface FilePreview {
   file: File;
   id: string;
@@ -80,6 +82,18 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
       handleFiles(e.target.files);
     }
   };
+
+  // Inside your component
+const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
+  setSuccess('Files uploaded successfully!');
+  setFiles([]);
+  toast.success('Media files uploaded successfully!');
+  setTimeout(() => {
+    onUploadComplete();
+    handleClose();
+  }, 1500);
+};
+
 
   const handleUpload = async () => {
     if (files.length === 0) {
@@ -186,36 +200,11 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <div
-          className={`border border-2 rounded p-4 text-center mb-3 ${
-            isDragging ? 'border-primary bg-light' : 'border-secondary border-opacity-25'
-          }`}
-          style={{
-            borderStyle: 'dashed',
-            transition: 'all 0.3s ease',
-            cursor: 'pointer'
-          }}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Upload size={48} className="text-muted mb-3" />
-          <h6 className="mb-2">Drag and drop files here</h6>
-          <p className="text-muted mb-3">or</p>
-          <Button variant="outline-primary" disabled={isUploading}>
-            Browse Files
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            onChange={handleFileSelect}
-            className="d-none"
-            accept="video/*,audio/*"
-            disabled={isUploading}
-          />
-        </div>
+      <TusUploaderComp 
+        onSuccess={handleUploadSuccess}
+        onProgress={setUploadProgress}
+        onError={(error) => setError(error.message)}
+      />
 
         {files.length > 0 && (
           <div className="mb-3">
@@ -254,16 +243,16 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
         )}
 
         {uploadProgress > 0 && uploadProgress < 100 && (
-          <div className="mb-3">
+          <div className="mb-3 mt-2">
             <ProgressBar now={uploadProgress} animated striped />
-            <p className="text-center text-muted small mt-2">
+            <p className="text-center text-muted small mt-4">
               Uploading... {uploadProgress}%
             </p>
           </div>
         )}
 
         {error && (
-          <Alert variant="danger" className="mb-3" dismissible onClose={() => setError(null)}>
+          <Alert variant="danger" className="mb-3 mt-2" dismissible onClose={() => setError(null)}>
             <Alert.Heading className="h6 mb-1">
               <ExclamationCircle className="me-2" />
               Error
@@ -273,7 +262,7 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
         )}
 
         {success && (
-          <Alert variant="success" className="mb-3">
+          <Alert variant="success" className="mb-3 mt-2">
             {success}
           </Alert>
         )}

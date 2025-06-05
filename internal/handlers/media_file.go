@@ -816,3 +816,60 @@ func (h *MediaFileHandler) UploadMediaFileOnly(c *gin.Context) {
 
 	c.JSON(200, gin.H{"message": "file uploaded successfully", "file": files})
 }
+
+// Add this to MediaFileHandler
+
+func (h *MediaFileHandler) CreateTusUpload(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Optional: Get stream ID from request
+	streamID := c.Query("streamId")
+
+	// Return the upload URL and any necessary metadata
+	c.JSON(http.StatusOK, gin.H{
+		"uploadUrl": fmt.Sprintf("%s/files/", os.Getenv("APP_URL")),
+		"userId":    userID,
+		"streamId":  streamID,
+	})
+}
+
+func (h *MediaFileHandler) DeleteMediaFileByID(c *gin.Context) {
+	mediaID := c.Param("id")
+	if mediaID == "" {
+		c.JSON(400, gin.H{"error": "media_id required"})
+		return
+	}
+
+	// Get media file
+	var mediaFile models.MediaFile
+	if err := h.DB.First(&mediaFile, "id = ?", mediaID).Error; err != nil {
+		c.JSON(404, gin.H{"error": "media file not found"})
+		return
+	}
+
+	// Delete file from storage
+	if err := os.Remove(mediaFile.FilePath); err != nil && !os.IsNotExist(err) {
+		c.JSON(500, gin.H{"error": "failed to delete file from storage"})
+		return
+	}
+
+	// Delete record from database
+	if err := h.DB.Delete(&mediaFile).Error; err != nil {
+		c.JSON(500, gin.H{"error": "failed to delete media file record"})
+		return
+	}
+
+	// check if there is other media files using the same file_path then remove it
+	var otherMediaFiles []models.MediaFile
+	if err := h.DB.Where("file_path =?", mediaFile.FilePath).Find(&otherMediaFiles).Error; err == nil {
+		for _, otherMediaFile := range otherMediaFiles {
+			h.DB.Delete(&otherMediaFile)
+		}
+	}
+
+	c.JSON(200, gin.H{"message": "media file deleted successfully"})
+}

@@ -8,6 +8,7 @@ import styles from './page.module.css'
 import { getSession } from 'next-auth/react'
 import { toast } from 'react-toastify';
 import { useConfig } from '@/hooks/useConfig';
+import TusUploaderComp from '@/components/TusUploaderComp'
 
 import MediaFileSelectionModal from '@/components/modals/MediaFileSelectionModal';
 import { CreateStreamNewData, MediaFile, createStreamNew } from '@/services/streamService';
@@ -98,32 +99,40 @@ export default function StreamNewPage() {
     }
   }
 
+  const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
+    setSuccess('Files uploaded successfully! Redirecting...');
+    setFiles([]);
+    setTimeout(() => {
+      router.push('/stream');
+    }, 1500);
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       if (selectedMediaFiles.length === 0) {
         setError('No files selected')
         return
       } else {
-      // If there are no files to upload, but there are selected media files, proceed with the stream creation
-          try {
-            const mediaFileIds = selectedMediaFiles.map(file => file.ID);
-            console.log(mediaFileIds)
-            const data = {
-              MediaFileIds: mediaFileIds,
-              Name: `Stream ${new Date().toISOString().split('T')[0]} ${new Date().toLocaleTimeString()}`,
-              Description: '',
-            }
-            const response = await createStreamNew(data as CreateStreamNewData)
-            setSuccess('Stream created! Redirecting...')
-              setFiles([])
-              setTimeout(() => {
-                router.push('/stream')
-              }, 1500)
-          } catch (error) {
-            setError('Error creating stream')
-            return
+        // If there are no files to upload, but there are selected media files, proceed with the stream creation
+        try {
+          const mediaFileIds = selectedMediaFiles.map(file => file.ID);
+          console.log(mediaFileIds)
+          const data = {
+            MediaFileIds: mediaFileIds,
+            Name: `Stream ${new Date().toISOString().split('T')[0]} ${new Date().toLocaleTimeString()}`,
+            Description: '',
           }
+          const response = await createStreamNew(data as CreateStreamNewData)
+          setSuccess('Stream created! Redirecting...')
+          setFiles([])
+          setTimeout(() => {
+            router.push('/stream')
+          }, 1500)
+        } catch (error) {
+          setError('Error creating stream')
           return
+        }
+        return
       }
     }
 
@@ -214,34 +223,11 @@ export default function StreamNewPage() {
 
         <Card>
           <Card.Body className="p-4">
-            <div
-              className={`border border-2 rounded p-5 text-center ${isDragging ? 'border-primary bg-light' : 'border-secondary border-opacity-25'
-                }`}
-              style={{
-                borderStyle: 'dashed',
-                transition: 'all 0.3s ease',
-                cursor: 'pointer'
-              }}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload size={64} className="text-muted mb-3" />
-              <h5 className="mb-2">Drag and drop files here</h5>
-              <p className="text-muted mb-3">or</p>
-              <Button variant="outline-primary">
-                Browse Files
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={handleFileSelect}
-                className="d-none"
-                accept="video/*,audio/*"
+          <TusUploaderComp
+                onSuccess={handleUploadSuccess}
+                onProgress={setUploadProgress}
+                onError={(error) => setError(error.message)}
               />
-            </div>
 
             {files.length > 0 && (
               <div className="mt-4">
@@ -308,7 +294,7 @@ export default function StreamNewPage() {
                 <i className="bi bi-file-earmark-play me-2"></i>
                 Select Existing Media Files ({selectedMediaFiles.length})
               </Button>
-              
+
               <Button
                 variant="primary"
                 onClick={handleUpload}
@@ -330,8 +316,8 @@ export default function StreamNewPage() {
                 ) : (
                   <>
                     <Upload className="me-2" />
-                    {selectedMediaFiles.length > 0 && files.length === 0 
-                      ? `Create Stream (${selectedMediaFiles.length} file${selectedMediaFiles.length > 1 ? 's' : ''})` 
+                    {selectedMediaFiles.length > 0 && files.length === 0
+                      ? `Create Stream (${selectedMediaFiles.length} file${selectedMediaFiles.length > 1 ? 's' : ''})`
                       : `Upload ${files.length > 0 ? `${files.length} File${files.length > 1 ? 's' : ''}` : ''}`
                     }
                   </>
