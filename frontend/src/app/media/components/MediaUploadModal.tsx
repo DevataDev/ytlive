@@ -70,17 +70,6 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
     setFiles(prev => prev.filter(f => f.id !== id));
   };
 
-  // Inside your component
-  // const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
-  //   setSuccess('Files uploaded successfully!');
-  //   setFiles([]);
-  //   toast.success('Media files uploaded successfully!');
-  //   setTimeout(() => {
-  //     onUploadComplete();
-  //     handleClose();
-  //   }, 1500);
-  // };
-
   const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
     setCompletedFiles(prev => {
       const newCompleted = new Set(prev);
@@ -97,12 +86,14 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
 
   const handleAllUploadsComplete = () => {
     setAllUploadsComplete(true);
-    setSuccess('All files uploaded successfully!');
     setIsUploading(false);
     setUploadProgress(0);
     toast.success('All files uploaded successfully!');
+    setSuccess(null);
+    setError(null);
     onUploadComplete();
     handleClose();
+   
   };
 
 
