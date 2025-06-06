@@ -161,7 +161,25 @@ export default function StreamNewPage() {
           return;
         }
 
+        const streamName = `Stream ${new Date().toLocaleString()}`;
+        const streamData: CreateStreamNewData = {
+          Name: streamName,
+          Description: '',
+          MediaFileIds: selectedMediaFiles.map(file => file.ID),
+        }
 
+        try {
+          const response = await createStreamNew(streamData);
+          console.log('Stream created successfully:', response);
+          setSuccess('Stream created successfully! Redirecting...');
+          setTimeout(() => {
+            router.push(`/stream`);
+          }, 1000);
+        } catch (error) {
+          console.error('Error creating stream:', error);
+          setError('Failed to create stream. Please try again.');
+        }
+        return
       }
     }
 
