@@ -75,7 +75,7 @@ export default function MediaManager() {
       });
 
       if (searchTerm.trim()) {
-        params.append('search', searchTerm.trim());
+        params.append('query', searchTerm.trim());
       }
 
       const response = await api.get<MediaListResponse>(`/api/media/user?${params}`, {
