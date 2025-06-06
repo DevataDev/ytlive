@@ -146,6 +146,19 @@ export default function StreamNewPage() {
 
   const tusUploaderRef = useRef<TusUploaderRef>(null);
 
+  const formatDateTime = (date: Date) => {
+    const d = new Date(date);
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  };
+
   const handleUpload = async () => {
     console.log(`Uploading ${files.length} files...`)
     console.log('Selected media files:', selectedMediaFiles);
@@ -160,8 +173,9 @@ export default function StreamNewPage() {
           setError('Session expired. Please login again.');
           return;
         }
-
-        const streamName = `Stream ${new Date().toLocaleString()}`;
+        // Stream 2025-06-05 19:38:26
+        const dateName = formatDateTime(new Date());
+        const streamName = `Stream ${dateName}`;
         const streamData: CreateStreamNewData = {
           Name: streamName,
           Description: '',
