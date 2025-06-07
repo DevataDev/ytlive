@@ -1,0 +1,47 @@
+# Build stage
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache gcc musl-dev sqlite-dev
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Accept build arguments
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
+
+# Build the application
+# RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main .
+# Build the application with version info
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags "-X windsorf-youtube-live/internal/version.Version=${VERSION} \
+             -X windsorf-youtube-live/internal/version.Commit=${COMMIT} \
+             -X windsorf-youtube-live/internal/version.Date=${BUILD_DATE}" \
+    -o main .
+
+# Runtime stage
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates ffmpeg sqlite
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/main .
+
+# Create necessary directories
+RUN mkdir -p /app/uploads /app/logs /app/data
+
+# Expose port
+EXPOSE 8080
+
+CMD ["./main"]

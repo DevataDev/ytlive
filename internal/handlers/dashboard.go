@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -23,7 +22,9 @@ func (h *DashboardHandler) GetDashboardStreamMetrics(c *gin.Context) {
 	var started, scheduled int64
 	h.DB.Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&started)
 	h.DB.Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&scheduled)
-	c.JSON(200, gin.H{"started": started, "scheduled": scheduled})
+	var total int64
+	h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Count(&total)
+	c.JSON(200, gin.H{"started": started, "scheduled": scheduled, "total": total})
 }
 
 func (h *DashboardHandler) GetDashboardSystemMetrics(c *gin.Context) {
@@ -75,8 +76,6 @@ func (h *DashboardHandler) GetRecentActivities(c *gin.Context) {
 			icon = "bi-check-circle"
 		}
 
-		log.Println("Activity:", activity)
-
 		// Format the activity for the frontend
 		formattedActivities[i] = map[string]interface{}{
 			"id":          activity.ID,
@@ -118,7 +117,7 @@ func (h *DashboardHandler) GetStorageInfo(c *gin.Context) {
 
 	// Get file from media files
 	var mediaFiles []models.MediaFile
-	if err := h.DB.Find(&mediaFiles).Error; err != nil {
+	if err := h.DB.Where("deleted_at IS NULL").Find(&mediaFiles).Error; err != nil {
 		c.JSON(500, gin.H{"error": "failed to fetch media files"})
 		return
 	}

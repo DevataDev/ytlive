@@ -1,0 +1,72 @@
+.liveIndicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: #20c997;
+  border-radius: 50%;
+  margin-right: 6px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(32, 201, 151, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0);
+  }
+}
+
+.streamCard {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.streamCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.streamThumbnail {
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+  font-size: 2.5rem;
+}
+
+.streamActions {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.streamCard:hover .streamActions {
+  opacity: 1;
+}
+
+.pagination {
+  margin-bottom: 0;
+}
+
+.page-link {
+  min-width: 38px;
+  text-align: center;
+}
+
+@media (max-width: 767.98px) {
+  .streamCard .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .streamCard .btn i {
+    margin-right: 0 !important;
+  }
+  
+  .streamCard .btn span {
+    display: none;
+  }
+}

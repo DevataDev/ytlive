@@ -1,0 +1,121 @@
+/* Custom styles for channels management */
+.card {
+  border: none;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.table {
+  margin-bottom: 0;
+}
+
+.table thead th {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+  color: #6c757d;
+  border-top: none;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.table tbody tr:hover {
+  background-color: rgba(13, 110, 253, 0.03) !important;
+}
+
+.table tbody td {
+  vertical-align: middle;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.channel-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 12px;
+}
+
+.channel-info {
+  display: flex;
+  align-items: center;
+}
+
+.channel-name {
+  font-weight: 500;
+  margin-bottom: 2px;
+  color: #212529;
+}
+
+.channel-id {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-family: monospace;
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+  border-radius: 6px;
+}
+
+.action-buttons .btn {
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  margin-left: 0.35rem;
+}
+
+.action-buttons .btn i {
+  font-size: 0.9em;
+}
+
+/* Loading animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767.98px) {
+  .table-responsive {
+    border-radius: 0.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  
+  .channel-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .channel-avatar {
+    margin-bottom: 0.5rem;
+  }
+  
+  .action-buttons {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+  }
+}

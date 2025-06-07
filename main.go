@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -33,13 +32,8 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/yaml.v3"
 
-	"embed"
-
 	"windsorf-youtube-live/internal/broadcast"
 )
-
-//go:embed web/static/* web/static
-var StaticFiles embed.FS
 
 var (
 	ctx                         = context.Background()
@@ -273,6 +267,28 @@ func main() {
 		log.Fatalf("failed to migrate activities table: %v", err)
 	}
 
+	// Now run AutoMigrate
+	err = db.AutoMigrate(&models.StreamMediaFile{})
+	if err != nil {
+		log.Printf("failed to migrate stream media files table: %v", err)
+	}
+
+	// For SQLite, dropping columns with foreign keys requires special handling
+	if cfg.App.Sql == "sqlite3" {
+
+		if db.Migrator().HasColumn(&models.MediaFile{}, "stream_id") {
+			// Disable foreign key checks temporarily
+			db.Exec("PRAGMA foreign_keys=off")
+
+			// Drop the column
+			if err := db.Migrator().DropColumn(&models.MediaFile{}, "stream_id"); err != nil {
+				log.Printf("Warning: Could not drop stream_id column: %v", err)
+			}
+
+			// Re-enable foreign key checks
+			db.Exec("PRAGMA foreign_keys=on")
+		}
+	}
 	// Init device presets
 	tiktok.InitDevicePresets()
 
@@ -309,112 +325,23 @@ func main() {
 		c.Set("config", cfg)
 		c.Set("db", db)
 		c.Set("redis", &redisPubSub)
+		// cors header
+		clientReqOrigin := c.Request.Header.Get("Origin")
+		c.Header("Access-Control-Allow-Origin", clientReqOrigin)
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, tus-resumable, x-requested-with, x-tus-resumable, x-tus-version, x-tus-max-size, x-tus-offset, x-tus-checksum-algorithm, x-tus-checksum, x-tus-checksum-complete, x-tus-checksum-complete-defer-length, upload-metadata, upload-length, Location, upload-offset")
+		c.Header("Access-Control-Expose-Headers", "Location, tus-resumable, tus-version, tus-max-size, tus-extension, upload-offset, upload-length, upload-metadata, upload-offset")
+		// return ok response for preflight request
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusOK)
+			return
+		}
 		c.Next()
 	})
 
-	// Replace static file serving with embedded static files
-	staticFS, _ := fs.Sub(StaticFiles, "web/static")
-	r.StaticFS("/static", http.FS(staticFS))
-
 	// serve uploads folder
-	// server ./uploads
-	// uploadsFS, _ := fs.Sub(StaticFiles, "uploads")
 	r.StaticFS("/uploads", http.Dir("uploads"))
-
-	r.GET("/stream", func(c *gin.Context) {
-		// replace it with static embedded file stream-list.html
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/stream-list.html", http.FS(staticFs))
-	})
-
-	// Dashboard endpoints (JWT protected)
-	r.GET("/dashboard", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/dashboard.html", http.FS(staticFs))
-	})
-
-	// Serve the upload page at /upload
-	r.GET("/upload", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/upload.html", http.FS(staticFs))
-	})
-
-	r.GET("/users", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/user-management.html", http.FS(staticFs))
-	})
-
-	// Monitor Management Page
-	r.GET("/monitor", func(c *gin.Context) {
-		staticFS, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/monitor-management.html", http.FS(staticFS))
-	})
-
-	// Mirror page
-	r.GET("/mirror", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/mirror-list.html", http.FS(staticFs))
-	})
-
-	// Live page
-	r.GET("/live", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/live-list.html", http.FS(staticFs))
-	})
-
-	// Search page
-	r.GET("/search", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/search-list.html", http.FS(staticFs))
-	})
-
-	// Channels page
-	r.GET("/channels", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/channels-management.html", http.FS(staticFs))
-	})
-
-	// Privacy Policy page
-	r.GET("/privacy", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/privacy.html", http.FS(staticFs))
-	})
-
-	// Terms & Conditions page
-	r.GET("/terms", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/terms.html", http.FS(staticFs))
-	})
-
-	//callback
-	r.GET("/youtube/callback", func(c *gin.Context) {
-		staticFs, _ := fs.Sub(StaticFiles, "web/static")
-		c.FileFromFS("/callback.html", http.FS(staticFs))
-	})
-
-	r.GET("/", func(c *gin.Context) {
-		// check if user is logged in
-		_, exists := c.Get("user_id")
-		if exists {
-			// redirect to dashboard
-			c.Redirect(http.StatusSeeOther, "/dashboard")
-		} else {
-			// redirect to login
-			c.Redirect(http.StatusSeeOther, "/login")
-		}
-	})
-
-	r.GET("/login", func(c *gin.Context) {
-		// check if user is logged in
-		_, exists := c.Get("user_id")
-		if exists {
-			// redirect to dashboard
-			c.Redirect(http.StatusSeeOther, "/dashboard")
-		} else {
-			staticFs, _ := fs.Sub(StaticFiles, "web/static")
-			c.FileFromFS("/login.html", http.FS(staticFs))
-		}
-	})
 
 	// Auth handler
 	authHandler := &handlers.AuthHandler{DB: db}
@@ -428,13 +355,13 @@ func main() {
 	r.PUT("/api/streams/:id/maxbitrate", handlers.JWTMiddleware(), streamHandler.SetMaxBitrate)
 	r.GET("/api/streams", handlers.JWTMiddleware(), streamHandler.ListStreams)
 	r.POST("/api/streams", handlers.JWTMiddleware(), streamHandler.CreateStream)
+	r.POST("/api/streams/new", handlers.JWTMiddleware(), streamHandler.CreateStreamFromExisting)
 	r.PUT("/api/streams/:id/schedule", handlers.JWTMiddleware(), streamHandler.SetSchedule)
 	r.PUT("/api/streams/:id/duration", handlers.JWTMiddleware(), streamHandler.SetDuration)
 	r.PUT("/api/streams/:id/rename", handlers.JWTMiddleware(), streamHandler.RenameFile)
 	r.PUT("/api/streams/:id/loop", handlers.JWTMiddleware(), streamHandler.SetLoopVideo)
 	r.PUT("/api/streams/:id/loopcount", handlers.JWTMiddleware(), streamHandler.SetLoopCount)
 	r.PUT("/api/streams/:id/rtmpurl", handlers.JWTMiddleware(), streamHandler.SetRTMPUrl)
-	r.POST("/api/streams/:id/clone", handlers.JWTMiddleware(), streamHandler.CloneStream)
 	r.GET("/api/streams/:id/preview", streamHandler.ServeVideoPreviewByID)
 	r.GET("/api/streams/:id/logs", handlers.JWTMiddleware(), streamHandler.GetStreamLogs)
 
@@ -448,8 +375,13 @@ func main() {
 	mediaFileHandler := &handlers.MediaFileHandler{DB: db}
 	r.GET("/api/streams/:id/media", handlers.JWTMiddleware(), mediaFileHandler.ListMediaFiles)
 	r.POST("/api/streams/:id/media", handlers.JWTMiddleware(), mediaFileHandler.UploadMediaFile)
+	r.POST("/api/streams/:id/map", handlers.JWTMiddleware(), mediaFileHandler.MapMediaFile)
 	r.DELETE("/api/streams/media/:id", handlers.JWTMiddleware(), mediaFileHandler.DeleteMediaFile)
 	r.GET("/api/streams/:id/media/:mediaId/preview", mediaFileHandler.GetMediaPreview)
+	r.PUT("/api/streams/:id/media/:mediaId/unmap", handlers.JWTMiddleware(), mediaFileHandler.UnMapMediaFile)
+	r.GET("/api/media/user", handlers.JWTMiddleware(), mediaFileHandler.ListAllMediaFilesByUser)
+	r.POST("/api/media/upload", handlers.JWTMiddleware(), mediaFileHandler.UploadMediaFileOnly)
+	r.DELETE("/api/media/:id", handlers.JWTMiddleware(), mediaFileHandler.DeleteMediaFileByID)
 
 	// Handle video upload (file or Google Drive link)
 	r.POST("/api/streams/upload", handlers.JWTMiddleware(), fileUploadHandler.UploadStream)
@@ -471,6 +403,8 @@ func main() {
 
 	// DELETE /api/streams/:id endpoint
 	r.DELETE("/api/streams/:id", handlers.JWTMiddleware(), streamHandler.DeleteStream)
+
+	r.PUT("/api/streams/:id", handlers.JWTMiddleware(), streamHandler.UpdateStream)
 
 	r.PUT("/api/streams/:id/channel-id", handlers.JWTMiddleware(), streamHandler.UpdateStreamChannelId)
 
@@ -569,6 +503,10 @@ func main() {
 	r.PUT("/api/monitors/:id/rtmp-url", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorRTMPUrl)
 	r.PUT("/api/monitors/:id/stream-key", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorStreamKey)
 	r.PUT("/api/monitors/:id/channel-id", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorChannelId)
+	r.PUT("/api/monitors/:id/pause", handlers.JWTMiddleware(), monitorHandler.PauseMonitor)
+	r.PUT("/api/monitors/:id/resume", handlers.JWTMiddleware(), monitorHandler.ResumeMonitor)
+	r.DELETE("/api/monitors/:id", handlers.JWTMiddleware(), monitorHandler.DeleteMonitorById)
+	r.PUT("/api/monitors/:id", handlers.JWTMiddleware(), monitorHandler.UpdateMonitorStatus)
 
 	tiktokSignHandler := handlers.NewTiktokSignHandler(cfg)
 	r.POST("/api/tiktok/sign", tiktokSignHandler.Sign)
@@ -630,6 +568,13 @@ func main() {
 	// FFmpeg log WebSocket endpoints for mirrors and streams
 	r.GET("/ws/ffmpeg-logs/mirror/:mirror_id", handlers.JWTMiddleware(), handlers.FFmpegLogMirrorWebSocket)
 	r.GET("/ws/ffmpeg-logs/stream/:stream_id", handlers.JWTMiddleware(), handlers.FFmpegLogStreamWebSocket)
+
+	// Add this to your route setup
+	tusHandler := handlers.TusUploadHandler{DB: db, Config: cfg}
+	tusHandler.SetupTusHandler(r)
+
+	// Add the endpoint to create tus uploads
+	r.POST("/api/uploads/create", handlers.JWTMiddleware(), mediaFileHandler.CreateTusUpload)
 
 	log.Println("Starting YukLive...")
 	log.Println("Version: " + version.Version)

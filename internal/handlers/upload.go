@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"mime/multipart"
 	"net/http"
@@ -284,16 +285,16 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 
 	// Create stream record
 	stream := models.Stream{
-		ID:         streamID,
-		Name:       streamName,
-		Status:     "stopped",
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-		LoopVideo:  true,
-		RTMPUrl:    rtmpUrl,
-		LoopCount:  &defaultLoopCount,
-		UserID:     userID.(string),
-		MediaFiles: []models.MediaFile{},
+		ID:               streamID,
+		Name:             streamName,
+		Status:           "stopped",
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+		LoopVideo:        true,
+		RTMPUrl:          rtmpUrl,
+		LoopCount:        &defaultLoopCount,
+		UserID:           userID.(string),
+		StreamMediaFiles: []models.StreamMediaFile{},
 	}
 
 	// Handle Google Drive links
@@ -370,13 +371,13 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 			// Create stream record
 			streamName := fmt.Sprintf("Stream %s", time.Now().Format("2006-01-02 15:04:05"))
 			stream := models.Stream{
-				ID:         streamID.String(),
-				Name:       streamName,
-				Status:     "stopped",
-				UserID:     userID,
-				CreatedAt:  time.Now(),
-				UpdatedAt:  time.Now(),
-				MediaFiles: []models.MediaFile{},
+				ID:               streamID.String(),
+				Name:             streamName,
+				Status:           "stopped",
+				UserID:           userID,
+				CreatedAt:        time.Now(),
+				UpdatedAt:        time.Now(),
+				StreamMediaFiles: []models.StreamMediaFile{},
 			}
 
 			if err := tx.Create(&stream).Error; err != nil {
@@ -387,18 +388,18 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 
 			// Create media file record
 			mediaFile := models.MediaFile{
-				ID:          mediaFileID.String(),
-				StreamID:    stream.ID,
-				FileName:    downloadName,
-				FilePath:    destPath,
-				FileSize:    fileInfo.Size(),
-				MediaType:   mediaType,
-				MimeType:    file.MimeType,
-				IsPrimary:   true,
-				Order:       0,
-				CreatedAt:   time.Now(),
-				UpdatedAt:   time.Now(),
+				ID:        mediaFileID.String(),
+				FileName:  downloadName,
+				FilePath:  destPath,
+				FileSize:  fileInfo.Size(),
+				MediaType: mediaType,
+				MimeType:  file.MimeType,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+				UserId:    userID,
 			}
+
+			log.Println("mediaFile", mediaFile)
 
 			if err := tx.Create(&mediaFile).Error; err != nil {
 				tx.Rollback()
@@ -475,11 +476,11 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 			ext := filepath.Ext(fileHeader.Filename)
 			fileNameWithoutExtension := strings.TrimSuffix(fileHeader.Filename, ext)
 			fileNameWithoutExtension = strings.ReplaceAll(fileNameWithoutExtension, " ", "-")
-			fileName := fmt.Sprintf("file-%d-%s%s", 
-				time.Now().UnixNano(), 
+			fileName := fmt.Sprintf("file-%d-%s%s",
+				time.Now().UnixNano(),
 				normalizeFileName(fileNameWithoutExtension),
 				ext)
-			
+
 			uploadPath := "./uploads/" + fileName
 
 			// Save file
@@ -539,22 +540,37 @@ func (h *FileUploadHandler) UploadStream(c *gin.Context) {
 			// Create media file record
 			mediaFile := models.MediaFile{
 				ID:        mediaFileID.String(),
-				StreamID:  stream.ID,
 				FileName:  fileName,
 				FilePath:  uploadPath,
 				FileSize:  size,
 				MediaType: mediaType,
 				MimeType:  mimeType,
-				IsPrimary: len(results) == 0, // First file is primary
-				Order:     len(results),      // Maintain upload order
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
+				UserId:    userID.(string),
 			}
-
 
 			// Add media file
 			if err := tx.Create(&mediaFile).Error; err != nil {
 				result.Message = "Failed to register media file: " + err.Error()
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+				return
+			}
+
+			// Add media file to stream
+			streamMediaFile := models.StreamMediaFile{
+				StreamID:    stream.ID,
+				MediaFileID: mediaFile.ID,
+				IsPrimary:   len(results) == 0, // First file is primary
+				Order:       len(results),      // Maintain upload order
+				CreatedAt:   time.Now(),
+				UpdatedAt:   time.Now(),
+			}
+
+			if err := tx.Create(&streamMediaFile).Error; err != nil {
+				result.Message = "Failed to add media file to stream: " + err.Error()
 				mu.Lock()
 				results = append(results, result)
 				mu.Unlock()

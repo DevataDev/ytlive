@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -255,6 +256,16 @@ func (h *TiktokHandler) GetSearch(c *gin.Context) {
 		page = "1"
 	}
 
+	offsetQuery := c.Query("offset")
+	if offsetQuery != "" {
+		offset, _ = strconv.Atoi(offsetQuery)
+	}
+
+	limitQuery := c.Query("limit")
+	if limitQuery != "" {
+		limit, _ = strconv.Atoi(limitQuery)
+	}
+
 	loadMore := c.Query("is_load_more")
 	if loadMore == "" {
 		loadMore = "false"
@@ -266,8 +277,10 @@ func (h *TiktokHandler) GetSearch(c *gin.Context) {
 	}
 
 	if loadMore == "true" {
-		pageInt, _ := strconv.Atoi(page)
-		offset = (pageInt - 1) * limit
+		if offsetQuery == "" || limitQuery == "" {
+			pageInt, _ := strconv.Atoi(page)
+			offset = (pageInt - 1) * limit
+		}
 	}
 
 	searchId := c.Query("search_id")
@@ -277,6 +290,12 @@ func (h *TiktokHandler) GetSearch(c *gin.Context) {
 
 	var searchQueryResponse SearchQueryResponse
 	// check in cache first
+	log.Println("search_id: ", searchId)
+	log.Println("load_more: ", loadMore)
+	log.Println("search_type: ", searchType)
+	log.Println("offset: ", offset)
+	log.Println("limit: ", limit)
+	log.Println("keyword: ", keyword)
 	cacheKey := fmt.Sprintf("search_%s_%d_%d", keyword, offset, limit)
 	searchRoomData, err := h.Cache.Get(cacheKey)
 	if err == nil {

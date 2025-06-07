@@ -19,6 +19,8 @@ uploads/*
 ### Logs ###
 logs/*
 
+.env*
+
 ### Go ###
 # If you prefer the allow list template instead of the deny list, see community template:
 # https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
@@ -74,6 +76,8 @@ venv/**
 .idea/**/gradle.xml
 .idea/**/libraries
 data/*
+*.db-shm
+*.db-wal
 
 # Gradle and Maven with auto-import
 # When using Gradle or Maven with auto-import, you should exclude module files,
@@ -254,6 +258,10 @@ Icon
 .Trashes
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
+node_modules
+yarn.lock
+package-lock.json
+package-lock.json
 
 # Directories potentially created on remote AFP share
 .AppleDB
@@ -284,7 +292,8 @@ Temporary Items
 *.wmv
 *.webm
 
-config.*
+config.yaml
+config.yml
 
 *.zip
 

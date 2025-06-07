@@ -117,78 +117,64 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 		}
 	}
 
+	var querySearch string
+	if search := c.Query("search"); search != "" {
+		querySearch = "%" + search + "%"
+	}
+
 	var total int64
-	h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Count(&total)
+	if querySearch != "" {
+		h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Where("name LIKE ?", querySearch).Count(&total)
+	} else {
+		h.DB.Model(&models.Stream{}).Where("user_id = ?", userID).Count(&total)
+	}
 
 	var streams []models.Stream
-	if err := h.DB.Preload("MediaFiles").
-		Where("user_id = ?", userID).
-		Order("created_at DESC").
-		Limit(perPage).
-		Offset((page - 1) * perPage).
-		Find(&streams).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch streams"})
-		return
+	if querySearch != "" {
+		if err := h.DB.Preload("StreamMediaFiles").
+			Preload("StreamMediaFiles.MediaFile").
+			Where("user_id = ?", userID).
+			Where("name LIKE ?", querySearch).
+			Order("created_at DESC").
+			Limit(perPage).
+			Offset((page - 1) * perPage).
+			Find(&streams).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch streams"})
+			return
+		}
+	} else {
+		if err := h.DB.Preload("StreamMediaFiles").
+			Preload("StreamMediaFiles.MediaFile").
+			Where("user_id = ?", userID).
+			Order("created_at DESC").
+			Limit(perPage).
+			Offset((page - 1) * perPage).
+			Find(&streams).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch streams"})
+			return
+		}
 	}
 
 	// Get file sizes for all media files
 	for i := range streams {
-		for j := range streams[i].MediaFiles {
-			if fi, err := os.Stat(streams[i].MediaFiles[j].FilePath); err == nil {
-				streams[i].MediaFiles[j].FileSize = fi.Size()
+		for j := range streams[i].StreamMediaFiles {
+			if fi, err := os.Stat(streams[i].StreamMediaFiles[j].MediaFile.FilePath); err == nil {
+				streams[i].StreamMediaFiles[j].MediaFile.FileSize = fi.Size()
 			}
 		}
 	}
 
 	var countLive, countScheduled int64
-	h.DB.Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&countLive)
-	h.DB.Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&countScheduled)
-
-	// Prepare response
-	resp := make([]map[string]interface{}, 0, len(streams))
-	for _, s := range streams {
-		mediaFiles := make([]map[string]interface{}, len(s.MediaFiles))
-		for i, mf := range s.MediaFiles {
-			mediaFiles[i] = map[string]interface{}{
-				"ID":        mf.ID,
-				"FileName":  mf.FileName,
-				"FilePath":  mf.FilePath,
-				"FileSize":  mf.FileSize,
-				"MediaType": mf.MediaType,
-				"MimeType":  mf.MimeType,
-				"IsPrimary": mf.IsPrimary,
-				"Order":     mf.Order,
-				"CreatedAt": mf.CreatedAt,
-				"UpdatedAt": mf.UpdatedAt,
-			}
-		}
-
-		item := map[string]interface{}{
-			"ID":               s.ID,
-			"Name":             s.Name,
-			"Description":      s.Description,
-			"Status":           s.Status,
-			"ScheduledAt":      s.ScheduledAt,
-			"ScheduledStartAt": s.ScheduledStartAt,
-			"ScheduledEndAt":   s.ScheduledEndAt,
-			"StartedAt":        s.StartedAt,
-			"StoppedAt":        s.StoppedAt,
-			"StreamKey":        s.StreamKey,
-			"MaxBitrate":       s.MaxBitrate,
-			"UserID":           s.UserID,
-			"RTMPUrl":          s.RTMPUrl,
-			"LoopVideo":        s.LoopVideo,
-			"LoopCount":        s.LoopCount,
-			"FfmpegPID":        s.FfmpegPID,
-			"CreatedAt":        s.CreatedAt,
-			"UpdatedAt":        s.UpdatedAt,
-			"MediaFiles":       mediaFiles,
-		}
-		resp = append(resp, item)
+	if querySearch != "" {
+		h.DB.Preload("MediaFiles").Model(&models.Stream{}).Where("user_id = ?", userID).Where("name LIKE ?", querySearch).Count(&countLive)
+		h.DB.Preload("MediaFiles").Model(&models.Stream{}).Where("user_id = ?", userID).Where("name LIKE ?", querySearch).Count(&countScheduled)
+	} else {
+		h.DB.Preload("MediaFiles").Model(&models.Stream{}).Where("status = ?", "live").Where("user_id = ?", userID).Count(&countLive)
+		h.DB.Preload("MediaFiles").Model(&models.Stream{}).Where("status = ?", "scheduled").Where("user_id = ?", userID).Count(&countScheduled)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"streams":        resp,
+		"streams":        streams,
 		"page":           page,
 		"per_page":       perPage,
 		"total":          total,
@@ -542,106 +528,6 @@ func (h *StreamHandler) SetRTMPUrl(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "RTMP URL updated"})
 }
 
-// POST /api/streams/:id/clone
-func (h *StreamHandler) CloneStream(c *gin.Context) {
-	// Get the original stream ID from URL
-	originalID := c.Param("id")
-
-	// Start a transaction
-	tx := h.DB.Begin()
-
-	// 1. Get the original stream with its media files
-	var orig models.Stream
-	if err := tx.Preload("MediaFiles").First(&orig, "id = ?", originalID).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
-		return
-	}
-
-	// 2. Generate a new stream ID
-	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
-	newStreamID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
-
-	// 3. Create a copy of the stream with a new ID
-	clone := models.Stream{
-		ID:         newStreamID,
-		Name:       fmt.Sprintf("%s (Copy)", orig.Name),
-		Status:     "stopped",
-		UserID:     orig.UserID,
-		MaxBitrate: orig.MaxBitrate,
-		RTMPUrl:    orig.RTMPUrl,
-		LoopVideo:  orig.LoopVideo,
-		LoopCount:  orig.LoopCount,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-	}
-
-	// 4. Save the cloned stream
-	if err := tx.Create(&clone).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cloned stream"})
-		return
-	}
-
-	// 5. Clone media files if they exist
-	if len(orig.MediaFiles) > 0 {
-		for _, origMedia := range orig.MediaFiles {
-			// Generate new media file ID
-			newMediaID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
-
-			// Create a new file name with timestamp
-			ext := filepath.Ext(origMedia.FileName)
-			newFileName := fmt.Sprintf("%s_clone_%d%s",
-				strings.TrimSuffix(origMedia.FileName, ext),
-				time.Now().UnixNano(),
-				ext,
-			)
-
-			// Create the new file path in the same directory
-			newFilePath := filepath.Join(filepath.Dir(origMedia.FilePath), newFileName)
-
-			// Copy the file
-			if err := copyFile(origMedia.FilePath, newFilePath); err != nil {
-				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to copy media file"})
-				return
-			}
-
-			// Create new media file record
-			newMedia := models.MediaFile{
-				ID:        newMediaID,
-				StreamID:  newStreamID,
-				FileName:  newFileName,
-				FilePath:  newFilePath,
-				FileSize:  origMedia.FileSize,
-				MediaType: origMedia.MediaType,
-				MimeType:  origMedia.MimeType,
-				IsPrimary: origMedia.IsPrimary,
-				Order:     origMedia.Order,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-			}
-
-			if err := tx.Create(&newMedia).Error; err != nil {
-				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create media file record"})
-				return
-			}
-		}
-	}
-
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Stream cloned successfully",
-		"id":      newStreamID,
-	})
-}
-
 // ServeVideoPreview serves a video file for preview, requires JWT auth
 func (h *StreamHandler) ServeVideoPreview(c *gin.Context) {
 	// Authenticate user via JWT (middleware should already do this)
@@ -837,7 +723,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 
 	// 1. Get the stream with its media files
 	var stream models.Stream
-	if err := tx.Preload("MediaFiles").First(&stream, "id = ?", id).Error; err != nil {
+	if err := tx.Preload("StreamMediaFiles").Preload("StreamMediaFiles.MediaFile").First(&stream, "id = ?", id).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusNotFound, gin.H{"error": "Stream not found"})
 		return
@@ -858,24 +744,32 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 	}
 
 	// 4. Check if there are any media files associated with the stream
-	if len(stream.MediaFiles) == 0 {
+	if len(stream.StreamMediaFiles) == 0 {
 		tx.Rollback()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No media files found for this stream"})
 		return
 	}
 
-	// 5. Check if primary media file exists
+	// // 5. Check if primary media file exists
+	// // First, deduplicate media files to avoid processing duplicates
+	// var uniqueMediaFiles = make(map[string]bool)
+	// var uniqueStreamMediaFiles []models.StreamMediaFile
+
+	// for _, smf := range stream.StreamMediaFiles {
+	// 	if !uniqueMediaFiles[smf.MediaFileID] {
+	// 		uniqueMediaFiles[smf.MediaFileID] = true
+	// 		uniqueStreamMediaFiles = append(uniqueStreamMediaFiles, smf)
+	// 	}
+	// }
+
+	// Replace stream.StreamMediaFiles with uniqueStreamMediaFiles for further processing
+	// stream.StreamMediaFiles = uniqueStreamMediaFiles
+
 	var primaryMedia *models.MediaFile
-	for i, mf := range stream.MediaFiles {
-		if mf.IsPrimary {
-			primaryMedia = &stream.MediaFiles[i]
-			break
-		}
-	}
 
 	// If no primary media is set, use the first one
-	if primaryMedia == nil {
-		primaryMedia = &stream.MediaFiles[0]
+	if len(stream.StreamMediaFiles) > 0 {
+		primaryMedia = &stream.StreamMediaFiles[0].MediaFile
 	}
 
 	// 6. Check if media file exists
@@ -940,7 +834,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 			// Start a new transaction for the scheduled start
 			tx := h.DB.Begin()
 			var s models.Stream
-			if err := tx.Preload("MediaFiles").First(&s, "id = ?", streamID).Error; err != nil {
+			if err := tx.Preload("StreamMediaFiles").Preload("StreamMediaFiles.MediaFile").First(&s, "id = ?", streamID).Error; err != nil {
 				tx.Rollback()
 				log.Printf("Error fetching stream for scheduled start: %v", err)
 				return
@@ -987,7 +881,7 @@ func (h *StreamHandler) StartStreamBackground(c *gin.Context) {
 	// Log stream started activity
 	userID, _ := c.Get("user_id")
 
-	if err := tx.Save(&stream).Error; err != nil {
+	if err := tx.Omit("StreamMediaFiles").Save(&stream).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start stream"})
 		return
@@ -1098,20 +992,10 @@ func (h *StreamHandler) DeleteStream(c *gin.Context) {
 		_ = job.StopStreamWorker(stream.ID, true)
 	}
 
-	// Remove video file if exists
-	var mediaFiles []models.MediaFile
-	if err := h.DB.Where("stream_id = ?", id).Find(&mediaFiles).Error; err != nil {
-		c.JSON(500, gin.H{"error": "Failed to list media files."})
+	// Delete mapping in stream files
+	if err := h.DB.Where("stream_id =?", stream.ID).Delete(&models.StreamMediaFile{}).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to delete stream media files."})
 		return
-	}
-
-	// Delete all media files
-	for _, mediaFile := range mediaFiles {
-		if mediaFile.FilePath != "" {
-			if err := os.Remove(mediaFile.FilePath); err != nil {
-				log.Printf("Failed to delete media file %s: %v", mediaFile.FilePath, err)
-			}
-		}
 	}
 
 	// Delete the stream from database
@@ -1151,4 +1035,106 @@ func sanitizeFileName(fileName string) string {
 	normalized = strings.ReplaceAll(normalized, "\\", "-")
 	normalized = strings.ReplaceAll(normalized, ".mp4", "")
 	return normalized
+}
+
+func (h *StreamHandler) UpdateStream(c *gin.Context) {
+	var id string
+	// Get stream ID from URL path
+	id = c.Param("id")
+	// Parse request body
+	var req struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body."})
+		return
+	}
+
+	// Update stream in database
+	var stream models.Stream
+	if err := h.DB.First(&stream, "id =?", id).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Stream not found."})
+		return
+	}
+	stream.Name = req.Name
+	stream.Description = &req.Description
+	if err := h.DB.Save(&stream).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to update stream."})
+		return
+	}
+	// Broadcast updates to all clients
+	go func() {
+		BroadcastStreamListUpdate()
+	}()
+	c.JSON(200, gin.H{"success": true})
+}
+
+func (h *StreamHandler) CreateStreamFromExisting(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(401, gin.H{"error": "Unauthorized."})
+		return
+	}
+	var req struct {
+		MediaFileIds []string `json:"media_file_ids"`
+		Name         string   `json:"name"`
+		Description  string   `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body."})
+		return
+	}
+
+	// Fetch media files from database
+	var mediaFiles []models.MediaFile
+	if err := h.DB.Where("id IN ?", req.MediaFileIds).Find(&mediaFiles).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch media files."})
+		return
+	}
+	// Create a new stream
+	// Generate a new stream ID
+	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+	streamID := ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+
+	stream := models.Stream{
+		ID:               streamID,
+		Name:             req.Name,
+		Status:           "stopped",
+		UserID:           userID.(string),
+		MaxBitrate:       nil,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+		StreamMediaFiles: []models.StreamMediaFile{},
+	}
+
+	if err := h.DB.Create(&stream).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to create stream."})
+		return
+	}
+
+	// create new medial files entries
+	for _, mediaFile := range mediaFiles {
+		mediaStreamMap := models.StreamMediaFile{
+			StreamID:    stream.ID,
+			MediaFileID: mediaFile.ID,
+			IsPrimary:   false,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			Order:       0,
+		}
+
+		if err := h.DB.Create(&mediaStreamMap).Error; err != nil {
+			log.Println(err)
+			continue
+		}
+	}
+
+	// Broadcast updates to all clients
+	go func() {
+		BroadcastStreamListUpdate()
+	}()
+	c.JSON(200, gin.H{"success": true, "stream": stream})
 }

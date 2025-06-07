@@ -33,7 +33,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
 		return
 	}
-	token, err := auth.GenerateJWT(user.ID, user.Email)
+	token, err := auth.GenerateJWT(user.ID, user.Email, user.IsAdmin)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
 		return
@@ -67,7 +67,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 	// Issue new token
-	tokenStr, err := auth.GenerateJWT(user.ID, user.Email)
+	tokenStr, err := auth.GenerateJWT(user.ID, user.Email, user.IsAdmin)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
 		return
