@@ -6,6 +6,7 @@ import BindChannelModal from '@/components/modals/BindChannelModal';
 import ReactPlayer from 'react-player';
 import FfmpegLogsModal from '@/components/modals/FfmpegLogsModal';
 import { useFfmpegLogsModal } from '@/hooks/useFfmpegLogsModal';
+import PlatformSelector, { Platform, STREAMING_PLATFORMS } from '@/components/PlatformSelector';
 
 interface MirrorCardProps {
   mirror: MirrorItem;
@@ -34,6 +35,16 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
   const [bindModalError, setBindModalError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { showModal, itemId, itemType, openModal, closeModal } = useFfmpegLogsModal();
+  // Add these state variables after the existing ones
+  const [selectedPlatform, setSelectedPlatform] = useState<string>(() => {
+    // Auto-detect platform based on current RTMP URL
+    const currentUrl = mirror.RtmpUrl || 'rtmp://a.rtmp.youtube.com/live2/';
+    const detectedPlatform = STREAMING_PLATFORMS.find(p => 
+      p.rtmpUrl && currentUrl.includes(p.rtmpUrl.replace('rtmp://', '').replace('rtmps://', '').split('/')[0])
+    );
+    return detectedPlatform?.id || 'youtube';
+  });
+  const [customRtmpUrl, setCustomRtmpUrl] = useState(mirror.RtmpUrl || '');
 
   const handleViewLogs = (streamId: string) => {
     openModal(streamId, 'mirror');
@@ -79,8 +90,10 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
       saveRtmpUrl(mirrorId, data);
     } else if (label === 'Stream key') {
       saveStreamKey(mirrorId, data);
+      setStreamKey(data);
     }
     onRefresh(mirrorId);
+    
     toast.success(`${label} saved successfully`);
     
   };
@@ -148,56 +161,35 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
             {getStatusBadge()}
           </div>
 
-          {/* Stream URL */}
+          {/* Platform Selector */}
           <div className="mb-3">
-            <div className="input-group input-group-sm">
-              <input
-                type="text"
-                className="form-control"
-                value={rtmpUrl}
-                onChange={(e) => setRtmpUrl(e.target.value)}
-                style={{ fontSize: '12px' }}
-              />
-              <button
-                className="btn btn-outline-secondary"
-                type="button"
-                onClick={() => saveStreamData(mirror.ID, rtmpUrl, 'Stream URL')}
-                title="Save URL"
-              >
-                <BsFloppyFill size={14} />
-              </button>
-            </div>
-          </div>
-
-          {/* Stream Key */}
-          <div className="mb-3">
-            <label className="form-label small text-muted mb-1">Stream Key</label>
-            <div className="input-group input-group-sm">
-              <input
-                type={showStreamKey ? 'text' : 'password'}
-                className="form-control"
-                value={streamKey}
-                onChange={(e) => setStreamKey(e.target.value)}
-                placeholder="Enter stream key"
-                style={{ fontSize: '12px' }}
-              />
-              <button
-                className="btn btn-outline-secondary"
-                type="button"
-                onClick={() => setShowStreamKey(!showStreamKey)}
-                title={showStreamKey ? 'Hide stream key' : 'Show stream key'}
-              >
-                {showStreamKey ? <BsEyeSlash size={14} /> : <BsEye size={14} />}
-              </button>
-              <button
-                className="btn btn-outline-secondary"
-                type="button"
-                onClick={() => saveStreamData(mirror.ID, streamKey, 'Stream key')}
-                title="Save stream key"
-              >
-                <BsFloppyFill size={14} />
-              </button>
-            </div>
+            <PlatformSelector
+              selectedPlatform={selectedPlatform}
+              customRtmpUrl={customRtmpUrl}
+              streamKey={streamKey}
+              onPlatformChange={(platform: Platform) => {
+                setSelectedPlatform(platform.id);
+                if (platform.id !== 'custom' &&  platform.id !== 'shopee' ) {
+                  setRtmpUrl(platform.rtmpUrl);
+                } else {
+                  setRtmpUrl(customRtmpUrl);
+                }
+              }}
+              onCustomRtmpChange={(url: string) => {
+                setCustomRtmpUrl(url);
+                setRtmpUrl(url);
+              }}
+              onStreamKeyChange={setStreamKey}
+              onSave={() => {
+                saveStreamData(mirror.ID, rtmpUrl, 'Stream URL');
+                if (streamKey) {
+                  saveStreamData(mirror.ID, streamKey, 'Stream key');
+                }
+              }}
+              isLoading={false}
+              showStreamKey={showStreamKey}
+              onToggleStreamKeyVisibility={() => setShowStreamKey(!showStreamKey)}
+            />
           </div>
 
           {/* Action Buttons */}
