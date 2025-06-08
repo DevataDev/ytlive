@@ -9,6 +9,7 @@ import { useFfmpegLogsModal } from '@/hooks/useFfmpegLogsModal';
 import FfmpegLogsModal from '@/components/modals/FfmpegLogsModal';
 import MediaFileModal from '@/components/modals/MediaFileModal';
 import StreamSettingsModal from '@/components/modals/StreamSettingsModal';
+import PlatformSelector, { Platform, STREAMING_PLATFORMS } from '@/components/PlatformSelector';
 
 
 export interface StreamCardProps {
@@ -59,6 +60,15 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const { showModal, itemId, itemType, openModal, closeModal } = useFfmpegLogsModal();
   const [showMediaModal, setShowMediaModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  // Add these state variables after the existing ones
+  const [selectedPlatform, setSelectedPlatform] = useState<string>(() => {
+    const currentUrl = stream.rtmpUrl || 'rtmp://a.rtmp.youtube.com/live2/';
+    const detectedPlatform = STREAMING_PLATFORMS.find(p =>
+      p.rtmpUrl && currentUrl.includes(p.rtmpUrl.replace('rtmp://', '').replace('rtmps://', '').split('/')[0])
+    );
+    return detectedPlatform?.id || 'youtube';
+  });
+  const [customRtmpUrl, setCustomRtmpUrl] = useState(stream.rtmpUrl || '');
 
   const handleViewMediaFiles = () => {
     setShowMediaModal(true);
@@ -310,57 +320,35 @@ const StreamCard: React.FC<StreamCardProps> = ({
           {/* Error Alert */}
           {error && <Alert variant="danger" className="py-1 px-2" onClose={() => setError('')} dismissible>{error}</Alert>}
 
-          {/* Stream Key */}
+          {/* Platform Selector */}
           <div className="mb-3">
-            <Form.Label className="small text-muted mb-1">Stream Key</Form.Label>
-            <div className="input-group input-group-sm">
-              <span className="input-group-text"><i className="bi bi-key"></i></span>
-              <Form.Control
-                type={showPassword ? 'text' : 'password'}
-                value={streamKey}
-                onChange={(e) => setStreamKey(e.target.value)}
-                placeholder="Stream Key"
-                aria-label="Stream Key"
-              />
-              <Button
-                variant="outline-secondary"
-                onClick={() => setShowPassword(!showPassword)}
-                title={showPassword ? 'Hide' : 'Show'}
-              >
-                <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
-              </Button>
-              <Button
-                variant="outline-success"
-                onClick={handleUpdateStreamKey}
-                disabled={isLoading}
-                title="Save Stream Key"
-              >
-                {isLoading ? <Spinner animation="border" size="sm" /> : <i className="bi bi-check-lg"></i>}
-              </Button>
-            </div>
-          </div>
-
-          {/* RTMP URL */}
-          <div className="mb-3">
-            <Form.Label className="small text-muted mb-1">RTMP URL</Form.Label>
-            <div className="input-group input-group-sm">
-              <span className="input-group-text"><i className="bi bi-link-45deg"></i></span>
-              <Form.Control
-                type="text"
-                value={rtmpUrl}
-                onChange={(e) => setRtmpUrl(e.target.value)}
-                placeholder="RTMP URL"
-                aria-label="RTMP URL"
-              />
-              <Button
-                variant="outline-success"
-                onClick={handleUpdateRtmpUrl}
-                disabled={isLoading}
-                title="Save RTMP URL"
-              >
-                {isLoading ? <Spinner animation="border" size="sm" /> : <i className="bi bi-check-lg"></i>}
-              </Button>
-            </div>
+            <PlatformSelector
+              selectedPlatform={selectedPlatform}
+              customRtmpUrl={customRtmpUrl}
+              streamKey={streamKey}
+              onPlatformChange={(platform: Platform) => {
+                setSelectedPlatform(platform.id);
+                if (platform.id !== 'custom') {
+                  setRtmpUrl(platform.rtmpUrl);
+                } else {
+                  setRtmpUrl(customRtmpUrl);
+                }
+              }}
+              onCustomRtmpChange={(url: string) => {
+                setCustomRtmpUrl(url);
+                setRtmpUrl(url);
+              }}
+              onStreamKeyChange={setStreamKey}
+              onSave={async () => {
+                await handleUpdateRtmpUrl();
+                if (streamKey) {
+                  await handleUpdateStreamKey();
+                }
+              }}
+              isLoading={isLoading}
+              showStreamKey={showPassword}
+              onToggleStreamKeyVisibility={() => setShowPassword(!showPassword)}
+            />
           </div>
 
           {/* Loop Toggle */}

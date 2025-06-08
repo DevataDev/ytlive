@@ -169,7 +169,7 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
               streamKey={streamKey}
               onPlatformChange={(platform: Platform) => {
                 setSelectedPlatform(platform.id);
-                if (platform.id !== 'custom' &&  platform.id !== 'shopee' ) {
+                if (platform.id !== 'custom' &&  platform.id !== 'shopee' && platform.isDynamicRtmpUrl == false ) {
                   setRtmpUrl(platform.rtmpUrl);
                 } else {
                   setRtmpUrl(customRtmpUrl);

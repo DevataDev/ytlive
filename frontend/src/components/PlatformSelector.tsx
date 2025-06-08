@@ -7,6 +7,7 @@ interface Platform {
   rtmpUrl: string;
   icon?: string;
   requiresStreamKey: boolean;
+  isDynamicRtmpUrl?: boolean;
 }
 
 const STREAMING_PLATFORMS: Platform[] = [
@@ -15,49 +16,56 @@ const STREAMING_PLATFORMS: Platform[] = [
     name: 'YouTube Live',
     rtmpUrl: 'rtmp://a.rtmp.youtube.com/live2/',
     icon: 'bi-youtube',
-    requiresStreamKey: true
+    requiresStreamKey: true,
+    isDynamicRtmpUrl: false
   },
   {
     id: 'facebook',
     name: 'Facebook',
     rtmpUrl: 'rtmps://live-api-s.facebook.com:443/rtmp/',
     icon: 'bi-facebook',
-    requiresStreamKey: true
+    requiresStreamKey: true,
+    isDynamicRtmpUrl: false
   },
   {
     id: 'tiktok',
     name: 'TikTok',
-    rtmpUrl: 'rtmp://push.tiktokcdn.com/live/',
+    rtmpUrl: '',
     icon: 'bi-tiktok',
-    requiresStreamKey: true
+    requiresStreamKey: true,
+    isDynamicRtmpUrl: true
   },
   {
     id: 'shopee',
     name: 'Shopee',
     rtmpUrl: '',
     icon: 'bi-shop',
-    requiresStreamKey: true
+    requiresStreamKey: true,
+    isDynamicRtmpUrl: true
   },
   {
     id: 'twitch',
     name: 'Twitch',
     rtmpUrl: 'rtmp://jkt02.contribute.live-video.net/app/',
     icon: 'bi-twitch',
-    requiresStreamKey: true
+    requiresStreamKey: true,
+    isDynamicRtmpUrl: false
   },
   {
     id: 'kick',
     name: 'Kick.com',
     rtmpUrl: 'rtmps://fa723fc1b171.global-contribute.live-video.net/app/',
     icon: 'bi-broadcast',
-    requiresStreamKey: true
+    requiresStreamKey: true,
+    isDynamicRtmpUrl: false
   },
   {
     id: 'custom',
     name: 'Custom RTMP',
     rtmpUrl: '',
     icon: 'bi-gear',
-    requiresStreamKey: false
+    requiresStreamKey: false,
+    isDynamicRtmpUrl: true
   }
 ];
 
@@ -95,7 +103,7 @@ const PlatformSelector: React.FC<PlatformSelectorProps> = ({
     onPlatformChange(platform);
   };
 
-  const isCustom = currentPlatform.id === 'custom' || currentPlatform.id == 'shopee';
+  const isCustom = currentPlatform.id === 'custom' || currentPlatform.id == 'shopee' || currentPlatform.isDynamicRtmpUrl == true;
   const finalRtmpUrl = isCustom ? customRtmpUrl : currentPlatform.rtmpUrl;
 
   return (
