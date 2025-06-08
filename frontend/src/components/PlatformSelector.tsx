@@ -41,14 +41,14 @@ const STREAMING_PLATFORMS: Platform[] = [
   {
     id: 'twitch',
     name: 'Twitch',
-    rtmpUrl: 'rtmp://live.twitch.tv/live/',
+    rtmpUrl: 'rtmp://jkt02.contribute.live-video.net/app/',
     icon: 'bi-twitch',
     requiresStreamKey: true
   },
   {
     id: 'kick',
     name: 'Kick Live',
-    rtmpUrl: 'rtmp://ingest.kick.com/live/',
+    rtmpUrl: 'rtmps://fa723fc1b171.global-contribute.live-video.net/app/',
     icon: 'bi-broadcast',
     requiresStreamKey: true
   },
