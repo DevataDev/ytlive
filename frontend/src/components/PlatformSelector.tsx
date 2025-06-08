@@ -19,21 +19,21 @@ const STREAMING_PLATFORMS: Platform[] = [
   },
   {
     id: 'facebook',
-    name: 'Facebook Live',
+    name: 'Facebook',
     rtmpUrl: 'rtmps://live-api-s.facebook.com:443/rtmp/',
     icon: 'bi-facebook',
     requiresStreamKey: true
   },
   {
     id: 'tiktok',
-    name: 'TikTok Live',
+    name: 'TikTok',
     rtmpUrl: 'rtmp://push.tiktokcdn.com/live/',
     icon: 'bi-tiktok',
     requiresStreamKey: true
   },
   {
     id: 'shopee',
-    name: 'Shopee Live',
+    name: 'Shopee',
     rtmpUrl: '',
     icon: 'bi-shop',
     requiresStreamKey: true
@@ -47,7 +47,7 @@ const STREAMING_PLATFORMS: Platform[] = [
   },
   {
     id: 'kick',
-    name: 'Kick Live',
+    name: 'Kick.com',
     rtmpUrl: 'rtmps://fa723fc1b171.global-contribute.live-video.net/app/',
     icon: 'bi-broadcast',
     requiresStreamKey: true
