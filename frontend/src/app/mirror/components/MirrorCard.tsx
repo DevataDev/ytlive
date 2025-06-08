@@ -80,7 +80,9 @@ export const MirrorCard: React.FC<MirrorCardProps> = ({
     } else if (label === 'Stream key') {
       saveStreamKey(mirrorId, data);
     }
+    onRefresh(mirrorId);
     toast.success(`${label} saved successfully`);
+    
   };
 
   return (
