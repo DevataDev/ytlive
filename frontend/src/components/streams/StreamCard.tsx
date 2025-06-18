@@ -19,7 +19,8 @@ import {
   faClock,
   faTimes,
   faEye,
-  faEyeSlash
+  faEyeSlash,
+  faExclamationTriangle
 } from '@fortawesome/free-solid-svg-icons';
 import { Stream } from '@/services/streamService';
 import BindChannelModal from '@/components/modals/BindChannelModal';
@@ -70,11 +71,12 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [newName, setNewName] = useState(stream.name || '');
   const [newDescription, setNewDescription] = useState(stream.description || '');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showBindModal, setShowBindModal] = useState(false);
   const [bindModalError, setBindModalError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { showModal, itemId, itemType, openModal, closeModal } = useFfmpegLogsModal();
   const [showMediaModal, setShowMediaModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -122,22 +124,44 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const renderStatusBadge = () => {
     if (isLive) {
       return (
-        <div className="d-flex align-items-center">
-          <span className="live-indicator me-1"></span>
-          <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Live</span>
+        <div className="flex items-center">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse mr-1.5"></span>
+          <span className="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-800 rounded-full">Live</span>
         </div>
       );
     } else if (isScheduled) {
       return (
-        <div className="d-flex align-items-center">
-          <FontAwesomeIcon icon={faClock} className="me-1" />
-          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Scheduled</span>
+        <div className="flex items-center">
+          <FontAwesomeIcon icon={faClock} className="w-3 h-3 mr-1 text-blue-500" />
+          <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Scheduled</span>
         </div>
       );
     } else {
-      return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Idle</span>;
+      return (
+        <div className="flex items-center">
+          <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Idle</span>
+        </div>
+      );
     }
   };
+  
+  // State for dropdown menu
+  const [showDropdown, setShowDropdown] = useState(false);
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showDropdown && !target.closest('.dropdown-container')) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDropdown]);
 
   // Format file size
   const formatFileSize = (bytes?: number): string => {
@@ -230,14 +254,14 @@ const StreamCard: React.FC<StreamCardProps> = ({
   // Handle delete
   const handleDelete = async () => {
     try {
-      setIsLoading(true);
+      setIsDeleting(true);
       setError('');
       await onDeleteStream(stream.id);
-      setShowDeleteConfirm(false);
+      setShowDeleteModal(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete stream');
     } finally {
-      setIsLoading(false);
+      setIsDeleting(false);
     }
   };
 
@@ -270,197 +294,377 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const fileSize = stream.fileSize || stream.fileSizeBytes;
 
   return (
-    <div >
-      <div className="card h-100 border-0 shadow-sm overflow-hidden">
-        {/* Card Header */}
-        <div className="bg-white">
-          <div className="d-flex justify-content-between align-items-center mb-1">
-            <div className="d-flex align-items-center">
-              <h5 className="card-title mb-0 text-truncate" style={{ maxWidth: '180px' }} title={stream.name || 'Untitled Stream'}>
+    <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-shadow duration-200">
+      {/* Card Header */}
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex justify-between items-start">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2">
+              <h3 className="text-base font-medium text-gray-900 truncate" title={stream.name || 'Untitled Stream'}>
                 {stream.name || 'Untitled Stream'}
-              </h5>
-              <span className="ms-2">{renderStatusBadge()}</span>
+              </h3>
+              {renderStatusBadge()}
             </div>
-
-            {/* Dropdown Menu */}
-            <div className="dropdown">
-              <button className="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id={`dropdown-${stream.id}`} data-bs-toggle="dropdown" aria-expanded="false">
-                <FontAwesomeIcon icon={faEllipsisVertical} />
-              </button>
-              <ul className="dropdown-menu dropdown-menu-end" aria-labelledby={`dropdown-${stream.id}`}>
-                <li><button className="dropdown-item" onClick={() => setShowRenameModal(true)}><FontAwesomeIcon icon={faPencil} className="me-2" />Rename</button></li>
-                <li><button className="dropdown-item" onClick={() => setShowBindModal(true)}><FontAwesomeIcon icon={faLink} className="me-2" />Bind Channel</button></li>
-                <li><button className="dropdown-item" onClick={() => handleViewMediaFiles()}><FontAwesomeIcon icon={faFolderOpen} className="me-2" />Media Files</button></li>
-                <li><button className="dropdown-item" onClick={() => handleViewLogs(stream.id)}><FontAwesomeIcon icon={faTerminal} className="me-2" />View Logs</button></li>
-                <li><button className="dropdown-item" onClick={() => { handleViewSettings() }}><FontAwesomeIcon icon={faGear} className="me-2" />Settings</button></li>
-                <li><hr className="dropdown-divider" /></li>
-                <li><button className="dropdown-item text-danger" onClick={() => setShowDeleteConfirm(true)}><FontAwesomeIcon icon={faTrash} className="me-2" />Delete</button></li>
-              </ul>
+            <div className="mt-1 flex items-center text-xs text-gray-500">
+              <span>ID: {stream.id || 'N/A'}</span>
+              {stream.createdAt && (
+                <span className="mx-2">•</span>
+              )}
+              {stream.createdAt && (
+                <span>{new Date(stream.createdAt).toLocaleString()}</span>
+              )}
             </div>
           </div>
-          <div className="d-flex justify-content-between align-items-center">
-            <small className="text-muted">ID: {stream.id || 'N/A'}</small>
-          </div>
-        </div>
 
-        {/* Card Body */}
-        <div className="p-3">
-          {/* Stream Info */}
-          <div className="d-flex flex-column gap-1 mb-3">
-            {stream.createdAt && (
-              <div className="text-muted small">
-                <FontAwesomeIcon icon={faCalendar} className="me-1" /> {new Date(stream.createdAt).toLocaleString()}
+          {/* Dropdown Menu */}
+          <div className="relative dropdown-container">
+            <button 
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+              onClick={() => setShowDropdown(!showDropdown)}
+            >
+              <FontAwesomeIcon icon={faEllipsisVertical} className="w-4 h-4" />
+            </button>
+            
+            {showDropdown && (
+              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-100">
+                <button 
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                  onClick={() => {
+                    setShowRenameModal(true);
+                    setShowDropdown(false);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faPencil} className="w-4 h-4 mr-2 text-gray-500" />
+                  Rename
+                </button>
+                <button 
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                  onClick={() => {
+                    setShowBindModal(true);
+                    setShowDropdown(false);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faLink} className="w-4 h-4 mr-2 text-gray-500" />
+                  Bind Channel
+                </button>
+                <button 
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                  onClick={() => {
+                    handleViewMediaFiles();
+                    setShowDropdown(false);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faFolderOpen} className="w-4 h-4 mr-2 text-gray-500" />
+                  Media Files
+                </button>
+                <button 
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                  onClick={() => {
+                    handleViewLogs(stream.id);
+                    setShowDropdown(false);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faTerminal} className="w-4 h-4 mr-2 text-gray-500" />
+                  View Logs
+                </button>
+                <button 
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                  onClick={() => {
+                    handleViewSettings();
+                    setShowDropdown(false);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faGear} className="w-4 h-4 mr-2 text-gray-500" />
+                  Settings
+                </button>
+                <div className="border-t border-gray-100 my-1"></div>
+                <button 
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                  onClick={() => {
+                    setShowDeleteModal(true);
+                    setShowDropdown(false);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faTrash} className="w-4 h-4 mr-2" />
+                  Delete
+                </button>
               </div>
             )}
-            {stream.fileSizeBytes && (
-              <div className="text-muted small">
-                <FontAwesomeIcon icon={faFileText} className="me-1" /> {formatFileSize(stream.fileSizeBytes)}
-              </div>
-            )}
-          </div>
-
-          {/* Error Alert */}
-          {error && <div className="alert alert-danger py-1 px-2" role="alert">{error}</div>}
-
-          {/* Platform Selector */}
-          <div className="mb-3">
-            <PlatformSelector
-              selectedPlatform={selectedPlatform}
-              customRtmpUrl={customRtmpUrl}
-              streamKey={streamKey}
-              onPlatformChange={(platform: Platform) => {
-                setSelectedPlatform(platform.id);
-                if (platform.id !== 'custom') {
-                  setRtmpUrl(platform.rtmpUrl);
-                } else {
-                  setRtmpUrl(customRtmpUrl);
-                }
-              }}
-              onCustomRtmpChange={(url: string) => {
-                setCustomRtmpUrl(url);
-                setRtmpUrl(url);
-              }}
-              onStreamKeyChange={setStreamKey}
-              onSave={async () => {
-                await handleUpdateRtmpUrl();
-                if (streamKey) {
-                  await handleUpdateStreamKey();
-                }
-              }}
-              isLoading={isLoading}
-              showStreamKey={showPassword}
-              onToggleStreamKeyVisibility={() => setShowPassword(!showPassword)}
-            />
-          </div>
-
-          {/* Loop Toggle */}
-          <div className="form-check">
-            <input className="form-check-input" type="checkbox" id={`loop-switch-${stream.id}`} checked={isLooping} onChange={handleToggleLoop} />
-            <label className="form-check-label" htmlFor={`loop-switch-${stream.id}`}>
-              <FontAwesomeIcon icon={faRepeat} className="me-1" /> Loop Video
-            </label>
           </div>
         </div>
+      </div>
 
-        {/* Card Footer */}
-        <div className={`bg-white border-top-0 pt-0 ${styles.cardFooter}`}>
-          <div className="d-flex justify-content-between align-items-center">
-            {/* Main Action Button */}
-            {isLive ? (
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={handleStop}
-                disabled={isStopping}
-              >
-                {isStopping ? (
-                  <><FontAwesomeIcon icon={faSpinner} className="me-1" spin /> Stopping...</>
-                ) : (
-                  <><FontAwesomeIcon icon={faStop} className="me-1" /> Stop</>
-                )}
-              </button>
-            ) : (
-              <button
-                className="btn btn-success btn-sm"
-                onClick={handleStart}
-                disabled={!streamKeyIsSet || isStarting}
-              >
-                {isStarting ? (
-                  <><FontAwesomeIcon icon={faSpinner} className="me-1" spin /> Starting...</>
-                ) : (
-                  <><FontAwesomeIcon icon={faPlay} className="me-1" /> Start</>
-                )}
-              </button>
-            )}
+      {/* Card Body */}
+      <div className="p-4">
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded-md" role="alert">
+            {error}
+          </div>
+        )}
 
-            <div className="d-flex align-items-center">
-              <button
-                className="btn btn-outline-secondary btn-sm me-2"
-                onClick={() => handleViewLogs(stream.id)}
-                title="View Logs"
-              >
-                <FontAwesomeIcon icon={faTerminal} />
-              </button>
-              <button
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => setShowMediaModal(true)}
-                title="Media Files"
-              >
-                <FontAwesomeIcon icon={faFolderOpen} />
-              </button>
+        {/* Platform Selector */}
+        <div className="mb-4">
+          <PlatformSelector
+            selectedPlatform={selectedPlatform}
+            customRtmpUrl={customRtmpUrl}
+            streamKey={streamKey}
+            onPlatformChange={(platform: Platform) => {
+              setSelectedPlatform(platform.id);
+              if (platform.id !== 'custom') {
+                setRtmpUrl(platform.rtmpUrl);
+              } else {
+                setRtmpUrl(customRtmpUrl);
+              }
+            }}
+            onCustomRtmpChange={(url: string) => {
+              setCustomRtmpUrl(url);
+              setRtmpUrl(url);
+            }}
+            onStreamKeyChange={setStreamKey}
+            onSave={async () => {
+              await handleUpdateRtmpUrl();
+              if (streamKey) {
+                await handleUpdateStreamKey();
+              }
+            }}
+            isLoading={isLoading}
+            showStreamKey={showPassword}
+            onToggleStreamKeyVisibility={() => setShowPassword(!showPassword)}
+          />
+        </div>
+
+        {/* File Info */}
+        {stream.fileSizeBytes && (
+          <div className="flex items-center text-sm text-gray-500 mb-4">
+            <FontAwesomeIcon icon={faFileText} className="w-4 h-4 mr-2 text-gray-400" />
+            <span>{formatFileSize(stream.fileSizeBytes)}</span>
+          </div>
+        )}
+
+        {/* Loop Toggle */}
+        <div className="flex items-center justify-between">
+          <label htmlFor={`loop-switch-${stream.id}`} className="flex items-center cursor-pointer">
+            <div className="relative">
+              <input
+                type="checkbox"
+                id={`loop-switch-${stream.id}`}
+                className="sr-only"
+                checked={isLooping}
+                onChange={handleToggleLoop}
+              />
+              <div className={`w-10 h-5 rounded-full ${isLooping ? 'bg-blue-500' : 'bg-gray-300'} transition-colors`}></div>
+              <div className={`absolute w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${isLooping ? 'translate-x-5' : 'translate-x-1'}`} 
+                   style={{top: '2px'}}></div>
             </div>
+            <span className="ml-3 text-sm font-medium text-gray-700">
+              <FontAwesomeIcon icon={faRepeat} className="w-4 h-4 mr-1 text-gray-500" /> Loop Video
+            </span>
+          </label>
+        </div>
+      </div>
+
+      {/* Card Footer */}
+      <div className="bg-gray-50 px-4 py-3 border-t border-gray-100">
+        <div className="flex justify-between items-center">
+          {/* Main Action Button */}
+          {isLive ? (
+            <button
+              className={`inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                isStopping ? 'bg-red-400' : 'bg-red-600 hover:bg-red-700'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500`}
+              onClick={handleStop}
+              disabled={isStopping}
+            >
+              {isStopping ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  <span>Stopping...</span>
+                </>
+              ) : (
+                <>
+                  <FontAwesomeIcon icon={faStop} className="w-3.5 h-3.5 mr-1.5" />
+                  <span>Stop</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              className={`inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                !streamKeyIsSet || isStarting ? 'bg-green-300' : 'bg-green-600 hover:bg-green-700'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500`}
+              onClick={handleStart}
+              disabled={!streamKeyIsSet || isStarting}
+            >
+              {isStarting ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  <span>Starting...</span>
+                </>
+              ) : (
+                <>
+                  <FontAwesomeIcon icon={faPlay} className="w-3.5 h-3.5 mr-1.5" />
+                  <span>Start</span>
+                </>
+              )}
+            </button>
+          )}
+
+          <div className="flex space-x-2">
+            <button
+              className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+              onClick={() => handleViewLogs(stream.id)}
+              title="View Logs"
+            >
+              <FontAwesomeIcon icon={faTerminal} className="w-4 h-4" />
+            </button>
+            <button
+              className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+              onClick={() => setShowMediaModal(true)}
+              title="Media Files"
+            >
+              <FontAwesomeIcon icon={faFolderOpen} className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
 
       {/* Rename Modal */}
-      <div className="modal fade" id={`rename-modal-${stream.id}`} tabIndex={-1} aria-labelledby={`rename-modal-label-${stream.id}`} aria-hidden="true">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title" id={`rename-modal-label-${stream.id}`}>Rename Stream</h5>
-              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div className="modal-body">
-              <div className="mb-3">
-                <label className="form-label">Name</label>
-                <input type="text" className="form-control" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Enter stream name" />
+      {showRenameModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="rename-modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" 
+              aria-hidden="true"
+              onClick={() => setShowRenameModal(false)}
+            ></div>
+
+            {/* Modal panel */}
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="rename-modal-title">
+                      Rename Stream
+                    </h3>
+                    <div className="mt-4">
+                      <div className="mb-4">
+                        <label htmlFor="stream-name" className="block text-sm font-medium text-gray-700 mb-1">
+                          Name
+                        </label>
+                        <input
+                          type="text"
+                          id="stream-name"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          value={newName}
+                          onChange={(e) => setNewName(e.target.value)}
+                          placeholder="Enter stream name"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="stream-description" className="block text-sm font-medium text-gray-700 mb-1">
+                          Description (Optional)
+                        </label>
+                        <textarea
+                          id="stream-description"
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          value={newDescription}
+                          onChange={(e) => setNewDescription(e.target.value)}
+                          placeholder="Enter description"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="form-label">Description (Optional)</label>
-                <textarea className="form-control" rows={3} value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Enter description"></textarea>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleRename}
+                  disabled={!newName.trim() || isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                      Saving...
+                    </>
+                  ) : 'Save Changes'}
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => setShowRenameModal(false)}
+                >
+                  Cancel
+                </button>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-              <button type="button" className="btn btn-primary" onClick={handleRename} disabled={!newName.trim() || isLoading}>
-                {isLoading ? 'Saving...' : 'Save Changes'}
-              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Delete Confirmation Modal */}
-      <div className="modal fade" id={`delete-modal-${stream.id}`} tabIndex={-1} aria-labelledby={`delete-modal-label-${stream.id}`} aria-hidden="true">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title" id={`delete-modal-label-${stream.id}`}>Delete Stream</h5>
-              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div className="modal-body">
-              <p>Are you sure you want to delete this stream? This action cannot be undone.</p>
-              <p className="mb-0"><strong>Stream ID:</strong> {stream.id}</p>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-              <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={isLoading}>
-                {isLoading ? 'Deleting...' : 'Delete'}
-              </button>
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="delete-modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" 
+              aria-hidden="true"
+              onClick={() => setShowDeleteModal(false)}
+            ></div>
+
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <FontAwesomeIcon icon={faExclamationTriangle} className="h-6 w-6 text-red-600" aria-hidden="true" />
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="delete-modal-title">
+                      Delete Stream
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Are you sure you want to delete this stream? This action cannot be undone.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                      Deleting...
+                    </>
+                  ) : 'Delete'}
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => setShowDeleteModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Global FFmpeg Logs Modal */}
       <FfmpegLogsModal
