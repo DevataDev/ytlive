@@ -392,12 +392,12 @@ export default function DashboardPage() {
               <div className="mb-6">
                 <div className="flex justify-between text-sm text-gray-600 mb-2">
                   <span>Storage Usage</span>
-                  <span>{storageInfo.used_percent || 0}%</span>
+                  <span>{(storageInfo.used_percent || 0).toFixed(2)}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div
                     className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${storageInfo.used_percent || 0}%` }}
+                    style={{ width: `${(storageInfo.used_percent || 0).toFixed(2)}%` }}
                   ></div>
                 </div>
               </div>

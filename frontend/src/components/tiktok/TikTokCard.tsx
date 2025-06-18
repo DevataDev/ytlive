@@ -75,25 +75,28 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
     return num.toString();
   }
 
+  // Toggle play/pause state
+  const togglePlayState = useCallback((shouldPlay: boolean) => {
+    setIsPlaying(prev => shouldPlay);
+  }, []);
+
   // Toggle play/pause on hover
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true);
-    if (playerRef.current) {
-      setIsPlaying(true);
-    }
   }, []);
 
   const handleMouseLeave = useCallback(() => {
     setIsHovered(false);
-    if (playerRef.current) {
-      setIsPlaying(false);
+    // Only pause if not clicked to play
+    if (!isPlaying) {
+      togglePlayState(false);
     }
-  }, []);
+  }, [isPlaying]);
 
   // Toggle play/pause on click
   const togglePlayPause = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsPlaying(!isPlaying);
+    togglePlayState(!isPlaying);
   }, [isPlaying]);
 
   // Toggle mute on click
@@ -124,28 +127,36 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
     }
   };
 
-  const handlePlay = useCallback(() => {
-    setIsPlaying(true);
-  }, []);
-
-  const handlePause = useCallback(() => {
-    setIsPlaying(false);
-  }, []);
-
-  const handleError = useCallback((error: any) => {
-    console.error('Error playing video:', error);
-    setHasError(true);
-  }, []);
-
   const handleReady = useCallback(() => {
+    console.log('Video is ready to play');
     setIsReady(true);
+    setIsBuffering(false);
   }, []);
 
   const handleBuffer = useCallback(() => {
+    console.log('Buffering video...');
     setIsBuffering(true);
   }, []);
 
   const handleBufferEnd = useCallback(() => {
+    console.log('Buffering complete');
+    setIsBuffering(false);
+  }, []);
+  
+  const handlePlay = useCallback(() => {
+    console.log('Video started playing');
+    setIsPlaying(true);
+    setIsBuffering(false);
+  }, []);
+  
+  const handlePause = useCallback(() => {
+    console.log('Video paused');
+    setIsPlaying(false);
+  }, []);
+  
+  const handleError = useCallback((error: any) => {
+    console.error('Video error:', error);
+    setHasError(true);
     setIsBuffering(false);
   }, []);
 
@@ -163,7 +174,9 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
            lowerUrl.includes('vimeo.com') ||
            lowerUrl.includes('twitch.tv') ||
            lowerUrl.includes('facebook.com') ||
-           lowerUrl.includes('dailymotion.com');
+           lowerUrl.includes('dailymotion.com') ||
+           lowerUrl.includes('tiktok') ||
+           lowerUrl.includes('tiktokcdn.com');
   }, []);
 
   // Blinking animation styles
@@ -208,7 +221,7 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
         <ReactPlayer
           ref={playerRef}
           url={liveUrl}
-          playing={isPlaying}
+          playing={isHovered || isPlaying}
           muted={isMuted}
           width="100%"
           height="100%"
@@ -218,14 +231,20 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
           onError={handleError}
           onBuffer={handleBuffer}
           onBufferEnd={handleBufferEnd}
+          playsinline
           config={{
             file: {
               attributes: {
                 crossOrigin: 'anonymous',
                 playsInline: true,
+                disablePictureInPicture: true,
+                preload: 'auto'
               },
-              forceHLS: true,
-              forceFLV: true,
+              forceHLS: liveUrl.includes('m3u'),
+              forceFLV: liveUrl.includes('flv'),
+              hlsOptions: {
+                enableWorker: true,
+              },
             },
           }}
           style={{
@@ -233,11 +252,15 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
             top: 0,
             left: 0,
           }}
+          progressInterval={100}
+          playIcon={<div />}
+          light={false}
+          fallback={<div>Loading video...</div>}
         />
         
-        {/* Loading overlay */}
+        {/* Loading overlay - Only show when buffering or not ready */}
         {(isBuffering || !isReady) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
           </div>
         )}
