@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Modal, Button, Form, Spinner } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner, faPlay, faKey, faTimes, faLink, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import { Channel, LiveStream, BindChannelModalProps } from '@/types/bindChannel';
 import { fetchListYoutubeChannels, fetchChannelStreamKeys } from '@/services/channelService';
 
@@ -28,6 +29,16 @@ const BindChannelModal: React.FC<BindChannelModalProps> = ({
   
   // Use the error prop if provided, otherwise use local error state
   const error = propError || localError;
+
+  const resetForm = useCallback(() => {
+    setSelectedChannelId('');
+    setSelectedStreamKey('');
+    setStreamKey('');
+    setLocalError('');
+    setIsBinding(false);
+    setChannels([]);
+    setStreams([]);
+  }, []);
 
   // Reset form when modal is shown/hidden
   useEffect(() => {
@@ -122,11 +133,13 @@ const BindChannelModal: React.FC<BindChannelModalProps> = ({
   }, [selectedChannelId, selectedStreamKey, streamKey]);
   
   // Handle form submission
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
     
     if (!isFormValid) {
-      setLocalError('Please fill in all required fields');
+      setLocalError('Please fill in all required fields.');
       return;
     }
 
@@ -134,175 +147,182 @@ const BindChannelModal: React.FC<BindChannelModalProps> = ({
       setIsBinding(true);
       setLocalError('');
       
-      // Get the final stream key to use
-      let finalStreamKey = '';
-      
-      if (selectedStreamKey === 'custom') {
-        // Use the custom stream key
-        finalStreamKey = streamKey.trim();
-      } else {
-        // Find the selected stream to get its key
-        const selectedStream = streams.find(s => s.stream_key === selectedStreamKey);
-        if (!selectedStream) {
-          throw new Error('Selected stream not found');
-        }
-        finalStreamKey = selectedStream.stream_key;
-      }
-      
-      if (!finalStreamKey) {
-        throw new Error('No stream key provided');
-      }
+      const finalStreamKey = selectedStreamKey === 'custom' ? streamKey : selectedStreamKey;
       
       await onBind(selectedChannelId, finalStreamKey);
       onHide();
     } catch (err) {
       console.error('Failed to bind channel:', err);
-      setLocalError(err instanceof Error ? err.message : 'Failed to bind channel');
-      throw err;
+      setLocalError('Failed to bind channel. Please try again.');
     } finally {
       setIsBinding(false);
     }
-  }, [isFormValid, selectedChannelId, selectedStreamKey, streamKey, streams, onBind, onHide]);
+  }, [isFormValid, selectedChannelId, selectedStreamKey, streamKey, onBind, onHide]);
 
-  const resetForm = useCallback(() => {
-    setSelectedChannelId('');
-    setSelectedStreamKey('');
-    setStreamKey('');
-    setLocalError('');
-  }, []);
+  if (!show) return null;
 
   return (
-    <Modal show={show} onHide={onHide} centered>
-      <Modal.Header closeButton className="bg-primary text-white">
-        <Modal.Title className="d-flex align-items-center">
-          <i className="bi bi-link-45deg me-2"></i>
-          {title}
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body className="p-4">
-        {streamName && (
-          <div className="mb-4">
-            <h5 className="mb-0">
-              <i className="bi bi-cast me-2"></i>
-              <span className="text-primary">{streamName}</span>
-            </h5>
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onHide}></div>
+
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          {/* Header */}
+          <div className="bg-white px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+              <button
+                onClick={onHide}
+                className="text-gray-400 hover:text-gray-600"
+                disabled={loading || isBinding}
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+            {streamName && (
+              <p className="mt-2 text-sm text-gray-600">
+                Stream: <span className="font-medium">{streamName}</span>
+              </p>
+            )}
           </div>
-        )}
-        
-        <Form onSubmit={handleSubmit}>
-          <Form.Group className="mb-4">
-            <Form.Label className="fw-medium">YouTube Channel</Form.Label>
-            <div className="input-group">
-              <span className="input-group-text bg-light">
-                {isLoadingChannels ? (
-                  <Spinner animation="border" size="sm" />
-                ) : (
-                  <i className="bi bi-collection-play"></i>
-                )}
-              </span>
-              <Form.Select 
-                value={selectedChannelId} 
-                onChange={handleChannelChange}
-                disabled={isLoadingChannels || loading}
-                required
-              >
-                <option value="">Select a channel</option>
-                {channels.map((channel) => (
-                  <option key={channel.ID} value={channel.ID}>
-                    {channel.ChannelName}
-                  </option>
-                ))}
-              </Form.Select>
-            </div>
-          </Form.Group>
 
-          <Form.Group className="mb-4">
-            <Form.Label className="fw-medium">Stream Key</Form.Label>
-            <div className="input-group">
-              <span className="input-group-text bg-light">
-                {isLoadingStreams ? (
-                  <Spinner animation="border" size="sm" />
-                ) : (
-                  <i className="bi bi-key"></i>
-                )}
-              </span>
-              <Form.Select 
-                value={selectedStreamKey} 
-                onChange={handleStreamChange}
-                disabled={!selectedChannelId || isLoadingStreams || loading}
-                required
-              >
-                <option value="">Select a stream key</option>
-                {streams.map((stream) => (
-                  <option key={stream.id} value={stream.stream_key}>
-                    {stream.title}
-                  </option>
-                ))}
-              </Form.Select>
-            </div>
-            <Form.Text className="text-muted">
-              {selectedStreamKey === 'custom' ? 'Enter your custom stream key' : 'Select a stream key from the list'}
-            </Form.Text>
-          </Form.Group>
-
-          {selectedStreamKey === 'custom' && (
-            <Form.Group className="mb-4">
-              <Form.Label className="fw-medium">Custom Stream Key</Form.Label>
-              <div className="input-group">
-                <span className="input-group-text bg-light">
-                  <i className="bi bi-key-fill"></i>
-                </span>
-                <Form.Control
-                  type="text"
-                  value={streamKey}
-                  onChange={(e) => setStreamKey(e.target.value)}
-                  placeholder="Enter custom stream key"
-                  disabled={loading}
-                  required
-                />
+          {/* Body */}
+          <div className="bg-white px-6 py-4">
+            {(isLoadingChannels && channels.length === 0) ? (
+              <div className="flex items-center justify-center py-8">
+                <FontAwesomeIcon icon={faSpinner} className="text-xl text-gray-400 animate-spin mr-2" />
+                <span className="text-gray-600">Loading channels...</span>
               </div>
-            </Form.Group>
-          )}
+            ) : (
+              <form onSubmit={handleSubmit}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    YouTube Channel
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      {isLoadingChannels ? (
+                        <FontAwesomeIcon icon={faSpinner} className="text-gray-400 animate-spin" />
+                      ) : (
+                        <FontAwesomeIcon icon={faPlay} className="text-gray-400" />
+                      )}
+                    </div>
+                    <select
+                      value={selectedChannelId}
+                      onChange={handleChannelChange}
+                      disabled={isLoadingChannels || loading}
+                      required
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select a channel</option>
+                      {channels.map((channel) => (
+                        <option key={channel.ID} value={channel.ID}>
+                          {channel.ChannelName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-          {error && (
-            <div className="alert alert-danger">
-              <i className="bi bi-exclamation-triangle-fill me-2"></i>
-              {error}
-            </div>
-          )}
-        </Form>
-      </Modal.Body>
-      <Modal.Footer className="bg-light">
-        <Button 
-          variant="outline-secondary" 
-          onClick={onHide}
-          disabled={loading || isBinding}
-          className="d-flex align-items-center"
-        >
-          <i className="bi bi-x-circle me-1"></i>
-          Cancel
-        </Button>
-        <Button 
-          variant="primary" 
-          type="button"
-          onClick={handleSubmit}
-          disabled={!isFormValid || loading || isBinding}
-          className="d-flex align-items-center"
-        >
-          {isBinding ? (
-            <>
-              <Spinner as="span" animation="border" size="sm" className="me-2" />
-              Binding...
-            </>
-          ) : (
-            <>
-              <i className="bi bi-link-45deg me-1"></i>
-              Bind Channel
-            </>
-          )}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Stream Key
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      {isLoadingStreams ? (
+                        <FontAwesomeIcon icon={faSpinner} className="text-gray-400 animate-spin" />
+                      ) : (
+                        <FontAwesomeIcon icon={faKey} className="text-gray-400" />
+                      )}
+                    </div>
+                    <select
+                      value={selectedStreamKey}
+                      onChange={handleStreamChange}
+                      disabled={!selectedChannelId || isLoadingStreams || loading}
+                      required
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select a stream key</option>
+                      {streams.map((stream) => (
+                        <option key={stream.id} value={stream.stream_key}>
+                          {stream.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {selectedStreamKey === 'custom' ? 'Enter your custom stream key' : 'Select a stream key from the list'}
+                  </p>
+                </div>
+
+                {selectedStreamKey === 'custom' && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Custom Stream Key
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <FontAwesomeIcon icon={faKey} className="text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={streamKey}
+                        onChange={(e) => setStreamKey(e.target.value)}
+                        placeholder="Enter custom stream key"
+                        disabled={loading}
+                        required
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <div className="flex">
+                      <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-400 mr-2 mt-0.5" />
+                      <span className="text-red-700 text-sm">{error}</span>
+                    </div>
+                  </div>
+                )}
+              </form>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+            <button
+              onClick={onHide}
+              disabled={loading || isBinding}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              <FontAwesomeIcon icon={faTimes} className="mr-1" />
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!isFormValid || loading || isBinding}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              {isBinding ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
+                  Binding...
+                </>
+              ) : (
+                <>
+                  <FontAwesomeIcon icon={faLink} className="mr-1" />
+                  Bind Channel
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

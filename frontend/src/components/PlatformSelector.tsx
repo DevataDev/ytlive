@@ -1,5 +1,24 @@
 import React, { useState } from 'react';
-import { Form, InputGroup, Button } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faYoutube,
+  faFacebook,
+  faTiktok,
+  faTwitch
+} from '@fortawesome/free-brands-svg-icons';
+import {
+  faLink,
+  faKey,
+  faEye,
+  faEyeSlash,
+  faCheck,
+  faInfoCircle,
+  faShieldAlt,
+  faGear,
+  faBroadcastTower,
+  faStore,
+  faSpinner
+} from '@fortawesome/free-solid-svg-icons';
 
 interface Platform {
   id: string;
@@ -15,7 +34,7 @@ const STREAMING_PLATFORMS: Platform[] = [
     id: 'youtube',
     name: 'YouTube Live',
     rtmpUrl: 'rtmp://a.rtmp.youtube.com/live2/',
-    icon: 'bi-youtube',
+    icon: 'youtube',
     requiresStreamKey: true,
     isDynamicRtmpUrl: false
   },
@@ -23,7 +42,7 @@ const STREAMING_PLATFORMS: Platform[] = [
     id: 'facebook',
     name: 'Facebook',
     rtmpUrl: 'rtmps://live-api-s.facebook.com:443/rtmp/',
-    icon: 'bi-facebook',
+    icon: 'facebook',
     requiresStreamKey: true,
     isDynamicRtmpUrl: false
   },
@@ -31,7 +50,7 @@ const STREAMING_PLATFORMS: Platform[] = [
     id: 'tiktok',
     name: 'TikTok',
     rtmpUrl: '',
-    icon: 'bi-tiktok',
+    icon: 'tiktok',
     requiresStreamKey: true,
     isDynamicRtmpUrl: true
   },
@@ -39,7 +58,7 @@ const STREAMING_PLATFORMS: Platform[] = [
     id: 'shopee',
     name: 'Shopee',
     rtmpUrl: '',
-    icon: 'bi-shop',
+    icon: 'store',
     requiresStreamKey: true,
     isDynamicRtmpUrl: true
   },
@@ -47,7 +66,7 @@ const STREAMING_PLATFORMS: Platform[] = [
     id: 'twitch',
     name: 'Twitch',
     rtmpUrl: 'rtmp://jkt02.contribute.live-video.net/app/',
-    icon: 'bi-twitch',
+    icon: 'twitch',
     requiresStreamKey: true,
     isDynamicRtmpUrl: false
   },
@@ -55,7 +74,7 @@ const STREAMING_PLATFORMS: Platform[] = [
     id: 'kick',
     name: 'Kick.com',
     rtmpUrl: 'rtmps://fa723fc1b171.global-contribute.live-video.net/app/',
-    icon: 'bi-broadcast',
+    icon: 'broadcast',
     requiresStreamKey: true,
     isDynamicRtmpUrl: false
   },
@@ -63,7 +82,7 @@ const STREAMING_PLATFORMS: Platform[] = [
     id: 'custom',
     name: 'Custom RTMP',
     rtmpUrl: '',
-    icon: 'bi-gear',
+    icon: 'gear',
     requiresStreamKey: false,
     isDynamicRtmpUrl: true
   }
@@ -103,144 +122,175 @@ const PlatformSelector: React.FC<PlatformSelectorProps> = ({
     onPlatformChange(platform);
   };
 
+  const getIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'youtube': return faYoutube;
+      case 'facebook': return faFacebook;
+      case 'tiktok': return faTiktok;
+      case 'twitch': return faTwitch;
+      case 'store': return faStore;
+      case 'broadcast': return faBroadcastTower;
+      case 'gear': return faGear;
+      default: return faBroadcastTower;
+    }
+  };
+
   const isCustom = currentPlatform.id === 'custom' || currentPlatform.id == 'shopee' || currentPlatform.isDynamicRtmpUrl == true;
   const finalRtmpUrl = isCustom ? customRtmpUrl : currentPlatform.rtmpUrl;
 
   return (
     <div className="platform-selector">
       {/* Platform Selection */}
-      <div className="mb-3">
-        <Form.Label className="small text-muted mb-2">Streaming Platform</Form.Label>
-        <div className="row g-2">
+      <div className="mb-4">
+        <label className="block text-sm text-gray-600 mb-2">Streaming Platform</label>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {STREAMING_PLATFORMS.map((platform) => (
-            <div key={platform.id} className="col-6 col-md-4">
-              <Button
-                variant={currentPlatform.id === platform.id ? 'primary' : 'outline-secondary'}
-                size="sm"
-                className="w-100 d-flex align-items-center justify-content-center"
-                onClick={() => handlePlatformSelect(platform)}
-                style={{ minHeight: '40px' }}
-              >
-                {platform.icon && <i className={`${platform.icon} me-1`}></i>}
-                <span className="small">{platform.name}</span>
-              </Button>
-            </div>
+            <button
+              key={platform.id}
+              type="button"
+              className={`
+                flex items-center justify-center p-3 rounded-lg border-2 transition-all duration-200 min-h-[50px]
+                ${currentPlatform.id === platform.id 
+                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                }
+              `}
+              onClick={() => handlePlatformSelect(platform)}
+            >
+              {platform.icon && (
+                <FontAwesomeIcon 
+                  icon={getIcon(platform.icon)} 
+                  className="mr-2 text-lg" 
+                />
+              )}
+              <span className="text-sm font-medium">{platform.name}</span>
+            </button>
           ))}
         </div>
       </div>
 
       {/* RTMP URL Display/Input */}
-      <div className="mb-3">
-        <Form.Label className="small text-muted mb-1">
-          RTMP URL
+      <div className="mb-4">
+        <div className="flex items-center mb-2">
+          <label className="text-sm text-gray-600">RTMP URL</label>
           {!isCustom && (
-            <span className="badge bg-success ms-2 small">Auto-configured</span>
+            <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+              Auto-configured
+            </span>
           )}
-        </Form.Label>
-        <InputGroup size="sm">
-          <InputGroup.Text>
-            <i className="bi bi-link-45deg"></i>
-          </InputGroup.Text>
-          <Form.Control
+        </div>
+        <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+          <div className="flex items-center justify-center px-3 bg-gray-50 border-r border-gray-300">
+            <FontAwesomeIcon icon={faLink} className="text-gray-500" />
+          </div>
+          <input
             type="text"
             value={finalRtmpUrl}
             onChange={(e) => onCustomRtmpChange(e.target.value)}
             placeholder={isCustom ? "Enter custom RTMP URL" : "Auto-configured"}
             readOnly={!isCustom}
-            className={!isCustom ? 'bg-light' : ''}
+            className={`
+              flex-1 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
+              ${!isCustom ? 'bg-gray-50 text-gray-600' : 'bg-white'}
+            `}
           />
-          <Button
-            variant="outline-success"
+          <button
+            type="button"
             onClick={onSave}
             disabled={isLoading || (!isCustom && !finalRtmpUrl)}
+            className="px-4 py-2 bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             title="Save RTMP URL"
           >
             {isLoading ? (
-              <div className="spinner-border spinner-border-sm" role="status"></div>
+              <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
             ) : (
-              <i className="bi bi-check-lg"></i>
+              <FontAwesomeIcon icon={faCheck} />
             )}
-          </Button>
-        </InputGroup>
+          </button>
+        </div>
         {!isCustom && (
-          <Form.Text className="text-muted">
-            <i className="bi bi-info-circle me-1"></i>
+          <p className="mt-2 text-sm text-gray-500 flex items-center">
+            <FontAwesomeIcon icon={faInfoCircle} className="mr-1" />
             This URL is automatically configured for {currentPlatform.name}
-          </Form.Text>
+          </p>
         )}
       </div>
 
       {/* Stream Key Input */}
       {currentPlatform.requiresStreamKey && (
-        <div className="mb-3">
-          <Form.Label className="small text-muted mb-1">Stream Key</Form.Label>
-          <InputGroup size="sm">
-            <InputGroup.Text>
-              <i className="bi bi-key"></i>
-            </InputGroup.Text>
-            <Form.Control
+        <div className="mb-4">
+          <label className="block text-sm text-gray-600 mb-2">Stream Key</label>
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+            <div className="flex items-center justify-center px-3 bg-gray-50 border-r border-gray-300">
+              <FontAwesomeIcon icon={faKey} className="text-gray-500" />
+            </div>
+            <input
               type={showStreamKey ? 'text' : 'password'}
               value={streamKey}
               onChange={(e) => onStreamKeyChange(e.target.value)}
               placeholder={`Enter your ${currentPlatform.name} stream key`}
+              className="flex-1 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {onToggleStreamKeyVisibility && (
-              <Button
-                variant="outline-secondary"
+              <button
+                type="button"
                 onClick={onToggleStreamKeyVisibility}
+                className="px-4 py-2 bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                 title={showStreamKey ? 'Hide stream key' : 'Show stream key'}
               >
-                <i className={`bi ${showStreamKey ? 'bi-eye-slash' : 'bi-eye'}`}></i>
-              </Button>
+                <FontAwesomeIcon icon={showStreamKey ? faEyeSlash : faEye} />
+              </button>
             )}
-          </InputGroup>
-          <Form.Text className="text-muted">
-            <i className="bi bi-shield-lock me-1"></i>
+          </div>
+          <p className="mt-2 text-sm text-gray-500 flex items-center">
+            <FontAwesomeIcon icon={faShieldAlt} className="mr-1" />
             Get your stream key from your {currentPlatform.name} dashboard
-          </Form.Text>
+          </p>
         </div>
       )}
 
       {/* Platform-specific Instructions */}
       {currentPlatform.id !== 'custom' && (
-        <div className="alert alert-info py-2 px-3">
-          <div className="small">
-            <strong>How to get your {currentPlatform.name} stream key:</strong>
-            <ul className="mb-0 mt-1 ps-3">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="text-sm">
+            <p className="font-semibold text-blue-800 mb-2">
+              How to get your {currentPlatform.name} stream key:
+            </p>
+            <ul className="text-blue-700 space-y-1 pl-4">
               {currentPlatform.id === 'youtube' && (
                 <>
-                  <li>Go to YouTube Studio → Create → Go Live</li>
-                  <li>Copy the "Stream key" from the stream settings</li>
+                  <li>• Go to YouTube Studio → Create → Go Live</li>
+                  <li>• Copy the "Stream key" from the stream settings</li>
                 </>
               )}
               {currentPlatform.id === 'facebook' && (
                 <>
-                  <li>Go to Facebook → Create → Live Video</li>
-                  <li>Copy the "Stream Key" from the setup page</li>
+                  <li>• Go to Facebook → Create → Live Video</li>
+                  <li>• Copy the "Stream Key" from the setup page</li>
                 </>
               )}
               {currentPlatform.id === 'tiktok' && (
                 <>
-                  <li>Open TikTok app → Go Live → More options</li>
-                  <li>Copy the "Server URL" stream key</li>
+                  <li>• Open TikTok app → Go Live → More options</li>
+                  <li>• Copy the "Server URL" stream key</li>
                 </>
               )}
               {currentPlatform.id === 'twitch' && (
                 <>
-                  <li>Go to Twitch Creator Dashboard → Settings → Stream</li>
-                  <li>Copy the "Primary Stream key"</li>
+                  <li>• Go to Twitch Creator Dashboard → Settings → Stream</li>
+                  <li>• Copy the "Primary Stream key"</li>
                 </>
               )}
               {currentPlatform.id === 'kick' && (
                 <>
-                  <li>Go to Kick Dashboard → Settings → Stream</li>
-                  <li>Copy the "Stream Key"</li>
+                  <li>• Go to Kick Dashboard → Settings → Stream</li>
+                  <li>• Copy the "Stream Key"</li>
                 </>
               )}
               {currentPlatform.id === 'shopee' && (
                 <>
-                  <li>Go to Shopee Live Creator Center</li>
-                  <li>Copy the "Stream Key" from live settings</li>
+                  <li>• Go to Shopee Live Creator Center</li>
+                  <li>• Copy the "Stream Key" from live settings</li>
                 </>
               )}
             </ul>

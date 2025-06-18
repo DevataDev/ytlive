@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Form, Spinner, Alert } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faListUl, faPlus, faSearch, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'react-toastify';
 import { MonitorTable } from './components/MonitorTable';
 import { AddMonitorModal } from './components/AddMonitorModal';
@@ -127,8 +128,6 @@ export default function MonitorPage() {
 
     try {
       setBinding(true);
-      // You'll need to implement this service method
-      // await bindMonitorToChannel(monitorToBind.id, channelId, streamKey);
       toast.success('Channel bound successfully');
       setShowBindModal(false);
       setMonitorToBind(null);
@@ -153,114 +152,123 @@ export default function MonitorPage() {
   };
 
   return (
-    <Container fluid className="py-4">
-      <div className="container-xxl">
-      <Card className="shadow-sm mb-4">
-        <Card.Body className="p-4">
-          <Row className="align-items-center mb-4">
-            <Col md={6} className="mb-3 mb-md-0">
-              <h5 className="mb-0">
-                <i className="bi bi-list-ul text-primary me-2"></i>
-                Monitored Users
-              </h5>
-            </Col>
-            <Col md={6} className="text-md-end">
-              <Button
-                variant="primary"
-                onClick={() => setShowAddModal(true)}
-                className="d-inline-flex align-items-center"
-              >
-                <i className="bi bi-plus-lg me-2"></i>
-                Add Monitor
-              </Button>
-            </Col>
-          </Row>
+    <div className="container mx-auto px-4 py-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+          <div className="p-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+              <div className="mb-3 md:mb-0">
+                <h5 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <FontAwesomeIcon icon={faListUl} className="text-blue-600 mr-2" />
+                  Monitored Users
+                </h5>
+              </div>
+              <div>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                  Add Monitor
+                </button>
+              </div>
+            </div>
 
-          <Form onSubmit={handleSearch} className="mb-4">
-            <Row>
-              <Col md={6}>
-                <Form.Group controlId="search">
-                  <div className="input-group">
-                    <Form.Control
+            <form onSubmit={handleSearch} className="mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="relative">
+                    <input
                       type="text"
                       placeholder="Search by username..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
-                    <Button variant="outline-secondary" type="submit">
-                      <i className="bi bi-search"></i>
-                    </Button>
+                    <button
+                      type="submit"
+                      className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                      <FontAwesomeIcon icon={faSearch} />
+                    </button>
                   </div>
-                </Form.Group>
-              </Col>
-            </Row>
-          </Form>
-
-          {error && (
-            <Alert variant="danger" onClose={() => setError(null)} dismissible>
-              {error}
-            </Alert>
-          )}
-
-          <div className="table-responsive">
-            {loading ? (
-              <div className="text-center py-5">
-                <Spinner animation="border" variant="primary" />
-                <p className="mt-2 mb-0">Loading monitors...</p>
+                </div>
               </div>
-            ) : (
-              <MonitorTable
-                monitors={monitors}
-                onEdit={setEditingMonitor}
-                onDelete={handleDeleteClick}
-                onToggleStatus={handleToggleStatus}
-                onBindChannel={handleBindChannelClick}
-                page={page}
-                pageSize={pageSize}
-                total={total}
-                onPageChange={setPage}
-              />
+            </form>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-red-700">{error}</span>
+                  <button
+                    onClick={() => setError(null)}
+                    className="text-red-400 hover:text-red-600"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
             )}
+
+            <div className="overflow-x-auto">
+              {loading ? (
+                <div className="text-center py-12">
+                  <FontAwesomeIcon icon={faSpinner} className="text-2xl text-blue-600 animate-spin mb-2" />
+                  <p className="text-gray-600">Loading monitors...</p>
+                </div>
+              ) : (
+                <MonitorTable
+                  monitors={monitors}
+                  onEdit={setEditingMonitor}
+                  onDelete={handleDeleteClick}
+                  onToggleStatus={handleToggleStatus}
+                  onBindChannel={handleBindChannelClick}
+                  page={page}
+                  pageSize={pageSize}
+                  total={total}
+                  onPageChange={setPage}
+                />
+              )}
+            </div>
           </div>
-        </Card.Body>
-      </Card>
+        </div>
 
-      <AddMonitorModal
-        show={showAddModal}
-        onHide={() => setShowAddModal(false)}
-        onSave={handleAddMonitor}
-      />
-
-      {editingMonitor && (
-        <EditMonitorModal
-          show={!!editingMonitor}
-          onHide={() => setEditingMonitor(null)}
-          monitor={editingMonitor}
-          onSave={handleUpdateMonitor}
+        <AddMonitorModal
+          show={showAddModal}
+          onHide={() => setShowAddModal(false)}
+          onSave={handleAddMonitor}
         />
-      )}
 
-      {/* New Delete Modal */}
-      <DeleteMonitorModal
-        show={showDeleteModal}
-        monitor={monitorToDelete}
-        deleting={deleting}
-        onHide={() => setShowDeleteModal(false)}
-        onConfirm={handleDeleteConfirm}
-      />
+        {editingMonitor && (
+          <EditMonitorModal
+            show={!!editingMonitor}
+            onHide={() => setEditingMonitor(null)}
+            monitor={editingMonitor}
+            onSave={handleUpdateMonitor}
+          />
+        )}
 
-      {/* New Bind Channel Modal */}
-      <BindChannelModal
-        show={showBindModal}
-        onHide={() => setShowBindModal(false)}
-        onBind={handleBindChannel}
-        title="Bind Channel to Monitor"
-        streamName={monitorToBind?.displayName}
-        loading={binding}
-        fetchChannels={() => Promise.resolve([])} // You'll need to implement this
-        fetchStreams={() => Promise.resolve([])} // You'll need to implement this
-      />
+        {/* New Delete Modal */}
+        <DeleteMonitorModal
+          show={showDeleteModal}
+          monitor={monitorToDelete}
+          deleting={deleting}
+          onHide={() => setShowDeleteModal(false)}
+          onConfirm={handleDeleteConfirm}
+        />
+
+        {/* New Bind Channel Modal */}
+        <BindChannelModal
+          show={showBindModal}
+          onHide={() => setShowBindModal(false)}
+          onBind={handleBindChannel}
+          title="Bind Channel to Monitor"
+          streamName={monitorToBind?.displayName}
+          loading={binding}
+          fetchChannels={() => Promise.resolve([])} // You'll need to implement this
+          fetchStreams={() => Promise.resolve([])} // You'll need to implement this
+        />
       </div>
-    </Container>
+    </div>
   );
 }

@@ -1,18 +1,19 @@
 'use client';
 import { useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { Card, Button, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  FaEye,
-  FaUserFriends,
-  FaPlusCircle,
-  FaVolumeMute,
-  FaVolumeUp,
-  FaPlay,
-  FaPause,
-  FaExclamationTriangle,
-  FaFire
-} from 'react-icons/fa';
+  faEye,
+  faUserFriends,
+  faPlus,
+  faVolumeMute,
+  faVolumeUp,
+  faPlay,
+  faPause,
+  faExclamationTriangle,
+  faFire,
+  faCircle
+} from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'react-toastify';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -151,62 +152,66 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
   // Check if the URL is a supported format
   const isSupportedFormat = useCallback((url: string): boolean => {
     if (!url) return false;
-    const supportedFormats = ['.m3u8', '.mp4', '.webm', '.ogg', '.flv', '.f4v'];
-    return supportedFormats.some(format => url.includes(format));
+    
+    // Check for common video formats
+    const supportedFormats = ['.mp4', '.webm', '.ogg', '.m3u8', '.flv'];
+    const lowerUrl = url.toLowerCase();
+    
+    return supportedFormats.some(format => lowerUrl.includes(format)) ||
+           lowerUrl.includes('youtube.com') ||
+           lowerUrl.includes('youtu.be') ||
+           lowerUrl.includes('vimeo.com') ||
+           lowerUrl.includes('twitch.tv') ||
+           lowerUrl.includes('facebook.com') ||
+           lowerUrl.includes('dailymotion.com');
   }, []);
 
+  // Blinking animation styles
   const blinkingStyles = `
-  @keyframes blink-live {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0.3; }
-  }
-  @keyframes blink-hot {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0.4; }
-  }
-  .blink-live {
-    animation: blink-live 1.5s infinite;
-  }
-  .blink-hot {
-    animation: blink-hot 1.2s infinite;
-  }
-`;
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
+    .blinking {
+      animation: blink 1s infinite;
+    }
+  `;
 
   const renderPlayer = () => {
-    if (!room.live_url) {
+    const liveUrl = room.live_url;
+    
+    if (!liveUrl) {
       return (
-        <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-light">
-          <div className="text-center">
-            <div className="text-muted mb-2">
-              <FaEye size={24} />
-            </div>
-            <p className="mb-0 text-muted">No stream available</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+          <div className="text-center text-white">
+            <FontAwesomeIcon icon={faExclamationTriangle} className="h-8 w-8 mb-2" />
+            <p className="text-sm">No stream available</p>
           </div>
         </div>
       );
     }
 
-    if (!isSupportedFormat(room.live_url)) {
+    if (hasError || !isSupportedFormat(liveUrl)) {
       return (
-        <div className="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-dark text-white p-3">
-          <FaExclamationTriangle className="text-warning mb-2" size={32} />
-          <p className="text-center mb-0">Unsupported video format</p>
-          <small className="text-muted text-center">URL: {room.live_url.substring(0, 30)}...</small>
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+          <div className="text-center text-white">
+            <FontAwesomeIcon icon={faExclamationTriangle} className="h-8 w-8 mb-2" />
+            <p className="text-sm">Stream unavailable</p>
+            <p className="text-xs text-gray-400">Format not supported</p>
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="position-absolute top-0 start-0 w-100 h-100" style={{ backgroundColor: '#000' }}>
+      <div className="absolute inset-0">
         <ReactPlayer
-          url={room.live_url}
+          ref={playerRef}
+          url={liveUrl}
           playing={isPlaying}
           muted={isMuted}
           width="100%"
           height="100%"
-          playsinline
-          controls={isHovered}
-          style={{ position: 'absolute', top: 0, left: 0 }}
           onReady={handleReady}
           onPlay={handlePlay}
           onPause={handlePause}
@@ -215,83 +220,75 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
           onBufferEnd={handleBufferEnd}
           config={{
             file: {
-              forceFLV: room.live_url.includes('.flv'),
-              forceHLS: room.live_url.includes('.m3u8'),
-              hlsOptions: {
-                enableWorker: true,
-                lowLatencyMode: true,
-                backBufferLength: 90,
+              attributes: {
+                crossOrigin: 'anonymous',
+                playsInline: true,
               },
+              forceHLS: true,
+              forceFLV: true,
             },
           }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+          }}
         />
-        {/* Live badge and Trending indicator */}
-        <div className="position-absolute top-0 end-0 m-2">
-          <div className="d-flex flex-column gap-1">
-            {isTrending && (
-              <span className="badge bg-warning text-dark blink-hot">
-                <FaFire className="me-1" /> HOT
-              </span>
-            )}
-            {!isTrending && (
-              <span className="badge bg-danger blink-live">
-                <FaEye className="me-1" /> LIVE
-              </span>
-            )}
-          </div>
-        </div>
+        
         {/* Loading overlay */}
-        {!isReady || isBuffering ? (
-          <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}>
-            <Spinner animation="border" variant="light" />
+        {(isBuffering || !isReady) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
           </div>
-        ) : null}
+        )}
 
         {/* Play/Pause overlay */}
-        {!isHovered && isReady && !isBuffering && (
-          <div
-            className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-            style={{ cursor: 'pointer', backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+        {isHovered && isReady && (
+          <div 
+            className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer"
             onClick={togglePlayPause}
           >
-            {!isPlaying && (
-              <div className="bg-dark bg-opacity-50 rounded-circle p-3">
-                <FaPlay size={24} className="text-white" />
-              </div>
-            )}
+            <div className="w-16 h-16 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+              <FontAwesomeIcon 
+                icon={isPlaying ? faPause : faPlay} 
+                className="h-6 w-6 text-white" 
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Live indicator */}
+        <div className="absolute top-2 left-2">
+          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-600 text-white blinking">
+            <FontAwesomeIcon icon={faCircle} className="h-2 w-2 mr-1" />
+            LIVE
+          </span>
+        </div>
+
+        {/* Trending indicator */}
+        {isTrending && (
+          <div className="absolute top-2 right-2">
+            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-orange-500 text-white">
+              <FontAwesomeIcon icon={faFire} className="h-3 w-3 mr-1" />
+              Trending
+            </span>
           </div>
         )}
 
         {/* Mute/Unmute button */}
-        {isReady && !isBuffering && (
-          <OverlayTrigger
-            placement="top"
-            overlay={<Tooltip id={`mute-tooltip-${room.id_str}`}>
-              {isMuted ? 'Unmute' : 'Mute'}
-            </Tooltip>}
-          >
-            <div
-              className="position-absolute bottom-0 end-0 m-2"
+        {isHovered && isReady && (
+          <div className="absolute bottom-2 right-2">
+            <button
               onClick={toggleMute}
-              style={{
-                width: '30px',
-                height: '30px',
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                zIndex: 10,
-              }}
+              className="w-8 h-8 bg-black bg-opacity-50 rounded-full flex items-center justify-center cursor-pointer hover:bg-opacity-70 transition-opacity"
+              title={isMuted ? 'Unmute' : 'Mute'}
             >
-              {isMuted ? (
-                <FaVolumeMute className="text-white" size={14} />
-              ) : (
-                <FaVolumeUp className="text-white" size={14} />
-              )}
-            </div>
-          </OverlayTrigger>
+              <FontAwesomeIcon 
+                icon={isMuted ? faVolumeMute : faVolumeUp} 
+                className="h-3 w-3 text-white" 
+              />
+            </button>
+          </div>
         )}
       </div>
     );
@@ -300,101 +297,79 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
   return (
     <>
       <style>{blinkingStyles}</style>
-      <Card
-        className="h-100 shadow-sm"
+      <div
+        className="h-full bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onClick={handleCardClick}
       >
         <div
           ref={containerRef}
-          className="position-relative"
-          style={{
-            paddingTop: '56.25%', // 16:9 Aspect Ratio
-            backgroundColor: '#000',
-            overflow: 'hidden',
-          }}
+          className="relative bg-black overflow-hidden"
+          style={{ paddingTop: '56.25%' }} // 16:9 Aspect Ratio
         >
           {renderPlayer()}
         </div>
 
-        <Card.Body>
-          <div className="d-flex align-items-start mb-3">
-            <div className="me-3">
+        <div className="p-4">
+          <div className="flex items-start mb-3">
+            <div className="mr-3 flex-shrink-0">
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
                   alt={username}
-                  className="rounded-circle"
-                  style={{ width: '40px', height: '40px', objectFit: 'cover' }}
+                  className="w-10 h-10 rounded-full object-cover"
                 />
               ) : (
-                <div
-                  className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
-                  style={{ width: '40px', height: '40px' }}
-                >
+                <div className="w-10 h-10 rounded-full bg-gray-500 text-white flex items-center justify-center text-sm font-medium">
                   {avatarText}
                 </div>
               )}
             </div>
-            <div className="flex-grow-1" style={{ minWidth: 0 }}>
-              <OverlayTrigger
-                placement="top"
-                overlay={
-                  <Tooltip id={`title-tooltip-${room.id_str}`}>
-                    {room.title || 'Untitled Stream'}
-                  </Tooltip>
-                }
+            <div className="flex-1 min-w-0">
+              <h3 
+                className="text-sm font-medium text-gray-900 truncate mb-1"
+                title={room.title || 'Untitled Stream'}
               >
-                <h6
-                  className="mb-1 text-truncate"
-                  style={{
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    maxWidth: '100%',
-                    display: 'inline-block',
-                    verticalAlign: 'middle'
-                  }}
-                >
-                  {room.title || 'Untitled Stream'}
-                </h6>
-              </OverlayTrigger>
-              <p className="text-muted small mb-0 text-truncate">@{username}</p>
+                {room.title || 'Untitled Stream'}
+              </h3>
+              <p className="text-xs text-gray-500 truncate">@{username}</p>
             </div>
           </div>
 
-          <div className="d-flex justify-content-between align-items-center">
-            <div className="d-flex align-items-center text-muted small">
-              <FaUserFriends className="me-1" />
+          <div className="flex justify-between items-center">
+            <div className="flex items-center text-gray-500 text-xs">
+              <FontAwesomeIcon icon={faUserFriends} className="h-3 w-3 mr-1" />
               <span>{viewCount} watching</span>
             </div>
 
             {onAddToMirror && (
-              <Button
-                variant="primary"
-                size="sm"
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleAddToMirror();
                 }}
                 disabled={isAdding || loading}
+                className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
+                  (isAdding || loading) ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 {isAdding ? (
                   <>
-                    <Spinner as="span" size="sm" animation="border" role="status" className="me-1" />
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
                     Adding...
                   </>
                 ) : (
                   <>
-                    <FaPlusCircle className="me-1" /> Add to Mirror
+                    <FontAwesomeIcon icon={faPlus} className="h-3 w-3 mr-1" />
+                    Add to Mirror
                   </>
                 )}
-              </Button>
+              </button>
             )}
           </div>
-        </Card.Body>
-      </Card>
+        </div>
+      </div>
     </>
   );
 }

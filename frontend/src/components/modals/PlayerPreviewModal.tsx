@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Alert, Spinner } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner, faTimes, faVideo, faMusic, faFile, faExclamationTriangle, faHdd, faCalendar, faDownload } from '@fortawesome/free-solid-svg-icons';
 import { MediaFile } from '@/services/streamService';
 import { getMediaPreview } from '@/services/mediaFileService';
 import { useConfig } from '@/hooks/useConfig';
@@ -22,54 +23,6 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
     const [previewUrl, setPreviewUrl] = useState('');
 
     const config = useConfig();
-
-    const playerStyles = `/* Player Preview Modal Styles */
-.player-preview-modal .modal-dialog {
-  max-width: 800px;
-  width: 90%;
-}
-
-.player-preview-modal .modal-body {
-  background-color: #000;
-}
-
-.player-preview-modal video {
-  border-radius: 0;
-  max-height: 450px;
-}
-
-.player-preview-modal img {
-  max-height: 450px;
-}
-
-.player-preview-modal audio {
-  background-color: transparent;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .player-preview-modal .modal-dialog {
-    max-width: 95vw;
-    margin: 1rem;
-  }
-  
-  .player-preview-modal video,
-  .player-preview-modal img {
-    max-height: 300px;
-  }
-}
-
-@media (max-width: 576px) {
-  .player-preview-modal .modal-dialog {
-    max-width: 98vw;
-    margin: 0.5rem;
-  }
-  
-  .player-preview-modal video,
-  .player-preview-modal img {
-    max-height: 250px;
-  }
-}`;
 
     useEffect(() => {
         if (show && mediaFile && streamId) {
@@ -106,10 +59,10 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
 
     const getMediaTypeIcon = (type: string) => {
         switch (type) {
-            case 'video': return 'bi-camera-video';
-            case 'audio': return 'bi-music-note';
-            case 'image': return 'bi-image';
-            default: return 'bi-file-earmark';
+            case 'video': return faVideo;
+            case 'audio': return faMusic;
+            case 'image': return faFile;
+            default: return faFile;
         }
     };
 
@@ -119,16 +72,15 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
         switch (mediaFile.MediaType) {
             case 'video':
                 return (
-                    <div className="position-relative">
+                    <div className="relative">
                         {loading && (
-                            <div className="position-absolute top-50 start-50 translate-middle">
-                                <Spinner animation="border" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black">
+                                <FontAwesomeIcon icon={faSpinner} className="animate-spin text-white text-2xl" />
                             </div>
                         )}
                         <video
                             controls
-                            className="w-100"
-                            style={{ maxHeight: '450px', backgroundColor: '#000' }}
+                            className="w-full max-h-96 bg-black"
                             onLoadedData={handleMediaLoad}
                             onError={handleMediaError}
                             preload="metadata"
@@ -141,19 +93,19 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
 
             case 'audio':
                 return (
-                    <div className="text-center py-4">
-                        <div className="mb-3">
-                            <i className="bi bi-music-note display-4 text-primary"></i>
-                        </div>
+                    <div className="p-8 bg-gray-900 text-white text-center">
+                        <FontAwesomeIcon icon={faMusic} className="text-6xl mb-4 text-blue-400" />
+                        <h4 className="text-lg font-medium mb-4">{mediaFile.FileName}</h4>
                         {loading && (
-                            <div className="mb-3">
-                                <Spinner animation="border" />
+                            <div className="mb-4">
+                                <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
+                                Loading...
                             </div>
                         )}
                         <audio
                             controls
-                            className="w-100"
-                            style={{ maxWidth: '400px' }}
+                            className="w-full max-w-md mx-auto"
+                            style={{ display: loading ? 'none' : 'block' }}
                             onLoadedData={handleMediaLoad}
                             onError={handleMediaError}
                             preload="metadata"
@@ -166,21 +118,17 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
 
             case 'image':
                 return (
-                    <div className="text-center">
+                    <div className="relative">
                         {loading && (
-                            <div className="py-4">
-                                <Spinner animation="border" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                                <FontAwesomeIcon icon={faSpinner} className="animate-spin text-2xl" />
                             </div>
                         )}
                         <img
                             src={previewUrl}
                             alt={mediaFile.FileName}
-                            className="img-fluid"
-                            style={{
-                                maxHeight: '450px',
-                                maxWidth: '100%',
-                                display: loading ? 'none' : 'block'
-                            }}
+                            className="w-full max-h-96 object-contain"
+                            style={{ display: loading ? 'none' : 'block' }}
                             onLoad={handleMediaLoad}
                             onError={handleMediaError}
                         />
@@ -189,82 +137,102 @@ const PlayerPreviewModal: React.FC<PlayerPreviewModalProps> = ({
 
             default:
                 return (
-                    <div className="text-center py-4">
-                        <i className="bi bi-file-earmark display-4 text-muted"></i>
-                        <p className="mt-3 text-muted">Preview not available for this file type</p>
-                        <Button
-                            variant="primary"
+                    <div className="text-center py-8">
+                        <FontAwesomeIcon icon={faFile} className="text-6xl text-gray-400 mb-4" />
+                        <p className="text-gray-500 mb-4">Preview not available for this file type</p>
+                        <a
                             href={previewUrl}
                             target="_blank"
                             rel="noopener noreferrer"
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         >
-                            <i className="bi bi-download me-2"></i>
+                            <FontAwesomeIcon icon={faDownload} className="mr-2" />
                             Download File
-                        </Button>
+                        </a>
                     </div>
                 );
         }
     };
 
+    if (!show) return null;
+
     return (
-        <>
-            <style>{playerStyles}</style>
-            <Modal
-                show={show}
-                onHide={onHide}
-                size="lg"
-                centered
-                className="player-preview-modal"
-            >
-                <Modal.Header closeButton className="border-bottom">
-                    <Modal.Title className="d-flex align-items-center">
-                        <i className={`bi ${getMediaTypeIcon(mediaFile?.MediaType || '')} me-2`}></i>
-                        {mediaFile?.FileName || 'Media Preview'}
-                    </Modal.Title>
-                </Modal.Header>
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
 
-                <Modal.Body className="p-0">
-                    {error ? (
-                        <div className="p-4">
-                            <Alert variant="danger" className="mb-0">
-                                <i className="bi bi-exclamation-triangle me-2"></i>
-                                {error}
-                            </Alert>
-                        </div>
-                    ) : (
-                        renderMediaPlayer()
-                    )}
-                </Modal.Body>
+                <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-                <Modal.Footer className="border-top">
-                    <div className="d-flex justify-content-between align-items-center w-100">
-                        <div className="text-muted small">
-                            {mediaFile && (
-                                <>
-                                    <span className="me-3">
-                                        <i className="bi bi-hdd me-1"></i>
-                                        {formatFileSize(mediaFile.FileSize)}
-                                    </span>
-                                    <span className="me-3">
-                                        <i className="bi bi-calendar3 me-1"></i>
-                                        {new Date(mediaFile.CreatedAt).toLocaleDateString()}
-                                    </span>
-                                    <span>
-                                        <i className="bi bi-file-earmark me-1"></i>
-                                        {mediaFile.MimeType}
-                                    </span>
-                                </>
-                            )}
-                        </div>
-                        <div className="d-flex gap-2">
-                            <Button variant="secondary" onClick={onHide}>
-                                Close
-                            </Button>
+                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                    {/* Header */}
+                    <div className="bg-white px-6 py-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                                <FontAwesomeIcon 
+                                    icon={getMediaTypeIcon(mediaFile?.MediaType || '')} 
+                                    className="mr-2" 
+                                />
+                                {mediaFile?.FileName || 'Media Preview'}
+                            </h3>
+                            <button
+                                onClick={onHide}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <FontAwesomeIcon icon={faTimes} />
+                            </button>
                         </div>
                     </div>
-                </Modal.Footer>
-            </Modal>
-        </>
+
+                    {/* Body */}
+                    <div className="bg-white">
+                        {error ? (
+                            <div className="p-6">
+                                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                                    <div className="flex">
+                                        <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-400 mr-2" />
+                                        <div className="text-sm text-red-700">{error}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            renderMediaPlayer()
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                        <div className="flex justify-between items-center">
+                            <div className="text-sm text-gray-500">
+                                {mediaFile && (
+                                    <div className="flex flex-wrap gap-4">
+                                        <span className="flex items-center">
+                                            <FontAwesomeIcon icon={faHdd} className="mr-1" />
+                                            {formatFileSize(mediaFile.FileSize)}
+                                        </span>
+                                        <span className="flex items-center">
+                                            <FontAwesomeIcon icon={faCalendar} className="mr-1" />
+                                            {new Date(mediaFile.CreatedAt).toLocaleDateString()}
+                                        </span>
+                                        <span className="flex items-center">
+                                            <FontAwesomeIcon icon={faFile} className="mr-1" />
+                                            {mediaFile.MimeType}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <button 
+                                    onClick={onHide}
+                                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 };
 

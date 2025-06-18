@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -206,7 +207,11 @@ func main() {
 
 	// check if logs directory exists
 	if _, err := os.Stat("logs"); os.IsNotExist(err) {
-		os.Mkdir("logs", 0755)
+		if err := os.MkdirAll("logs", 0755); err != nil {
+			log.Printf("Warning: Failed to create logs directory: %v", err)
+		}
+	} else if err != nil {
+		log.Printf("Warning: Error checking logs directory: %v", err)
 	}
 
 	multiWriter := io.MultiWriter(os.Stdout, logger)
@@ -214,79 +219,109 @@ func main() {
 
 	// fix column typo for stream table
 	// check if column `loop_count,default:-1` exists
-	if db.Migrator().HasColumn(&models.Stream{}, "loop_count,default:-1") {
-		db.Migrator().RenameColumn(&models.Stream{}, "loop_count,default:-1", "loop_count")
+	hasLoopCount := db.Migrator().HasColumn(&models.Stream{}, "loop_count,default:-1")
+	if hasLoopCount {
+		if err := db.Migrator().RenameColumn(&models.Stream{}, "loop_count,default:-1", "loop_count"); err != nil {
+			log.Printf("Warning: Failed to rename loop_count column: %v", err)
+		}
 	}
+
 	// check if column `loop_video,default:true` exists
-	if db.Migrator().HasColumn(&models.Stream{}, "loop_video,default:true") && !db.Migrator().HasColumn(&models.Stream{}, "loop_video") {
-		db.Migrator().RenameColumn(&models.Stream{}, "loop_video,default:true", "loop_video")
+	hasLoopVideo := db.Migrator().HasColumn(&models.Stream{}, "loop_video,default:true")
+	hasNewLoopVideo := db.Migrator().HasColumn(&models.Stream{}, "loop_video")
+	if hasLoopVideo && !hasNewLoopVideo {
+		if err := db.Migrator().RenameColumn(&models.Stream{}, "loop_video,default:true", "loop_video"); err != nil {
+			log.Printf("Warning: Failed to rename loop_video column: %v", err)
+		}
 	}
 
 	if dbErr != nil {
-		log.Fatalf("failed to connect to DB: %v", err)
-	}
-	// Auto-migrate user table
-	err = db.AutoMigrate(&models.User{})
-	if err != nil {
-		log.Fatalf("failed to migrate user table: %v", err)
+		log.Fatalf("Failed to connect to database: %v", dbErr)
 	}
 
-	// Migrate stream table with custom migration
-	err = models.MigrateStreams(db)
+	// Verify database connection
+	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatalf("failed to migrate stream table: %v", err)
+		log.Fatalf("Failed to get database instance: %v", err)
 	}
 
-	// Auto-migrate mirror table
-	err = db.AutoMigrate(&models.Mirror{})
-	if err != nil {
-		log.Fatalf("failed to migrate mirror table: %v", err)
+	// Set connection pool settings
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	// Test the connection
+	if err := sqlDB.Ping(); err != nil {
+		log.Fatalf("Failed to ping database: %v", err)
 	}
 
-	// Auto-migrate monitor table
-	err = db.AutoMigrate(&models.Monitor{})
-	if err != nil {
-		log.Fatalf("failed to migrate monitor table: %v", err)
+	// Migration functions with error handling
+	migrations := []struct {
+		name string
+		run  func() error
+	}{
+		{"user table", func() error { return db.AutoMigrate(&models.User{}) }},
+		{"stream table", func() error { return models.MigrateStreams(db) }},
+		{"mirror table", func() error { return db.AutoMigrate(&models.Mirror{}) }},
+		{"monitor table", func() error { return db.AutoMigrate(&models.Monitor{}) }},
+		{"channels table", func() error { return db.AutoMigrate(&models.Channels{}) }},
+		{"media files table", func() error { return db.AutoMigrate(&models.MediaFile{}) }},
+		{"activities table", func() error { return db.AutoMigrate(&models.Activity{}) }},
+		{"stream media files table", func() error { return db.AutoMigrate(&models.StreamMediaFile{}) }},
 	}
 
-	// Auto-migrate channels table
-	err = db.AutoMigrate(&models.Channels{})
-	if err != nil {
-		log.Fatalf("failed to migrate channels table: %v", err)
-	}
-
-	// Auto-migrate media files table
-	err = db.AutoMigrate(&models.MediaFile{})
-	if err != nil {
-		log.Fatalf("failed to migrate media files table: %v", err)
-	}
-
-	// Auto-migrate activities table
-	err = db.AutoMigrate(&models.Activity{})
-	if err != nil {
-		log.Fatalf("failed to migrate activities table: %v", err)
-	}
-
-	// Now run AutoMigrate
-	err = db.AutoMigrate(&models.StreamMediaFile{})
-	if err != nil {
-		log.Printf("failed to migrate stream media files table: %v", err)
+	// Run migrations
+	for _, m := range migrations {
+		if err := m.run(); err != nil {
+			log.Printf("Warning: Failed to migrate %s: %v", m.name, err)
+			if m.name == "user table" || m.name == "stream table" {
+				log.Fatalf("Fatal: Critical migration failed: %s", m.name)
+			}
+		} else {
+			log.Printf("Successfully migrated %s", m.name)
+		}
 	}
 
 	// For SQLite, dropping columns with foreign keys requires special handling
 	if cfg.App.Sql == "sqlite3" {
-
 		if db.Migrator().HasColumn(&models.MediaFile{}, "stream_id") {
-			// Disable foreign key checks temporarily
-			db.Exec("PRAGMA foreign_keys=off")
+			// Get raw database connection
+			sqlDB, err := db.DB()
+			if err != nil {
+				log.Printf("Warning: Failed to get database connection: %v", err)
+			} else {
+				// Disable foreign key checks temporarily
+				if _, err := sqlDB.Exec("PRAGMA foreign_keys=off"); err != nil {
+					log.Printf("Warning: Failed to disable foreign keys: %v", err)
+					return // Can't proceed without this
+				}
 
-			// Drop the column
-			if err := db.Migrator().DropColumn(&models.MediaFile{}, "stream_id"); err != nil {
-				log.Printf("Warning: Could not drop stream_id column: %v", err)
+				// Ensure we re-enable foreign keys even if something fails
+				defer func() {
+					if _, err := sqlDB.Exec("PRAGMA foreign_keys=on"); err != nil {
+						log.Printf("Warning: Failed to re-enable foreign keys: %v", err)
+					}
+				}()
+
+				// Start a transaction for the schema change
+				tx := db.Begin()
+				if tx.Error != nil {
+					log.Printf("Warning: Failed to begin transaction: %v", tx.Error)
+					return
+				}
+
+				// Drop the column
+				if err := tx.Migrator().DropColumn(&models.MediaFile{}, "stream_id"); err != nil {
+					tx.Rollback()
+					log.Printf("Warning: Could not drop stream_id column: %v", err)
+					return
+				}
+
+				// Commit the transaction
+				if err := tx.Commit().Error; err != nil {
+					log.Printf("Warning: Failed to commit transaction: %v", err)
+				}
 			}
-
-			// Re-enable foreign key checks
-			db.Exec("PRAGMA foreign_keys=on")
 		}
 	}
 	// Init device presets
@@ -294,18 +329,30 @@ func main() {
 
 	activityLogger := utils.NewActivityLogger(db)
 
-	// Create default user if not exists
+	// Create default admin user if not exists
 	var defaultUser models.User
-	if err := db.Where("email = ?", "admin@yuklive.id").First(&defaultUser).Error; err == gorm.ErrRecordNotFound {
-		hashed, _ := auth.HashPassword(cfg.Default.Password)
-		defaultUser = models.User{
-			Username: "admin",
-			Email:    "admin@yuklive.id",
-			Password: hashed,
-			IsActive: true,
-			IsAdmin:  true,
+	if err := db.Where("email = ?", "admin@yuklive.id").First(&defaultUser).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			hashed, err := auth.HashPassword(cfg.Default.Password)
+			if err != nil {
+				log.Fatalf("Failed to hash default admin password: %v", err)
+			}
+
+			defaultUser = models.User{
+				Username: "admin",
+				Email:    "admin@yuklive.id",
+				Password: hashed,
+				IsActive: true,
+				IsAdmin:  true,
+			}
+
+			if err := db.Create(&defaultUser).Error; err != nil {
+				log.Fatalf("Failed to create default admin user: %v", err)
+			}
+			log.Println("Created default admin user")
+		} else {
+			log.Fatalf("Failed to check for default admin user: %v", err)
 		}
-		db.Create(&defaultUser)
 	}
 
 	if cfg.App.Mode == "production" {
@@ -551,8 +598,25 @@ func main() {
 	go mirrorWorker.StartQueueChecker()
 
 	// Create a context that is cancelled on SIGINT/SIGTERM
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
+
+	// Set up logging for unhandled panics
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Panic recovered: %v\n", r)
+			// Get stack trace
+			buf := make([]byte, 1<<16)
+			stackSize := runtime.Stack(buf, false)
+			log.Printf("Stack trace:\n%s\n", buf[:stackSize])
+			// Try to log to file as well
+			if logger != nil {
+				logger.Write(buf[:stackSize])
+			}
+			// Let the application exit with non-zero status
+			os.Exit(1)
+		}
+	}()
 
 	r.GET("/ws", func(c *gin.Context) {
 		// WebSocket: check JWT token in query param
@@ -586,19 +650,34 @@ func main() {
 		Handler: r,
 	}
 
-	log.Println("Server started at http://" + cfg.App.Host + ":" + fmt.Sprintf("%d", cfg.App.Port))
+	serverAddr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)
+	log.Printf("Starting server on http://%s\n", serverAddr)
+
+	serverError := make(chan error, 1)
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+			serverError <- fmt.Errorf("server error: %w", err)
 		}
 	}()
 
-	// Wait for interrupt
-	<-ctx.Done()
-	log.Println("Shutting down server...")
+	// Wait for interrupt or server error
+	select {
+	case err := <-serverError:
+		log.Printf("Server error: %v\n", err)
+	case <-ctx.Done():
+		log.Println("Shutdown signal received, shutting down gracefully...")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Attempt graceful shutdown
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v\n", err)
+	}
 
 	// Kill all running stream workers (FFmpeg processes)
-	log.Println("Killing all running stream workers...")
+	log.Println("Stopping all running stream workers...")
 	for id := range job.Workers {
 		log.Println("Killing stream worker for stream", id)
 		//kill the ffmpeg process

@@ -2,8 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, Form, InputGroup, Spinner, Alert, Badge, Pagination } from 'react-bootstrap';
-import { Plus, Search, Funnel, ArrowClockwise } from 'react-bootstrap-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faPlus, 
+  faSearch, 
+  faFilter, 
+  faSync, 
+  faSpinner,
+  faExclamationTriangle,
+  faAngleLeft,
+  faAngleRight
+} from '@fortawesome/free-solid-svg-icons';
 import { 
   fetchStreams, 
   Stream, 
@@ -166,7 +175,7 @@ export default function StreamList() {
       await loadStreams();
     } catch (err) {
       console.error('Failed to toggle loop video:', err);
-      setError('Failed to update video loop setting. Please try again.');
+      setError('Failed to toggle loop video. Please try again.');
       throw err;
     }
   };
@@ -184,15 +193,16 @@ export default function StreamList() {
   };
 
   const getStatusBadge = (status: string) => {
+    const baseClasses = "px-2 py-1 text-xs font-medium rounded-full";
     switch (status) {
       case 'live':
-        return <Badge bg="success">Live</Badge>;
-      case 'idle':
-        return <Badge bg="secondary">Idle</Badge>;
-      case 'error':
-        return <Badge bg="danger">Error</Badge>;
+        return `${baseClasses} bg-green-100 text-green-800`;
+      case 'scheduled':
+        return `${baseClasses} bg-blue-100 text-blue-800`;
+      case 'stopped':
+        return `${baseClasses} bg-gray-100 text-gray-800`;
       default:
-        return <Badge bg="secondary">Unknown</Badge>;
+        return `${baseClasses} bg-gray-100 text-gray-800`;
     }
   };
 
@@ -201,153 +211,184 @@ export default function StreamList() {
   }, [loadStreams]);
 
   return (
-    <div className={styles.StreamList}>
-      <div className="container-xxl">
-        {/* Page Header */}
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
-          <div className="mb-3 mb-md-0">
-           
-          </div>
-          <div className="d-flex gap-2">
-            <div className="d-flex flex-column align-items-end me-3">
-              <div className="d-flex align-items-center mb-1">
-                <span className={styles.liveIndicator}></span>
-                <span className="text-muted small ms-1">Live:</span>
-                <span className="ms-1 fw-semibold">{stats.live}</span>
+    <div className="container-fluid py-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Streams</h1>
+                <div className="flex gap-4">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    {stats.live} Live
+                  </span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    {stats.scheduled} Scheduled
+                  </span>
+                </div>
               </div>
-              <div className="d-flex align-items-center">
-                <i className="bi bi-alarm text-primary me-1"></i>
-                <span className="text-muted small">Scheduled:</span>
-                <span className="ms-1 fw-semibold">{stats.scheduled}</span>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <FontAwesomeIcon icon={faFilter} className="mr-2" />
+                  Filters
+                </button>
+                <button
+                  onClick={loadStreams}
+                  disabled={isLoading}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FontAwesomeIcon 
+                    icon={isLoading ? faSpinner : faSync} 
+                    className={`mr-2 ${isLoading ? 'animate-spin' : ''}`} 
+                  />
+                  Refresh
+                </button>
+                <button
+                  onClick={() => router.push('/stream/new')}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                  New Stream
+                </button>
               </div>
             </div>
-            <Button variant="primary" onClick={() => router.push('/stream/new')}>
-              <Plus className="me-1" /> New Stream
-            </Button>
           </div>
-        </div>
 
-        {/* Search and Filters */}
-        <div className="mb-4">
-          <Form onSubmit={handleSearch} className="mb-3">
-            <InputGroup>
-              <InputGroup.Text className="bg-white">
-                <Search />
-              </InputGroup.Text>
-              <Form.Control
-                type="text"
-                placeholder="Search streams..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <Button
-                variant="outline-secondary"
-                onClick={() => setShowFilters(!showFilters)}
-                className="d-lg-none"
-              >
-                <Funnel />
-              </Button>
-              <Button type="submit" variant="primary">
-                Search
-              </Button>
-            </InputGroup>
-          </Form>
-
-          {showFilters && (
-            <Card className="mb-3 d-lg-none">
-              <Card.Body>
-                <h6 className="mb-3">Filters</h6>
-                <div className="d-flex flex-wrap gap-2">
-                  <Form.Select size="sm" style={{ width: 'auto' }}>
-                    <option>All Status</option>
-                    <option>Live</option>
-                    <option>Idle</option>
-                    <option>Error</option>
-                  </Form.Select>
-                  <Form.Select size="sm" style={{ width: 'auto' }}>
-                    <option>All Types</option>
-                    <option>RTMP</option>
-                    <option>HLS</option>
-                    <option>MP4</option>
-                  </Form.Select>
-                  <Button variant="outline-secondary" size="sm">
-                    <ArrowClockwise className="me-1" /> Reset
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
-          )}
-        </div>
-
-        {/* Stream List */}
-        <Card className="border-0 shadow-sm">
-          <Card.Body className="p-0">
-            {isLoading ? (
-              <div className="text-center p-5">
-                <Spinner animation="border" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </Spinner>
-                <p className="mt-2 text-muted">Loading streams...</p>
-              </div>
-            ) : error ? (
-              <Alert variant="danger" className="m-3">
-                {error}
-              </Alert>
-            ) : streams.length === 0 ? (
-              <div className="text-center p-5">
-                <div className="mx-auto" style={{ width: '120px' }}>
-                  <img
-                    src="/img/empty-state.svg"
-                    alt="No streams"
-                    className="img-fluid mb-3"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cGF0aCBkPSJNMTkgMTNIMTlNMTUgMTNIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMTkgMTdIMTlNMjEgN0gxN0MxNi4yMzA5IDcgMTUuNjE2NyA3LjU5Njk1IDE1LjUgOC4yNkMxNS4yMjY4IDguMTEzODIgMTQuOTI0MSA4IDE0LjYwNjFDMTMuNzE3OSA4IDEzIDguNzE3OTQgMTMgOS42MDYwNkMxMyA5LjkyNDEyIDEzLjExMzggMTAuMjI2OCAxMy4yNjAxIDEwLjVINVMzIDExLjM5NTQgMyAxMi41VjE5UzMuODk1NDMgMjEgNSAyMWgxNGMxLjEwNDYgMCAxLS44OTU0IDEtMnYtNnYtM1oiIHN0cm9rZT0iNzM3RkZGIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPg=='; // Fallback SVG
-                    }}
+          {/* Search and Filters */}
+          <div className="p-6 border-b border-gray-200">
+            <form onSubmit={handleSearch} className="flex gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FontAwesomeIcon icon={faSearch} className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search streams..."
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
-                <h5 className="mb-2">No streams found</h5>
-                <p className="text-muted mb-4">
-                  Get started by adding your first stream with the "New Stream" button
-                </p>
               </div>
-            ) : (
-              <div className="row g-4 p-3">
-                {streams.map((stream) => (
-                  <div key={stream.id} className="col-12 col-md-6 col-xl-4 mb-4">
-                    <StreamCard
-                      stream={stream}
-                      onStartStream={handleStartStream}
-                      onStopStream={handleStopStream}
-                      onDeleteStream={handleDeleteStream}
-                      onRenameStream={handleRenameStream}
-                      onUpdateStreamKey={handleUpdateStreamKey}
-                      onUpdateRtmpUrl={handleUpdateRtmpUrl}
-                      onToggleLoopVideo={handleToggleLoopVideo}
-                      onBindChannel={handleBindChannel}
-                      onViewMediaFiles={() => {}} // Remove router navigation
-                      onViewLogs={() => router.push(`/streams/${stream.id}/logs`)}
-                      onViewSettings={() => {}} // Add this line
-                    />
+              <button
+                type="submit"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <FontAwesomeIcon icon={faSearch} className="mr-2" />
+                Search
+              </button>
+            </form>
+          </div>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="mx-6 mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Error</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{error}</p>
                   </div>
-                ))}
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setError(null)}
+                      className="bg-red-50 px-2 py-1.5 rounded-md text-sm font-medium text-red-800 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-red-50 focus:ring-red-600"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
               </div>
-            )}
-          </Card.Body>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="p-12 text-center">
+              <FontAwesomeIcon icon={faSpinner} className="animate-spin h-8 w-8 text-blue-600 mb-4" />
+              <p className="text-gray-600">Loading streams...</p>
+            </div>
+          )}
+
+          {/* Content */}
+          {!isLoading && (
+            <>
+              {streams.length === 0 ? (
+                <div className="p-12 text-center">
+                  <div className="mx-auto h-24 w-24 text-gray-400 mb-4">
+                    <svg
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      className="h-full w-full"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1}
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No streams found</h3>
+                  <p className="text-gray-600 mb-6">
+                    Get started by adding your first stream with the "New Stream" button
+                  </p>
+                </div>
+              ) : (
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {streams.map((stream) => (
+                      <div key={stream.id}>
+                        <StreamCard
+                          stream={stream}
+                          onStartStream={handleStartStream}
+                          onStopStream={handleStopStream}
+                          onDeleteStream={handleDeleteStream}
+                          onRenameStream={handleRenameStream}
+                          onUpdateStreamKey={handleUpdateStreamKey}
+                          onUpdateRtmpUrl={handleUpdateRtmpUrl}
+                          onToggleLoopVideo={handleToggleLoopVideo}
+                          onBindChannel={handleBindChannel}
+                          onViewMediaFiles={() => {}} // Remove router navigation
+                          onViewLogs={() => router.push(`/streams/${stream.id}/logs`)}
+                          onViewSettings={() => {}} // Add this line
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           {/* Pagination */}
           {streams.length > 0 && (
-            <Card.Footer className="bg-white border-top-0 d-flex flex-column flex-md-row justify-content-between align-items-center">
-              <div className="text-muted small mb-2 mb-md-0">
-                Showing <span>{(pagination.page - 1) * pagination.pageSize + 1}</span> to{' '}
-                <span>{Math.min(pagination.page * pagination.pageSize, pagination.total)}</span> of{' '}
-                <span>{pagination.total}</span> streams
+            <div className="bg-white px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center">
+              <div className="text-sm text-gray-700 mb-4 sm:mb-0">
+                Showing <span className="font-medium">{(pagination.page - 1) * pagination.pageSize + 1}</span> to{' '}
+                <span className="font-medium">{Math.min(pagination.page * pagination.pageSize, pagination.total)}</span> of{' '}
+                <span className="font-medium">{pagination.total}</span> streams
               </div>
-              <Pagination className="mb-0">
-                <Pagination.Prev
-                  disabled={pagination.page === 1}
+              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                <button
                   onClick={() => handlePageChange(pagination.page - 1)}
-                />
+                  disabled={pagination.page === 1}
+                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="sr-only">Previous</span>
+                  <FontAwesomeIcon icon={faAngleLeft} className="h-4 w-4" />
+                </button>
+                
                 {Array.from({ length: Math.min(5, Math.ceil(pagination.total / pagination.pageSize)) }, (_, i) => {
                   let pageNum;
                   if (Math.ceil(pagination.total / pagination.pageSize) <= 5) {
@@ -364,23 +405,32 @@ export default function StreamList() {
                   }
 
                   return (
-                    <Pagination.Item
+                    <button
                       key={pageNum}
-                      active={pageNum === pagination.page}
                       onClick={() => handlePageChange(pageNum)}
+                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                        pageNum === pagination.page
+                          ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      }`}
                     >
                       {pageNum}
-                    </Pagination.Item>
+                    </button>
                   );
                 })}
-                <Pagination.Next
-                  disabled={pagination.page * pagination.pageSize >= pagination.total}
+                
+                <button
                   onClick={() => handlePageChange(pagination.page + 1)}
-                />
-              </Pagination>
-            </Card.Footer>
+                  disabled={pagination.page * pagination.pageSize >= pagination.total}
+                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="sr-only">Next</span>
+                  <FontAwesomeIcon icon={faAngleRight} className="h-4 w-4" />
+                </button>
+              </nav>
+            </div>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   );

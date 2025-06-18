@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner, faTimes, faGear, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'react-toastify';
 import { Stream, setStreamSchedule, setStreamDuration, setStreamLoopCount, startStream } from '@/services/streamService';
 
@@ -129,29 +130,39 @@ const StreamSettingsModal: React.FC<StreamSettingsModalProps> = ({
               setError('End time must be after start time.');
               return;
             }
-          }
-          
-          await setStreamSchedule(stream.id, {
-            ScheduledAt: startTime,
-            StoppedAt: endTime || null,
-            Timezone: timezone
-          });
-          toast.success('Stream schedule set successfully');
-          break;
-
-        case 'DURATION':
-          if (duration < 0 || duration > 24) {
-            setError('Duration must be 0-24 hours.');
-            return;
-          }
-          
-          if (duration === 0) {
+            
             await setStreamSchedule(stream.id, {
-              ScheduledAt: null,
+              ScheduledAt: startDate.toISOString(),
+              StoppedAt: endDate.toISOString(),
+              Timezone: timezone
+            });
+            toast.success('Stream schedule set successfully');
+          } else {
+            await setStreamSchedule(stream.id, {
+              ScheduledAt: startDate.toISOString(),
               StoppedAt: null,
               Timezone: timezone
             });
-            toast.success('Stream mode set to live');
+            toast.success('Stream start time set successfully');
+          }
+          break;
+
+        case 'DURATION':
+          if (duration <= 0 || duration > 24) {
+            setError('Duration must be between 1 and 24 hours.');
+            return;
+          }
+          
+          if (startTime) {
+            const startDate = new Date(startTime);
+            const endDate = new Date(startDate.getTime() + duration * 60 * 60 * 1000);
+            
+            await setStreamSchedule(stream.id, {
+              ScheduledAt: startDate.toISOString(),
+              StoppedAt: endDate.toISOString(),
+              Timezone: timezone
+            });
+            toast.success('Stream schedule with duration set successfully');
           } else {
             await setStreamDuration(stream.id, { DurationHours: duration });
             toast.success('Stream duration set successfully');
@@ -183,53 +194,57 @@ const StreamSettingsModal: React.FC<StreamSettingsModalProps> = ({
       case 'SCHEDULER':
         return (
           <>
-            <Form.Group className="mb-3">
-              <Form.Label>Start Time</Form.Label>
-              <Form.Control
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+              <input
                 type="datetime-local"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>End Time</Form.Label>
-              <Form.Control
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+              <input
                 type="datetime-local"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               />
-            </Form.Group>
+            </div>
           </>
         );
       
       case 'DURATION':
         return (
-          <Form.Group className="mb-3">
-            <Form.Label>Duration (hours, 0-24)</Form.Label>
-            <Form.Control
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Duration (hours, 0-24)</label>
+            <input
               type="number"
               min="0"
               max="24"
               value={duration}
               onChange={(e) => setDuration(parseInt(e.target.value) || 0)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             />
-          </Form.Group>
+          </div>
         );
       
       case 'LOOPCOUNT':
         return (
-          <Form.Group className="mb-3">
-            <Form.Label>Loop Count</Form.Label>
-            <Form.Control
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Loop Count</label>
+            <input
               type="number"
               min="-1"
               value={loopCount}
               onChange={(e) => setLoopCount(parseInt(e.target.value) || -1)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             />
-            <Form.Text className="text-muted">
+            <p className="text-sm text-gray-500 mt-1">
               -1 means infinite loop. Minimum value is -1.
-            </Form.Text>
-          </Form.Group>
+            </p>
+          </div>
         );
       
       default:
@@ -237,55 +252,98 @@ const StreamSettingsModal: React.FC<StreamSettingsModalProps> = ({
     }
   };
 
+  if (!show) return null;
+
   return (
-    <Modal show={show} onHide={onHide} centered backdrop="static">
-      <Modal.Header closeButton>
-        <Modal.Title>
-          <i className="bi bi-gear me-2"></i>
-          Stream Settings
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        {error && (
-          <Alert variant="danger" dismissible onClose={() => setError('')}>
-            {error}
-          </Alert>
-        )}
-        
-        <Form>
-          <Form.Group className="mb-3">
-            <Form.Label>Mode</Form.Label>
-            <Form.Select
-              value={mode}
-              onChange={(e) => setMode(e.target.value as StreamMode)}
-              disabled={loading}
-            >
-              <option value="LIVE">LIVE</option>
-              <option value="SCHEDULER">SCHEDULER</option>
-              <option value="DURATION">DURATION</option>
-              <option value="LOOPCOUNT">LOOPCOUNT</option>
-            </Form.Select>
-          </Form.Group>
-          
-          {renderModeFields()}
-        </Form>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide} disabled={loading}>
-          Cancel
-        </Button>
-        <Button variant="primary" onClick={handleSave} disabled={loading}>
-          {loading ? (
-            <>
-              <Spinner animation="border" size="sm" className="me-2" />
-              Saving...
-            </>
-          ) : (
-            'Save Settings'
-          )}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          {/* Header */}
+          <div className="bg-white px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <FontAwesomeIcon icon={faGear} className="mr-2" />
+                Stream Settings
+              </h3>
+              <button
+                onClick={onHide}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="bg-white px-6 py-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+                <div className="flex">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-400 mr-2" />
+                  <div className="text-sm text-red-700">{error}</div>
+                  <button
+                    onClick={() => setError('')}
+                    className="ml-auto text-red-400 hover:text-red-600"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            <form>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mode</label>
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value as StreamMode)}
+                  disabled={loading}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="LIVE">LIVE</option>
+                  <option value="SCHEDULER">SCHEDULER</option>
+                  <option value="DURATION">DURATION</option>
+                  <option value="LOOPCOUNT">LOOPCOUNT</option>
+                </select>
+              </div>
+              
+              {renderModeFields()}
+            </form>
+          </div>
+
+          {/* Footer */}
+          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+            <div className="flex justify-end space-x-3">
+              <button 
+                onClick={onHide}
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSave}
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Settings'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

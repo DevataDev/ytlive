@@ -8,6 +8,17 @@ import { useRouter } from 'next/navigation';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { formatDistanceToNow } from 'date-fns';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faMicrochip, 
+  faMemory, 
+  faHdd, 
+  faMusic, 
+  faVideo, 
+  faDownload, 
+  faUpload,
+  faEye
+} from '@fortawesome/free-solid-svg-icons';
 import DashboardService from '@/services/dashboardService';
 import { 
   StorageInfo,
@@ -79,9 +90,9 @@ export default function DashboardPage() {
 
   // Format network speed
   const formatNetworkSpeed = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B/s`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB/s`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB/s`;
+    if (bytes < 1024) return `${bytes.toFixed(2)} B/s`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB/s`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB/s`;
   };
 
   // Update system metrics from WebSocket
@@ -135,326 +146,272 @@ export default function DashboardPage() {
     };
 
     fetchInitialData();
-  }, [status, router, updateSystemMetrics]);
 
-  if (isLoading) {
+    return () => {
+      DashboardService.disconnectWebSocket();
+    };
+  }, [status, router, config?.config?.apiUrl, updateSystemMetrics]);
+
+  if (status === 'loading' || isLoading) {
     return (
-      <div className="d-flex justify-content-center align-items-center min-vh-100">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
+  if (!session) {
+    return null;
+  }
+
+  // Chart configuration
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          padding: 20,
+          font: {
+            size: 12
+          }
+        }
+      },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        cornerRadius: 8,
+        padding: 12,
+        callbacks: {
+          label: function(context: any) {
+            return `${context.dataset.label}: ${formatNetworkSpeed(context.parsed.y)}`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        display: true,
+        grid: {
+          display: false
+        },
+        ticks: {
+          maxTicksLimit: 6,
+          color: '#6b7280'
+        }
+      },
+      y: {
+        display: true,
+        grid: {
+          color: 'rgba(107, 114, 128, 0.1)'
+        },
+        ticks: {
+          color: '#6b7280',
+          callback: function(value: any) {
+            return formatNetworkSpeed(Number(value));
+          }
+        }
+      }
+    },
+    elements: {
+      line: {
+        tension: 0.4
+      },
+      point: {
+        radius: 0,
+        hoverRadius: 6
+      }
+    }
+  };
+
+  const chartData = {
+    labels: networkData.labels,
+    datasets: [
+      {
+        label: 'Download',
+        data: networkData.download,
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        fill: true,
+        borderWidth: 2
+      },
+      {
+        label: 'Upload',
+        data: networkData.upload,
+        borderColor: 'rgb(16, 185, 129)',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        fill: true,
+        borderWidth: 2
+      }
+    ]
+  };
+
   return (
-    <div className={`${styles.dashboardBody} min-vh-100 py-4`}>
-      <div className="container-xxl">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="row justify-content-center">
-          <div className="col-12">
-            <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
-              <div className="mb-3 mb-md-0">
-                <h2 className="fw-bold mb-1">Dashboard Overview</h2>
-                <p className="text-muted mb-0">Monitor your streams and system resources in real-time</p>
-              </div>
-              <div className="text-md-end">
-                <p className="text-muted small mb-1">
-                  Last updated: {formatDistanceToNow(lastUpdated, { addSuffix: true })}
-                </p>
-                <p className="text-muted small mb-0">
-                  Status: <span className="text-success">Connected</span>
-                </p>
-              </div>
+        <div className="mb-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-gray-600 mt-1">
+                Welcome back, {session.user?.name || 'User'}! Here's what's happening with your streams.
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-500">Last updated</p>
+              <p className="text-sm font-medium text-gray-900">
+                {formatDistanceToNow(lastUpdated, { addSuffix: true })}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="row g-4 mb-4">
-          {/* Total Streams Card */}
-          <div className="col-md-6 col-xl-3">
-            <div className={`card ${styles.statCard} ${styles.bgGradientPrimary} text-white h-100`}>
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 className={`text-uppercase ${styles.textWhite50} mb-1`}>Total Streams</h6>
-                    <h2 className="mb-0">{streamStats.total}</h2>
-                  </div>
-                  <div className={`${styles.iconShape} p-3`}>
-                    <i className="bi bi-collection-play fs-4"></i>
-                  </div>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* CPU Usage */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">CPU Usage</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.cpu.toFixed(1)}%</p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <FontAwesomeIcon icon={faMicrochip} className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${Math.min(stats.cpu, 100)}%` }}
+                ></div>
               </div>
             </div>
           </div>
 
-          {/* Active Streams Card */}
-          <div className="col-md-6 col-xl-3">
-            <div className={`card ${styles.statCard} ${styles.bgGradientInfo} text-white h-100`}>
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 className={`text-uppercase ${styles.textWhite50} mb-1`}>Live Vs Scheduled</h6>
-                    <h2 className="mb-0">
-                      {streamStats.started} <small className="fs-6">/ {streamStats.scheduled}</small>
-                    </h2>
-                  </div>
-                  <div className={`${styles.iconShape} p-3`}>
-                    <i className="bi bi-cast fs-4"></i>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <div className={`progress ${styles.bgWhite20}`} style={{ height: '4px' }}>
-                    <div
-                      className="progress-bar bg-white"
-                      role="progressbar"
-                      style={{
-                        width: `${(streamStats.started / Math.max(streamStats.started + streamStats.scheduled, 1)) * 100}%`
-                      }}
-                      aria-valuenow={streamStats.started}
-                      aria-valuemin={0}
-                      aria-valuemax={streamStats.started + streamStats.scheduled}
-                    ></div>
-                  </div>
-                </div>
+          {/* Memory Usage */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Memory</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.memory.toFixed(1)}%</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {formatBytes(stats.ramUsed)} / {formatBytes(stats.ramTotal)}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <FontAwesomeIcon icon={faMemory} className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-green-600 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${Math.min(stats.memory, 100)}%` }}
+                ></div>
               </div>
             </div>
           </div>
 
-          {/* CPU Usage Card */}
-          <div className="col-md-6 col-xl-3">
-            <div className={`card ${styles.statCard} ${styles.bgGradientWarning} text-white h-100`}>
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 className={`text-uppercase ${styles.textWhite50} mb-1`}>CPU Usage</h6>
-                    <h2 className="mb-0">{(stats.cpu || 0).toFixed(1)}%</h2>
-                  </div>
-                  <div className={`${styles.iconShape} p-3`}>
-                    <i className="bi bi-cpu fs-4"></i>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <div className={`progress ${styles.bgWhite20}`} style={{ height: '4px' }}>
-                    <div
-                      className="progress-bar bg-white"
-                      role="progressbar"
-                      style={{ width: `${stats.cpu || 0}%` }}
-                      aria-valuenow={stats.cpu || 0}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                    ></div>
-                  </div>
-                </div>
+          {/* Network Download */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Download</p>
+                <p className="text-3xl font-bold text-gray-900">{formatNetworkSpeed(stats.download)}</p>
+              </div>
+              <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <FontAwesomeIcon icon={faDownload} className="h-6 w-6 text-purple-600" />
               </div>
             </div>
           </div>
 
-          {/* Memory Usage Card */}
-          <div className="col-md-6 col-xl-3">
-            <div className={`card ${styles.statCard} ${styles.bgGradientDanger} text-white h-100`}>
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 className={`text-uppercase ${styles.textWhite50} mb-1`}>Memory Usage</h6>
-                    <h2 className="mb-0">{(stats.memory || 0).toFixed(1)}%</h2>
-                  </div>
-                  <div className={`${styles.iconShape} p-3`}>
-                    <i className="bi bi-memory fs-4"></i>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <div className={`progress ${styles.bgWhite20}`} style={{ height: '4px' }}>
-                    <div
-                      className="progress-bar bg-white"
-                      role="progressbar"
-                      style={{ width: `${stats.memory || 0}%` }}
-                      aria-valuenow={stats.memory || 0}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                    ></div>
-                  </div>
-                </div>
+          {/* Network Upload */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Upload</p>
+                <p className="text-3xl font-bold text-gray-900">{formatNetworkSpeed(stats.upload)}</p>
+              </div>
+              <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <FontAwesomeIcon icon={faUpload} className="h-6 w-6 text-orange-600" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Network and Storage Row */}
-        <div className="row g-4 mb-4">
-          {/* Network Traffic Card */}
-          <div className="col-12 col-xl-8">
-            <div className={`card ${styles.statCard} h-100`}>
-              <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">Network Traffic</h5>
-                <div className="d-flex">
-                  <div className="d-flex align-items-center me-3">
-                    <span className={`${styles.legendIndicator} bg-primary me-2`}></span>
-                    <small className="text-muted">Download</small>
-                  </div>
-                  <div className="d-flex align-items-center">
-                    <span className={`${styles.legendIndicator} bg-success me-2`}></span>
-                    <small className="text-muted">Upload</small>
-                  </div>
-                </div>
-              </div>
-              <div className="card-body p-3">
-                {/* Network Stats */}
-                <div className="row g-3 mb-3">
-                  <div className="col-6 col-md-3">
-                    <div className="d-flex align-items-center">
-                      <div className="bg-primary bg-opacity-10 rounded p-2 me-2">
-                        <i className="bi bi-download text-primary"></i>
-                      </div>
-                      <div>
-                        <p className="mb-0 small text-muted">Download</p>
-                        <h6 className="mb-0">{(stats.download || 0).toFixed(2)} Mbps</h6>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-6 col-md-3">
-                    <div className="d-flex align-items-center">
-                      <div className="bg-success bg-opacity-10 rounded p-2 me-2">
-                        <i className="bi bi-upload text-success"></i>
-                      </div>
-                      <div>
-                        <p className="mb-0 small text-muted">Upload</p>
-                        <h6 className="mb-0">{(stats.upload || 0).toFixed(2)} Mbps</h6>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Chart */}
-                <div style={{ height: '200px' }}>
-                  <Line
-                    data={{
-                      labels: networkData.labels,
-                      datasets: [
-                        {
-                          label: 'Download',
-                          data: networkData.download,
-                          borderColor: '#4361ee',
-                          backgroundColor: 'rgba(67, 97, 238, 0.1)',
-                          borderWidth: 2,
-                          tension: 0.3,
-                          fill: true,
-                          pointRadius: 0,
-                        },
-                        {
-                          label: 'Upload',
-                          data: networkData.upload,
-                          borderColor: '#4cc9f0',
-                          backgroundColor: 'rgba(76, 201, 240, 0.1)',
-                          borderWidth: 2,
-                          tension: 0.3,
-                          fill: true,
-                          pointRadius: 0,
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: false,
-                        },
-                        tooltip: {
-                          mode: 'index',
-                          intersect: false,
-                          callbacks: {
-                            label: function (context: any) {
-                              return `${context.dataset.label}: ${(context.raw as number).toFixed(0)}Mbps`;
-                            },
-                          },
-                        },
-                      },
-                      scales: {
-                        x: {
-                          grid: {
-                            display: false,
-                          },
-                          ticks: {
-                            maxRotation: 0,
-                            maxTicksLimit: 6,
-                          },
-                        },
-                        y: {
-                          beginAtZero: true,
-                          grid: {
-                            color: 'rgba(0, 0, 0, 0.05)',
-                          },
-                          ticks: {
-                            callback: function (value) {
-                              return `${typeof value === 'number' ? value.toFixed(0) : value}Mbps`;
-                            },
-                          },
-                        },
-                      },
-                      interaction: {
-                        mode: 'nearest',
-                        axis: 'x',
-                        intersect: false,
-                      },
-                    }}
-                  />
-                </div>
+        {/* Charts and Storage Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Network Chart */}
+          <div className="lg:col-span-2 bg-white rounded-lg shadow-sm">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Network Activity</h3>
+              <p className="text-sm text-gray-600">Real-time network usage</p>
+            </div>
+            <div className="p-6">
+              <div className="h-80">
+                <Line data={chartData} options={chartOptions} />
               </div>
             </div>
           </div>
 
-          {/* Storage Info Card */}
-          <div className="col-12 col-xl-4">
-            <div className={`card ${styles.statCard} h-100`}>
-              <div className="card-header">
-                <h5 className="mb-0">Storage Information</h5>
-              </div>
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <div>
-                    <h6 className={`text-uppercase ${styles.textMuted} small mb-1`}>Total Storage</h6>
-                    <h4 className="mb-0">{(storageInfo.total / (1024 * 1024 * 1024)).toFixed(2)} GB</h4>
-                  </div>
-                  <div className="text-end">
-                    <h6 className={`text-uppercase ${styles.textMuted} small mb-1`}>Used</h6>
-                    <h4 className="mb-0">
-                      {storageInfo.used_percent ? storageInfo.used_percent.toFixed(1) : 0}%
-                    </h4>
-                  </div>
+          {/* Storage Info */}
+          <div className="bg-white rounded-lg shadow-sm">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Storage</h3>
+              <p className="text-sm text-gray-600">Disk usage overview</p>
+            </div>
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                  <FontAwesomeIcon icon={faHdd} className="h-8 w-8 text-gray-600" />
                 </div>
-                <div className={`progress mb-4 ${styles.bgWhite20}`} style={{ height: '8px' }}>
+                <h4 className="text-2xl font-bold text-gray-900">{formatBytes(storageInfo.used)}</h4>
+                <p className="text-sm text-gray-600">of {formatBytes(storageInfo.total)} used</p>
+              </div>
+              
+              <div className="mb-6">
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span>Storage Usage</span>
+                  <span>{storageInfo.used_percent || 0}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
                   <div
-                    className="progress-bar bg-primary"
-                    role="progressbar"
+                    className="bg-blue-600 h-3 rounded-full transition-all duration-300"
                     style={{ width: `${storageInfo.used_percent || 0}%` }}
-                    aria-valuenow={storageInfo.used_percent || 0}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
                   ></div>
                 </div>
-                <div className="row g-3">
-                  <div className="col-6">
-                    <div className="d-flex align-items-center">
-                      <div className={`${styles.iconShape} bg-primary bg-opacity-10 text-primary p-2 me-3`}>
-                        <i className="bi bi-file-earmark-music fs-4"></i>
-                      </div>
-                      <div>
-                        <h6 className="mb-0">{storageInfo.fileCounts.audio}</h6>
-                        <small className="text-muted">Audio Files</small>
-                      </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                      <FontAwesomeIcon icon={faMusic} className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="text-left">
+                      <h6 className="text-lg font-semibold text-gray-900">{storageInfo.fileCounts.audio}</h6>
+                      <p className="text-xs text-gray-500">Audio Files</p>
                     </div>
                   </div>
-                  <div className="col-6">
-                    <div className="d-flex align-items-center">
-                      <div className={`${styles.iconShape} bg-success bg-opacity-10 text-success p-2 me-3`}>
-                        <i className="bi bi-camera-video fs-4"></i>
-                      </div>
-                      <div>
-                        <h6 className="mb-0">{storageInfo.fileCounts.videos}</h6>
-                        <small className="text-muted">Video Files</small>
-                      </div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                      <FontAwesomeIcon icon={faVideo} className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div className="text-left">
+                      <h6 className="text-lg font-semibold text-gray-900">{storageInfo.fileCounts.videos}</h6>
+                      <p className="text-xs text-gray-500">Video Files</p>
                     </div>
                   </div>
                 </div>
@@ -464,51 +421,58 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Activities */}
-        <div className="card">
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <h5 className="mb-0">Recent Activities</h5>
-            <button className="btn btn-sm btn-outline-secondary">View All</button>
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Activities</h3>
+            <button className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors">
+              <FontAwesomeIcon icon={faEye} className="h-4 w-4 mr-2" />
+              View All
+            </button>
           </div>
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
-                <thead className="bg-light">
+          <div className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th>Event</th>
-                    <th>Description</th>
-                    <th>Status</th>
-                    <th>Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="bg-white divide-y divide-gray-200">
                   {recentActivities.activities.length > 0 ? (
                     recentActivities.activities.map((activity, index) => (
-                      <tr key={index}>
-                        <td>
-                          <div className="d-flex align-items-center">
-                              <i className={`bi ${activity.icon} me-2`}></i>
-                              <p className="fw-bold mb-1">{activity.event}</p>
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <FontAwesomeIcon icon={faVideo} className="h-4 w-4 text-gray-400 mr-3" />
+                            <p className="text-sm font-medium text-gray-900">{activity.event}</p>
                           </div>
                         </td>
-                        <td>
-                        <p className="text-muted mb-1">{activity.description}</p>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <p className="text-sm text-gray-500">{activity.description}</p>
                         </td>
-                        <td>
-                          <span className={`badge bg-${activity.status === 'success' ? 'success' : 'danger'}`}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            activity.status === 'success' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
                             {activity.status}
                           </span>
                         </td>
-                        <td>
-                          <small className="text-muted">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <p className="text-sm text-gray-500">
                             {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
-                          </small>
+                          </p>
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="text-center py-4">
-                        <div className="text-muted">No recent activities found</div>
+                      <td colSpan={4} className="px-6 py-12 text-center">
+                        <div className="text-gray-500">No recent activities found</div>
                       </td>
                     </tr>
                   )}

@@ -1,7 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, Button, Dropdown, Form, Spinner, Badge, Modal, Alert } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faPlay, 
+  faStop, 
+  faSpinner, 
+  faEllipsisVertical, 
+  faPencil, 
+  faLink, 
+  faFolderOpen, 
+  faTerminal, 
+  faGear, 
+  faTrash, 
+  faCalendar, 
+  faFileText, 
+  faRepeat, 
+  faClock,
+  faTimes,
+  faEye,
+  faEyeSlash
+} from '@fortawesome/free-solid-svg-icons';
 import { Stream } from '@/services/streamService';
 import BindChannelModal from '@/components/modals/BindChannelModal';
 import styles from './StreamCard.module.css';
@@ -10,7 +29,6 @@ import FfmpegLogsModal from '@/components/modals/FfmpegLogsModal';
 import MediaFileModal from '@/components/modals/MediaFileModal';
 import StreamSettingsModal from '@/components/modals/StreamSettingsModal';
 import PlatformSelector, { Platform, STREAMING_PLATFORMS } from '@/components/PlatformSelector';
-
 
 export interface StreamCardProps {
   stream: Stream;
@@ -106,18 +124,18 @@ const StreamCard: React.FC<StreamCardProps> = ({
       return (
         <div className="d-flex align-items-center">
           <span className="live-indicator me-1"></span>
-          <Badge bg="danger" className="bg-opacity-10 text-danger">Live</Badge>
+          <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Live</span>
         </div>
       );
     } else if (isScheduled) {
       return (
         <div className="d-flex align-items-center">
-          <i className="bi bi-alarm me-1"></i>
-          <Badge bg="primary" className="bg-opacity-10 text-primary">Scheduled</Badge>
+          <FontAwesomeIcon icon={faClock} className="me-1" />
+          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Scheduled</span>
         </div>
       );
     } else {
-      return <Badge bg="secondary" className="bg-opacity-10 text-secondary">Idle</Badge>;
+      return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Idle</span>;
     }
   };
 
@@ -253,9 +271,9 @@ const StreamCard: React.FC<StreamCardProps> = ({
 
   return (
     <div >
-      <Card className="card h-100 border-0 shadow-sm overflow-hidden">
+      <div className="card h-100 border-0 shadow-sm overflow-hidden">
         {/* Card Header */}
-        <Card.Header className="bg-white">
+        <div className="bg-white">
           <div className="d-flex justify-content-between align-items-center mb-1">
             <div className="d-flex align-items-center">
               <h5 className="card-title mb-0 text-truncate" style={{ maxWidth: '180px' }} title={stream.name || 'Untitled Stream'}>
@@ -265,60 +283,44 @@ const StreamCard: React.FC<StreamCardProps> = ({
             </div>
 
             {/* Dropdown Menu */}
-            <Dropdown>
-              <Dropdown.Toggle variant="outline-secondary" size="sm" id={`dropdown-${stream.id}`}>
-                <i className="bi bi-three-dots-vertical"></i>
-              </Dropdown.Toggle>
-              <Dropdown.Menu align="end">
-                <Dropdown.Item onClick={() => setShowRenameModal(true)}>
-                  <i className="bi bi-pencil me-2"></i>Rename
-                </Dropdown.Item>
-                <Dropdown.Item onClick={() => setShowBindModal(true)}>
-                  <i className="bi bi-link-45deg me-2"></i>Bind Channel
-                </Dropdown.Item>
-                <Dropdown.Item onClick={() => handleViewMediaFiles()}>
-                  <i className="bi bi-folder2-open me-2"></i>Media Files
-                </Dropdown.Item>
-                <Dropdown.Item
-                  onClick={() => handleViewLogs(stream.id)}>
-                  <i className="bi bi-terminal me-2"></i>View Logs
-                </Dropdown.Item>
-                <Dropdown.Item onClick={() => { handleViewSettings() }}>
-                  <i className="bi bi-gear me-2"></i>Settings
-                </Dropdown.Item>
-                <Dropdown.Divider />
-                <Dropdown.Item
-                  className="text-danger"
-                  onClick={() => setShowDeleteConfirm(true)}
-                >
-                  <i className="bi bi-trash me-2"></i>Delete
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
+            <div className="dropdown">
+              <button className="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id={`dropdown-${stream.id}`} data-bs-toggle="dropdown" aria-expanded="false">
+                <FontAwesomeIcon icon={faEllipsisVertical} />
+              </button>
+              <ul className="dropdown-menu dropdown-menu-end" aria-labelledby={`dropdown-${stream.id}`}>
+                <li><button className="dropdown-item" onClick={() => setShowRenameModal(true)}><FontAwesomeIcon icon={faPencil} className="me-2" />Rename</button></li>
+                <li><button className="dropdown-item" onClick={() => setShowBindModal(true)}><FontAwesomeIcon icon={faLink} className="me-2" />Bind Channel</button></li>
+                <li><button className="dropdown-item" onClick={() => handleViewMediaFiles()}><FontAwesomeIcon icon={faFolderOpen} className="me-2" />Media Files</button></li>
+                <li><button className="dropdown-item" onClick={() => handleViewLogs(stream.id)}><FontAwesomeIcon icon={faTerminal} className="me-2" />View Logs</button></li>
+                <li><button className="dropdown-item" onClick={() => { handleViewSettings() }}><FontAwesomeIcon icon={faGear} className="me-2" />Settings</button></li>
+                <li><hr className="dropdown-divider" /></li>
+                <li><button className="dropdown-item text-danger" onClick={() => setShowDeleteConfirm(true)}><FontAwesomeIcon icon={faTrash} className="me-2" />Delete</button></li>
+              </ul>
+            </div>
           </div>
           <div className="d-flex justify-content-between align-items-center">
             <small className="text-muted">ID: {stream.id || 'N/A'}</small>
           </div>
-        </Card.Header>
+        </div>
 
         {/* Card Body */}
-        <Card.Body className="p-3">
+        <div className="p-3">
           {/* Stream Info */}
           <div className="d-flex flex-column gap-1 mb-3">
             {stream.createdAt && (
               <div className="text-muted small">
-                <i className="bi bi-calendar3 me-1"></i> {new Date(stream.createdAt).toLocaleString()}
+                <FontAwesomeIcon icon={faCalendar} className="me-1" /> {new Date(stream.createdAt).toLocaleString()}
               </div>
             )}
             {stream.fileSizeBytes && (
               <div className="text-muted small">
-                <i className="bi bi-file-earmark me-1"></i> {formatFileSize(stream.fileSizeBytes)}
+                <FontAwesomeIcon icon={faFileText} className="me-1" /> {formatFileSize(stream.fileSizeBytes)}
               </div>
             )}
           </div>
 
           {/* Error Alert */}
-          {error && <Alert variant="danger" className="py-1 px-2" onClose={() => setError('')} dismissible>{error}</Alert>}
+          {error && <div className="alert alert-danger py-1 px-2" role="alert">{error}</div>}
 
           {/* Platform Selector */}
           <div className="mb-3">
@@ -352,130 +354,113 @@ const StreamCard: React.FC<StreamCardProps> = ({
           </div>
 
           {/* Loop Toggle */}
-          <Form.Check
-            type="switch"
-            id={`loop-switch-${stream.id}`}
-            label={
-              <>
-                <i className="bi bi-arrow-repeat me-1"></i> Loop Video
-              </>
-            }
-            checked={isLooping}
-            onChange={handleToggleLoop}
-            className="mb-0"
-          />
-        </Card.Body>
+          <div className="form-check">
+            <input className="form-check-input" type="checkbox" id={`loop-switch-${stream.id}`} checked={isLooping} onChange={handleToggleLoop} />
+            <label className="form-check-label" htmlFor={`loop-switch-${stream.id}`}>
+              <FontAwesomeIcon icon={faRepeat} className="me-1" /> Loop Video
+            </label>
+          </div>
+        </div>
 
         {/* Card Footer */}
-        <Card.Footer className={`bg-white border-top-0 pt-0 ${styles.cardFooter}`}>
+        <div className={`bg-white border-top-0 pt-0 ${styles.cardFooter}`}>
           <div className="d-flex justify-content-between align-items-center">
             {/* Main Action Button */}
             {isLive ? (
-              <Button
-                variant="danger"
-                size="sm"
+              <button
+                className="btn btn-danger btn-sm"
                 onClick={handleStop}
                 disabled={isStopping}
               >
                 {isStopping ? (
-                  <><Spinner as="span" animation="border" size="sm" className="me-1" /> Stopping...</>
+                  <><FontAwesomeIcon icon={faSpinner} className="me-1" spin /> Stopping...</>
                 ) : (
-                  <><i className="bi bi-stop-fill me-1"></i> Stop</>
+                  <><FontAwesomeIcon icon={faStop} className="me-1" /> Stop</>
                 )}
-              </Button>
+              </button>
             ) : (
-              <Button
-                variant="success"
-                size="sm"
-                className={`btn btn-success btn-sm ${styles.streamStart}`}
+              <button
+                className="btn btn-success btn-sm"
                 onClick={handleStart}
                 disabled={!streamKeyIsSet || isStarting}
               >
                 {isStarting ? (
-                  <><Spinner as="span" animation="border" size="sm" className="me-1" /> Starting...</>
+                  <><FontAwesomeIcon icon={faSpinner} className="me-1" spin /> Starting...</>
                 ) : (
-                  <><i className="bi bi-play-fill me-1"></i> Start</>
+                  <><FontAwesomeIcon icon={faPlay} className="me-1" /> Start</>
                 )}
-              </Button>
+              </button>
             )}
 
             <div className="d-flex align-items-center">
-              <Button
-                variant="outline-secondary"
-                size="sm"
+              <button
+                className="btn btn-outline-secondary btn-sm me-2"
                 onClick={() => handleViewLogs(stream.id)}
-                className="me-2"
                 title="View Logs"
               >
-                <i className="bi bi-terminal"></i>
-              </Button>
-              <Button
-                variant="outline-secondary"
-                size="sm"
+                <FontAwesomeIcon icon={faTerminal} />
+              </button>
+              <button
+                className="btn btn-outline-secondary btn-sm"
                 onClick={() => setShowMediaModal(true)}
                 title="Media Files"
               >
-                <i className="bi bi-folder2-open"></i>
-              </Button>
+                <FontAwesomeIcon icon={faFolderOpen} />
+              </button>
             </div>
           </div>
-        </Card.Footer>
-      </Card>
+        </div>
+      </div>
 
       {/* Rename Modal */}
-      <Modal show={showRenameModal} onHide={() => setShowRenameModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Rename Stream</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form.Group className="mb-3">
-            <Form.Label>Name</Form.Label>
-            <Form.Control
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Enter stream name"
-            />
-          </Form.Group>
-          <Form.Group>
-            <Form.Label>Description (Optional)</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              placeholder="Enter description"
-            />
-          </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowRenameModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleRename} disabled={!newName.trim() || isLoading}>
-            {isLoading ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <div className="modal fade" id={`rename-modal-${stream.id}`} tabIndex={-1} aria-labelledby={`rename-modal-label-${stream.id}`} aria-hidden="true">
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id={`rename-modal-label-${stream.id}`}>Rename Stream</h5>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div className="modal-body">
+              <div className="mb-3">
+                <label className="form-label">Name</label>
+                <input type="text" className="form-control" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Enter stream name" />
+              </div>
+              <div>
+                <label className="form-label">Description (Optional)</label>
+                <textarea className="form-control" rows={3} value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Enter description"></textarea>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={handleRename} disabled={!newName.trim() || isLoading}>
+                {isLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Delete Confirmation Modal */}
-      <Modal show={showDeleteConfirm} onHide={() => setShowDeleteConfirm(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Delete Stream</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p>Are you sure you want to delete this stream? This action cannot be undone.</p>
-          <p className="mb-0"><strong>Stream ID:</strong> {stream.id}</p>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={handleDelete} disabled={isLoading}>
-            {isLoading ? 'Deleting...' : 'Delete'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <div className="modal fade" id={`delete-modal-${stream.id}`} tabIndex={-1} aria-labelledby={`delete-modal-label-${stream.id}`} aria-hidden="true">
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id={`delete-modal-label-${stream.id}`}>Delete Stream</h5>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to delete this stream? This action cannot be undone.</p>
+              <p className="mb-0"><strong>Stream ID:</strong> {stream.id}</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={isLoading}>
+                {isLoading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Global FFmpeg Logs Modal */}
       <FfmpegLogsModal
@@ -522,4 +507,3 @@ const StreamCard: React.FC<StreamCardProps> = ({
 };
 
 export default StreamCard;
-

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Container, Spinner, Card, Button } from 'react-bootstrap';
-import { BsPlusCircle, BsArrowRepeat } from 'react-icons/bs';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus, faSync } from '@fortawesome/free-solid-svg-icons';
 import { MirrorCard } from './components/MirrorCard';
 import CreateMirrorModal from './components/CreateMirrorModal';
 import { useSession } from 'next-auth/react';
@@ -115,62 +115,72 @@ export default function MirrorPage() {
 
   if (status === 'loading' || isLoading) {
     return (
-      <Container className="d-flex flex-column justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-        <p className="mt-2">Loading mirrors...</p>
-      </Container>
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <p className="mt-4 text-gray-600">Loading mirrors...</p>
+      </div>
     );
   }
 
   return (
-    <Container className="py-4">
-      {/* Page Header */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Mirror Management</h1>
+            <p className="text-gray-600">Manage your streaming mirrors</p>
+          </div>
+          <div className="flex space-x-3">
+            <button 
+              className={`inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
+                isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              onClick={fetchMirrors}
+              disabled={isProcessing}
+            >
+              <FontAwesomeIcon 
+                icon={faSync} 
+                className={`mr-2 h-4 w-4 ${isProcessing ? 'animate-spin' : ''}`} 
+              />
+              Refresh
+            </button>
+            <button 
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
+                isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              onClick={() => setShowCreateModal(true)}
+              disabled={isProcessing}
+            >
+              <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
+              Create New Mirror
+            </button>
+          </div>
         </div>
-        <div className="d-flex gap-2">
-          <Button 
-            variant="outline-secondary"
-            onClick={fetchMirrors}
-            disabled={isProcessing}
-          >
-            <BsArrowRepeat className={isProcessing ? 'fa-spin me-1' : 'me-1'} />
-            Refresh
-          </Button>
-          <Button 
-            variant="primary"
-            onClick={() => setShowCreateModal(true)}
-            disabled={isProcessing}
-          >
-            <BsPlusCircle className="me-1" /> Create New Mirror
-          </Button>
-        </div>
-      </div>
 
-      {/* Mirror List */}
-      <Card className="border-0 shadow-sm">
-        <Card.Body className="p-0">
+        {/* Mirror List */}
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           {mirrors.length === 0 ? (
-            <div className="text-center p-5">
-              <h5 className="mb-2">No mirrors found</h5>
-              <p className="text-muted mb-4">
+            <div className="text-center py-12 px-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No mirrors found</h3>
+              <p className="text-gray-500 mb-6">
                 Create your first mirror to get started
               </p>
-              <Button 
-                variant="primary"
+              <button 
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
+                  isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
                 onClick={() => setShowCreateModal(true)}
                 disabled={isProcessing}
               >
-                <BsPlusCircle className="me-1" /> Create Mirror
-              </Button>
+                <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
+                Create Mirror
+              </button>
             </div>
           ) : (
-            <div className="row g-4 p-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
               {mirrors.map((mirror) => (
-                <div key={mirror.ID} className="col-12 col-md-6 col-lg-4 mb-4">
+                <div key={mirror.ID}>
                   <MirrorCard 
                     mirror={mirror} 
                     onToggle={handleToggleMirror} 
@@ -182,23 +192,23 @@ export default function MirrorPage() {
               ))}
             </div>
           )}
-        </Card.Body>
-      </Card>
+        </div>
 
-      <CreateMirrorModal 
-        show={showCreateModal}
-        onHide={() => setShowCreateModal(false)}
-        onSuccess={handleCreateSuccess}
-      />
+        <CreateMirrorModal 
+          show={showCreateModal}
+          onHide={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
 
-      {/* Add the DeleteMirrorModal component */}
-      <DeleteMirrorModal
-        show={showDeleteModal}
-        mirror={mirrorToDelete}
-        deleting={isDeleting}
-        onHide={handleHideDeleteModal}
-        onConfirm={handleDeleteMirror}
-      />
-    </Container>
+        {/* Add the DeleteMirrorModal component */}
+        <DeleteMirrorModal
+          show={showDeleteModal}
+          mirror={mirrorToDelete}
+          deleting={isDeleting}
+          onHide={handleHideDeleteModal}
+          onConfirm={handleDeleteMirror}
+        />
+      </div>
+    </div>
   );
 }

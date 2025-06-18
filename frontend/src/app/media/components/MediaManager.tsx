@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Container, Row, Col, Card, Form, Button, Table, Badge, Spinner, Alert, Modal } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faSearch, 
+  faPlus, 
+  faSync, 
+  faSpinner, 
+  faExclamationTriangle, 
+  faInbox 
+} from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'react-toastify';
 import MediaFileRow from './MediaFileRow';
 import MediaFileDetailsModal from './MediaFileDetailsModal';
@@ -175,187 +183,187 @@ export default function MediaManager() {
 
   if (!session) {
     return (
-      <div className="container-xxl py-4">
-        <Alert variant="warning">Please log in to access the Media Manager.</Alert>
+      <div className="container mx-auto p-4">
+        <div className="alert alert-warning">
+          Please log in to access the Media Manager.
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container-xxl py-4">
-      <Row>
-        <Col>
-          <Card>
-            <Card.Header className="d-flex justify-content-between align-items-center">
-              <h4 className="mb-0">
-                <i className="bi bi-collection-play me-2"></i>
-                Media Manager
-              </h4>
-              <div className="d-flex align-items-center gap-2">
-                <Badge bg="secondary">{total} files</Badge>
-                <Button 
-                  variant="primary" 
-                  size="sm"
-                  onClick={() => setShowUploadModal(true)}
-                >
-                  <i className="bi bi-cloud-upload me-2"></i>
-                  Upload Files
-                </Button>
-              </div>
-            </Card.Header>
-            <Card.Body>
-              {/* Search and Filter Controls */}
-              <Row className="mb-4">
-                <Col md={4}>
-                  <Form onSubmit={handleSearch}>
-                    <Form.Group>
-                      <Form.Label>Search Files</Form.Label>
-                      <div className="d-flex">
-                        <Form.Control
-                          type="text"
-                          placeholder="Search by filename or path..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                        <Button type="submit" variant="outline-primary" className="ms-2">
-                          <i className="bi bi-search"></i>
-                        </Button>
-                      </div>
-                    </Form.Group>
-                  </Form>
-                </Col>
-                <Col md={2}>
-                  <Form.Group>
-                    <Form.Label>Media Type</Form.Label>
-                    <Form.Select
-                      value={mediaType}
-                      onChange={(e) => {
-                        setMediaType(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                    >
-                      <option value="all">All Types</option>
-                      <option value="video">Video</option>
-                      <option value="audio">Audio</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={2}>
-                  <Form.Group>
-                    <Form.Label>Sort By</Form.Label>
-                    <Form.Select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                    >
-                      <option value="created_at">Date Created</option>
-                      <option value="file_name">File Name</option>
-                      <option value="file_size">File Size</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={2}>
-                  <Form.Group>
-                    <Form.Label>Order</Form.Label>
-                    <Form.Select
-                      value={sortOrder}
-                      onChange={(e) => setSortOrder(e.target.value)}
-                    >
-                      <option value="desc">Descending</option>
-                      <option value="asc">Ascending</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={2} className="d-flex align-items-end">
-                  <Button 
-                    variant="outline-secondary" 
-                    onClick={() => {
-                      setSearchTerm('');
-                      setMediaType('all');
-                      setSortBy('created_at');
-                      setSortOrder('desc');
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <i className="bi bi-arrow-clockwise me-1"></i>
-                    Reset
-                  </Button>
-                </Col>
-              </Row>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">
+          <FontAwesomeIcon icon={faInbox} className="mr-2" />
+          Media Manager
+        </h2>
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{total} files</span>
+          <button 
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            onClick={() => setShowUploadModal(true)}
+          >
+            <FontAwesomeIcon icon={faPlus} className="mr-2" />
+            Upload Files
+          </button>
+        </div>
+      </div>
 
-              {/* Loading State */}
-              {loading && (
-                <div className="text-center py-4">
-                  <Spinner animation="border" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </Spinner>
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="p-4">
+          {/* Search and Filter Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+            <div className="md:col-span-2">
+              <form onSubmit={handleSearch}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Search Files</label>
+                <div className="flex">
+                  <input
+                    type="text"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Search by filename or path..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <button 
+                    type="submit" 
+                    className="px-3 py-2 bg-blue-600 text-white border border-blue-600 rounded-r-md hover:bg-blue-700 transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faSearch} />
+                  </button>
+                </div>
+              </form>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Media Type</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={mediaType}
+                onChange={(e) => {
+                  setMediaType(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Types</option>
+                <option value="video">Video</option>
+                <option value="audio">Audio</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="created_at">Date Created</option>
+                <option value="file_name">File Name</option>
+                <option value="file_size">File Size</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Order</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button 
+                className="w-full px-3 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors"
+                onClick={() => {
+                  setSearchTerm('');
+                  setMediaType('all');
+                  setSortBy('created_at');
+                  setSortOrder('desc');
+                  setCurrentPage(1);
+                }}
+              >
+                <FontAwesomeIcon icon={faSync} className="mr-1" />
+                Reset
+              </button>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {loading && (
+            <div className="text-center py-8">
+              <FontAwesomeIcon icon={faSpinner} className="text-2xl text-gray-400 animate-spin" />
+              <p className="text-gray-500 mt-2">Loading...</p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+              <div className="flex items-center">
+                <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-400 mr-2" />
+                <span className="text-red-800">{error}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Media Files Table */}
+          {!loading && !error && (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Streams</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {mediaFiles.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-8 text-center">
+                          <FontAwesomeIcon icon={faInbox} className="text-4xl text-gray-300 mb-2 block" />
+                          <span className="text-gray-500">No media files found</span>
+                        </td>
+                      </tr>
+                    ) : (
+                      mediaFiles.map((file) => (
+                        <MediaFileRow
+                          key={file.id}
+                          file={file}
+                          onViewDetails={(file) => {
+                            setSelectedFile(file);
+                            setShowDetailsModal(true);
+                          }}
+                          onDelete={handleDelete}
+                          formatFileSize={formatFileSize}
+                          formatDuration={formatDuration}
+                        />
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-4">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                  />
                 </div>
               )}
-
-              {/* Error State */}
-              {error && (
-                <Alert variant="danger">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
-                  {error}
-                </Alert>
-              )}
-
-              {/* Media Files Table */}
-              {!loading && !error && (
-                <>
-                  <div className="table-responsive">
-                    <Table striped hover>
-                      <thead>
-                        <tr>
-                          <th>File</th>
-                          <th>Type</th>
-                          <th>Size</th>
-                          <th>Duration</th>
-                          <th>Streams</th>
-                          <th>Created</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {mediaFiles.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="text-center py-4">
-                              <i className="bi bi-inbox display-4 text-muted d-block mb-2"></i>
-                              <span className="text-muted">No media files found</span>
-                            </td>
-                          </tr>
-                        ) : (
-                          mediaFiles.map((file) => (
-                            <MediaFileRow
-                              key={file.id}
-                              file={file}
-                              onViewDetails={(file) => {
-                                setSelectedFile(file);
-                                setShowDetailsModal(true);
-                              }}
-                              onDelete={handleDelete}
-                              formatFileSize={formatFileSize}
-                              formatDuration={formatDuration}
-                            />
-                          ))
-                        )}
-                      </tbody>
-                    </Table>
-                  </div>
-
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <Pagination
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      onPageChange={setCurrentPage}
-                    />
-                  )}
-                </>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Modals */}
       <MediaFileDetailsModal

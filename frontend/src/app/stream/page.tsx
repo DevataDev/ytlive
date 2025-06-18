@@ -2,7 +2,8 @@
 
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
-import { Spinner } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 
 // Dynamically import the StreamList component with SSR disabled
 const StreamList = dynamic(
@@ -10,10 +11,8 @@ const StreamList = dynamic(
   { 
     ssr: false,
     loading: () => (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
+      <div className="flex justify-center items-center" style={{ minHeight: '60vh' }}>
+        <FontAwesomeIcon icon={faSpinner} className="text-2xl text-gray-400 animate-spin" />
       </div>
     )
   }
@@ -23,10 +22,8 @@ export default function StreamListPage() {
   return (
     <Suspense 
       fallback={
-        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </Spinner>
+        <div className="flex justify-center items-center" style={{ minHeight: '60vh' }}>
+          <FontAwesomeIcon icon={faSpinner} className="text-2xl text-gray-400 animate-spin" />
         </div>
       }
     >

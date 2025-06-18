@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Modal, Button, Form, Alert, Spinner, ListGroup, Badge, Row, Col, InputGroup } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner, faTimes, faSearch, faVideo, faMusic, faFile, faFolderOpen, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { MediaFile, MediaListResponse } from '@/services/streamService';
 import { toast } from 'react-toastify';
 import { getSession } from 'next-auth/react';
@@ -126,45 +127,37 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
   // Load media files when modal opens
   useEffect(() => {
     if (show && !hasLoadedInitial) {
-      loadUserMediaFiles(true);
       setHasLoadedInitial(true);
-    }
-  }, [show, hasLoadedInitial, loadUserMediaFiles]);
-
-  // Handle filter changes
-  useEffect(() => {
-    setCurrentFilter(mediaTypeFilter);
-  }, [mediaTypeFilter]);
-
-  // Reload when filter changes
-  useEffect(() => {
-    if (show && hasLoadedInitial) {
       loadUserMediaFiles(true);
     }
-  }, [currentFilter, show, hasLoadedInitial, loadUserMediaFiles]);
-
-  // Update selected files when selectedFileIds prop changes
-  useEffect(() => {
-    if (show) {
-      setSelectedFiles(selectedFileIds);
-    }
-  }, [selectedFileIds, show]);
+  }, [show, loadUserMediaFiles, hasLoadedInitial]);
 
   // Reset when modal closes
   useEffect(() => {
     if (!show) {
+      setHasLoadedInitial(false);
       setSearchTerm('');
       setError('');
-      setMediaFiles([]);
-      setPagination({ total: 0, limit: 20, offset: 0, has_more: false });
-      setHasLoadedInitial(false);
+      setSelectedFiles(selectedFileIds);
+      setCurrentFilter(mediaTypeFilter);
     }
-  }, [show]);
+  }, [show, selectedFileIds, mediaTypeFilter]);
+
+  // Update selected files when prop changes
+  useEffect(() => {
+    setSelectedFiles(selectedFileIds);
+  }, [selectedFileIds]);
+
+  // Reload when filter changes
+  useEffect(() => {
+    if (hasLoadedInitial) {
+      loadUserMediaFiles(true);
+    }
+  }, [currentFilter, loadUserMediaFiles, hasLoadedInitial]);
 
   const handleLoadMore = () => {
-    if (!loadingMore && pagination.has_more) {
-      loadUserMediaFiles(false);
-    }
+    setPagination(prev => ({ ...prev, offset: prev.offset + prev.limit }));
+    loadUserMediaFiles(false);
   };
 
   const handleFileToggle = (fileId: string) => {
@@ -180,11 +173,8 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
   };
 
   const handleSelectAll = () => {
-    if (allowMultiple) {
-      const filteredFiles = getFilteredFiles();
-      const allIds = filteredFiles.map(file => file.ID);
-      setSelectedFiles(allIds);
-    }
+    const allFileIds = getFilteredFiles().map(file => file.ID);
+    setSelectedFiles(allFileIds);
   };
 
   const handleClearSelection = () => {
@@ -194,28 +184,19 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
   const handleConfirmSelection = () => {
     const selectedMediaFiles = mediaFiles.filter(file => selectedFiles.includes(file.ID));
     onSelect(selectedMediaFiles);
-    onHide();
   };
 
   const getFilteredFiles = () => {
-    let filtered = mediaFiles;
-    
-    // Filter by media type
-    if (currentFilter !== 'all') {
-      filtered = filtered.filter(file => {
-        const fileType = file.MimeType.split('/')[0];
-        return fileType === currentFilter;
-      });
-    }
-    
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(file => 
-        file.FileName.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    return filtered;
+    return mediaFiles.filter(file => {
+      const matchesSearch = !searchTerm || 
+        file.FileName.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesType = currentFilter === 'all' || 
+        (currentFilter === 'video' && file.MediaType.startsWith('video/')) ||
+        (currentFilter === 'audio' && file.MediaType.startsWith('audio/'));
+      
+      return matchesSearch && matchesType;
+    });
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -227,179 +208,215 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
   };
 
   const getMediaTypeIcon = (mediaType: string) => {
-    switch (mediaType) {
-      case 'video':
-        return <i className="bi bi-camera-video text-primary"></i>;
-      case 'audio':
-        return <i className="bi bi-music-note text-success"></i>;
-      case 'image':
-        return <i className="bi bi-image text-warning"></i>;
-      default:
-        return <i className="bi bi-file-earmark text-secondary"></i>;
+    if (mediaType.startsWith('video/')) {
+      return <FontAwesomeIcon icon={faVideo} className="text-blue-500" />;
+    } else if (mediaType.startsWith('audio/')) {
+      return <FontAwesomeIcon icon={faMusic} className="text-green-500" />;
+    } else {
+      return <FontAwesomeIcon icon={faFile} className="text-gray-500" />;
     }
   };
 
   const filteredFiles = getFilteredFiles();
 
+  if (!show) return null;
+
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
-      <Modal.Header closeButton>
-        <Modal.Title>{title}</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        {error && (
-          <Alert variant="danger" className="mb-3">
-            {error}
-          </Alert>
-        )}
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
 
-        {/* Search and Filter Controls */}
-        <Row className="mb-3">
-          <Col md={6}>
-            <InputGroup>
-              <InputGroup.Text>
-                <i className="bi bi-search"></i>
-              </InputGroup.Text>
-              <Form.Control
-                type="text"
-                placeholder="Search files..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </InputGroup>
-          </Col>
-          <Col md={3}>
-            <Form.Select
-              value={currentFilter}
-              onChange={(e) => setCurrentFilter(e.target.value as 'video' | 'audio' | 'all')}
-            >
-              <option value="all">All Media</option>
-              <option value="video">Video Only</option>
-              <option value="audio">Audio Only</option>
-            </Form.Select>
-          </Col>
-          <Col md={3}>
-            {allowMultiple && (
-              <div className="d-flex gap-2">
-                <Button 
-                  variant="outline-primary" 
-                  size="sm" 
-                  onClick={handleSelectAll}
-                  disabled={filteredFiles.length === 0}
-                >
-                  Select All
-                </Button>
-                <Button 
-                  variant="outline-secondary" 
-                  size="sm" 
-                  onClick={handleClearSelection}
-                  disabled={selectedFiles.length === 0}
-                >
-                  Clear
-                </Button>
-              </div>
-            )}
-          </Col>
-        </Row>
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-        {/* Selection Summary */}
-        {selectedFiles.length > 0 && (
-          <Alert variant="info" className="mb-3">
-            {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
-          </Alert>
-        )}
-
-        {/* Clean File List */}
-        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          {loading ? (
-            <div className="text-center py-4">
-              <Spinner animation="border" />
-              <div className="mt-2">Loading files...</div>
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+          {/* Header */}
+          <div className="bg-white px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+              <button
+                onClick={onHide}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
             </div>
-          ) : filteredFiles.length === 0 ? (
-            <div className="text-center py-4 text-muted">
-              <i className="bi bi-folder2-open fs-1 d-block mb-2"></i>
-              {searchTerm ? 'No files match your search' : `No ${mediaTypeFilter} files available`}
-            </div>
-          ) : (
-            <>
-              <ListGroup variant="flush">
-                {filteredFiles.map((file) => (
-                  <ListGroup.Item
-                    key={file.ID}
-                    className={`d-flex align-items-center py-3 ${
-                      selectedFiles.includes(file.ID) ? 'bg-light border-primary' : ''
-                    }`}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => handleFileToggle(file.ID)}
-                  >
-                    <Form.Check
-                      type={allowMultiple ? 'checkbox' : 'radio'}
-                      checked={selectedFiles.includes(file.ID)}
-                      onChange={() => handleFileToggle(file.ID)}
-                      className="me-3"
-                    />
-                    
-                    <div className="me-3">
-                      {getMediaTypeIcon(file.MediaType)}
-                    </div>
-                    
-                    <div className="flex-grow-1">
-                      <div className="fw-medium mb-1">{file.FileName}</div>
-                      <div className="text-muted small">
-                        {formatFileSize(file.FileSize)} • 
-                        <Badge bg="secondary" className="ms-1 me-1">{file.MediaType}</Badge> • 
-                        {new Date(file.CreatedAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
-              
-              {/* Load More */}
-              {pagination.has_more && (
-                <div className="text-center mt-3">
-                  <Button 
-                    variant="outline-primary" 
-                    onClick={handleLoadMore}
-                    disabled={loadingMore}
-                  >
-                    {loadingMore ? (
-                      <>
-                        <Spinner animation="border" size="sm" className="me-2" />
-                        Loading...
-                      </>
-                    ) : (
-                      `Load More (${pagination.total - pagination.offset} remaining)`
-                    )}
-                  </Button>
+          </div>
+
+          {/* Body */}
+          <div className="bg-white max-h-96 overflow-y-auto">
+            <div className="p-6">
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+                  <div className="flex">
+                    <FontAwesomeIcon icon={faInfoCircle} className="text-red-400 mr-2" />
+                    <div className="text-sm text-red-700">{error}</div>
+                  </div>
                 </div>
               )}
-            </>
-          )}
-        </div>
-      </Modal.Body>
-      
-      <Modal.Footer>
-        <div className="d-flex justify-content-between w-100 align-items-center">
-          <small className="text-muted">
-            {pagination.total > 0 && `${filteredFiles.length} of ${pagination.total} files`}
-          </small>
-          <div>
-            <Button variant="secondary" onClick={onHide} className="me-2">
-              Cancel
-            </Button>
-            <Button 
-              variant="primary" 
-              onClick={handleConfirmSelection}
-              disabled={selectedFiles.length === 0}
-            >
-              Select {selectedFiles.length > 0 ? `(${selectedFiles.length})` : ''}
-            </Button>
+
+              {/* Search and Filter Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Search Files</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FontAwesomeIcon icon={faSearch} className="text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search by filename..."
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Type</label>
+                  <select
+                    value={currentFilter}
+                    onChange={(e) => setCurrentFilter(e.target.value as 'video' | 'audio' | 'all')}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">All Files</option>
+                    <option value="video">Video Files</option>
+                    <option value="audio">Audio Files</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Selection Controls */}
+              {allowMultiple && filteredFiles.length > 0 && (
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleSelectAll}
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={handleClearSelection}
+                      className="text-sm text-gray-600 hover:text-gray-800"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Selection Summary */}
+              {selectedFiles.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+                  <div className="flex">
+                    <FontAwesomeIcon icon={faInfoCircle} className="text-blue-400 mr-2" />
+                    <div className="text-sm text-blue-700">
+                      {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* File List */}
+              <div className="max-h-96 overflow-y-auto">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
+                    <span>Loading files...</span>
+                  </div>
+                ) : filteredFiles.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <FontAwesomeIcon icon={faFolderOpen} className="text-4xl mb-2" />
+                    <div>{searchTerm ? 'No files match your search' : `No ${mediaTypeFilter} files available`}</div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {filteredFiles.map((file) => (
+                        <div
+                          key={file.ID}
+                          className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 ${
+                            selectedFiles.includes(file.ID) ? 'bg-blue-50 border-blue-200' : 'border-gray-200'
+                          }`}
+                          onClick={() => handleFileToggle(file.ID)}
+                        >
+                          <input
+                            type={allowMultiple ? 'checkbox' : 'radio'}
+                            checked={selectedFiles.includes(file.ID)}
+                            onChange={() => handleFileToggle(file.ID)}
+                            className="mr-3"
+                          />
+                          
+                          <div className="mr-3">
+                            {getMediaTypeIcon(file.MediaType)}
+                          </div>
+                          
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900 mb-1">{file.FileName}</div>
+                            <div className="text-sm text-gray-500">
+                              {formatFileSize(file.FileSize)} • 
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 ml-1 mr-1">
+                                {file.MediaType}
+                              </span> • 
+                              {new Date(file.CreatedAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Load More */}
+                    {pagination.has_more && (
+                      <div className="text-center mt-4">
+                        <button 
+                          onClick={handleLoadMore}
+                          disabled={loadingMore}
+                          className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {loadingMore ? (
+                            <>
+                              <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
+                              Loading...
+                            </>
+                          ) : (
+                            `Load More (${pagination.total - pagination.offset} remaining)`
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Footer */}
+          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-gray-500">
+                {pagination.total > 0 && `${filteredFiles.length} of ${pagination.total} files`}
+              </div>
+              <div className="flex space-x-3">
+                <button 
+                  onClick={onHide}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleConfirmSelection}
+                  disabled={selectedFiles.length === 0}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Select {selectedFiles.length > 0 ? `(${selectedFiles.length})` : ''}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </Modal.Footer>
-    </Modal>
+      </div>
+    </div>
   );
 };
 

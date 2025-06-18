@@ -1,5 +1,7 @@
 'use client';
 
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faVideo, faCheckCircle, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { Channel } from '@/services/channelService';
 import { getInitialsAvatar } from '../utils/avatarUtils';
 import Pagination from './Pagination';
@@ -29,21 +31,21 @@ export default function ChannelTable({
 
   if (loading) {
     return (
-      <div className="card-body p-0">
-        <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0">
-            <thead className="table-light">
+      <div className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="ps-4">Channel</th>
-                <th>Status</th>
-                <th className="text-end pe-4">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Channel</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               <tr>
-                <td colSpan={3} className="text-center py-5">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
+                <td colSpan={3} className="px-6 py-12 text-center">
+                  <div className="flex justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
                 </td>
               </tr>
@@ -56,23 +58,23 @@ export default function ChannelTable({
 
   if (channels.length === 0) {
     return (
-      <div className="card-body p-0">
-        <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0">
-            <thead className="table-light">
+      <div className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="ps-4">Channel</th>
-                <th>Status</th>
-                <th className="text-end pe-4">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Channel</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               <tr>
-                <td colSpan={3} className="text-center py-5">
-                  <div className="py-4">
-                    <i className="bi bi-collection text-muted" style={{ fontSize: '3rem', opacity: 0.5 }}></i>
-                    <h5 className="mt-3 mb-2">No channels found</h5>
-                    <p className="text-muted mb-0">Add a channel to get started</p>
+                <td colSpan={3} className="px-6 py-12 text-center">
+                  <div className="py-8">
+                    <FontAwesomeIcon icon={faVideo} className="h-12 w-12 text-gray-400 mb-4" />
+                    <h5 className="text-lg font-medium text-gray-900 mb-2">No channels found</h5>
+                    <p className="text-gray-500">Add a channel to get started</p>
                   </div>
                 </td>
               </tr>
@@ -85,52 +87,53 @@ export default function ChannelTable({
 
   return (
     <>
-      <div className="card-body p-0">
-        <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0">
-            <thead className="table-light">
+      <div className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="ps-4">Channel</th>
-                <th>Status</th>
-                <th className="text-end pe-4">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Channel</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               {channels.map((channel) => (
-                <tr key={channel.ID} className="fade-in">
-                  <td className="ps-4">
-                    <div className="d-flex align-items-center">
+                <tr key={channel.ID} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
                       <img
                         src={channel.ThumbnailURL || getInitialsAvatar(channel.ChannelName)}
                         alt={channel.ChannelName || 'Channel'}
-                        className="rounded-circle me-3"
-                        style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                        className="h-9 w-9 rounded-full object-cover mr-4"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.src = getInitialsAvatar(channel.ChannelName);
                         }}
                       />
                       <div>
-                        <div className="fw-medium text-dark mb-1">
+                        <div className="text-sm font-medium text-gray-900 mb-1">
                           {channel.ChannelName || 'Unnamed Channel'}
                         </div>
-                        <div className="small text-muted font-monospace" title={`Channel ID: ${channel.ID}`}>
+                        <div className="text-xs text-gray-500 font-mono" title={`Channel ID: ${channel.ID}`}>
                           {channel.ID}
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td>
-                    <span className="badge bg-success">
-                      <i className="bi bi-check-circle-fill me-1"></i> Connected
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <FontAwesomeIcon icon={faCheckCircle} className="mr-1 h-3 w-3" />
+                      Connected
                     </span>
                   </td>
-                  <td className="text-end pe-4">
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
                     <button
-                      className="btn btn-outline-danger btn-sm"
+                      className="inline-flex items-center px-3 py-2 border border-red-300 text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                       onClick={() => onDeleteClick(channel)}
                     >
-                      <i className="bi bi-trash"></i> Delete
+                      <FontAwesomeIcon icon={faTrash} className="mr-2 h-3 w-3" />
+                      Delete
                     </button>
                   </td>
                 </tr>
@@ -140,10 +143,10 @@ export default function ChannelTable({
         </div>
       </div>
 
-      <div className="card-footer bg-white border-top-0 pt-0">
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center">
-          <div className="text-muted small mb-2 mb-md-0">
-            Showing {start} to {end} of <span className="fw-medium">{totalChannels}</span> channels
+      <div className="bg-white border-t border-gray-200 px-6 py-3">
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <div className="text-sm text-gray-700 mb-2 md:mb-0">
+            Showing {start} to {end} of <span className="font-medium">{totalChannels}</span> channels
           </div>
           <Pagination
             currentPage={currentPage}

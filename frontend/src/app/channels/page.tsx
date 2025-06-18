@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { toast, ToastIcon } from 'react-toastify';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faVideo, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { 
   fetchListYoutubeChannels, 
   authorizeYouTubeChannel, 
@@ -84,24 +86,25 @@ export default function ChannelsPage() {
   };
 
   return (
-    <div className="container-fluid">
-      <div className="container-xl">
-        <div className="card shadow-sm border-0 rounded-3 overflow-hidden mb-4">
-          <div className="card-header bg-white border-bottom-0 py-3">
-            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-              <div className="mb-3 mb-md-0">
-                <h2 className="h5 mb-0 d-flex align-items-center">
-                  <i className="bi bi-collection-play-fill text-primary me-2"></i>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
+          <div className="bg-white border-b border-gray-200 px-6 py-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+              <div className="mb-3 md:mb-0">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                  <FontAwesomeIcon icon={faVideo} className="text-blue-600 mr-3 h-5 w-5" />
                   <span>YouTube Channels</span>
                 </h2>
               </div>
-              <div className="d-flex">
+              <div className="flex">
                 <button 
                   type="button" 
-                  className="btn btn-primary"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                   onClick={handleAddChannel}
                 >
-                  <i className="bi bi-plus-lg me-1"></i> Add Channel
+                  <FontAwesomeIcon icon={faPlus} className="mr-2 h-4 w-4" />
+                  Add Channel
                 </button>
               </div>
             </div>

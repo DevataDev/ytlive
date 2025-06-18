@@ -1,4 +1,5 @@
-import { Modal, Button, Row, Col, Badge, ListGroup } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faVideo, faMusic, faTimes, faInbox } from '@fortawesome/free-solid-svg-icons';
 
 interface MediaFile {
   id: string;
@@ -26,112 +27,148 @@ interface Props {
 }
 
 export default function MediaFileDetailsModal({ show, onHide, file, formatFileSize, formatDuration }: Props) {
-  if (!file) return null;
+  if (!show || !file) return null;
 
   return (
-    <Modal show={show} onHide={onHide} size="lg">
-      <Modal.Header closeButton>
-        <Modal.Title>
-          <i className={`bi ${file.media_type === 'video' ? 'bi-camera-video' : 'bi-music-note'} me-2`}></i>
-          Media File Details
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Row>
-          <Col md={6}>
-            <h6>File Information</h6>
-            <ListGroup variant="flush">
-              <ListGroup.Item className="d-flex justify-content-between">
-                <strong>File Name:</strong>
-                <span className="text-end" style={{maxWidth: '60%', wordBreak: 'break-word'}}>{file.file_name}</span>
-              </ListGroup.Item>
-              <ListGroup.Item className="d-flex justify-content-between">
-                <strong>File Path:</strong>
-                <small className="text-muted text-end" style={{maxWidth: '60%', wordBreak: 'break-all', overflowWrap: 'anywhere'}}>{file.file_path}</small>
-              </ListGroup.Item>
-              <ListGroup.Item className="d-flex justify-content-between">
-                <strong>File Size:</strong>
-                <span>{formatFileSize(file.file_size)}</span>
-              </ListGroup.Item>
-              <ListGroup.Item className="d-flex justify-content-between">
-                <strong>Media Type:</strong>
-                <Badge bg={file.media_type === 'video' ? 'primary' : 'success'}>
-                  {file.media_type.toUpperCase()}
-                </Badge>
-              </ListGroup.Item>
-              <ListGroup.Item className="d-flex justify-content-between">
-                <strong>MIME Type:</strong>
-                <span>{file.mime_type}</span>
-              </ListGroup.Item>
-              {file.duration && (
-                <ListGroup.Item className="d-flex justify-content-between">
-                  <strong>Duration:</strong>
-                  <span>{formatDuration(file.duration)}</span>
-                </ListGroup.Item>
-              )}
-              {file.resolution && (
-                <ListGroup.Item className="d-flex justify-content-between">
-                  <strong>Resolution:</strong>
-                  <span>{file.resolution}</span>
-                </ListGroup.Item>
-              )}
-              <ListGroup.Item className="d-flex justify-content-between">
-                <strong>Created:</strong>
-                <span>{new Date(file.created_at).toLocaleString()}</span>
-              </ListGroup.Item>
-            </ListGroup>
-          </Col>
-          <Col md={6}>
-            <h6>Stream Usage</h6>
-            {file.stream_count > 0 ? (
-              <ListGroup>
-                {file.streams && file.streams.length > 0 ? (
-                  // Display full stream objects if available
-                  file.streams.map((stream, index) => (
-                    <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
-                      <div>
-                        <strong>{stream.name}</strong>
-                        {stream.description && (
-                          <div>
-                            <small className="text-muted">{stream.description}</small>
-                          </div>
-                        )}
-                      </div>
-                      <Badge bg="info">{stream.status}</Badge>
-                    </ListGroup.Item>
-                  ))
-                ) : (
-                  // Fallback to display stream names if full objects not available
-                  file.stream_names && file.stream_names.length > 0 ? (
-                    file.stream_names.map((streamName, index) => (
-                      <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
-                        <div>
-                          <strong>{streamName.trim()}</strong>
-                        </div>
-                        <Badge bg="secondary">Unknown</Badge>
-                      </ListGroup.Item>
-                    ))
-                  ) : (
-                    <ListGroup.Item>
-                      <div className="text-muted">Stream information not available</div>
-                    </ListGroup.Item>
-                  )
-                )}
-              </ListGroup>
-            ) : (
-              <div className="text-center py-4">
-                <i className="bi bi-inbox display-6 text-muted d-block mb-2"></i>
-                <p className="text-muted mb-0">This file is not used in any streams</p>
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+          {/* Header */}
+          <div className="bg-white px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <FontAwesomeIcon 
+                  icon={file.media_type === 'video' ? faVideo : faMusic} 
+                  className="mr-2 text-gray-600" 
+                />
+                Media File Details
+              </h3>
+              <button
+                onClick={onHide}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="bg-white px-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* File Information */}
+              <div>
+                <h4 className="text-base font-medium text-gray-900 mb-4">File Information</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <span className="font-medium text-gray-700">File Name:</span>
+                    <span className="text-right text-gray-900 max-w-xs break-words">{file.file_name}</span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="font-medium text-gray-700">File Path:</span>
+                    <span className="text-right text-gray-500 text-sm max-w-xs break-all">{file.file_path}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">File Size:</span>
+                    <span className="text-gray-900">{formatFileSize(file.file_size)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">Media Type:</span>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      file.media_type === 'video' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {file.media_type.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">MIME Type:</span>
+                    <span className="text-gray-900">{file.mime_type}</span>
+                  </div>
+                  {file.duration && (
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-gray-700">Duration:</span>
+                      <span className="text-gray-900">{formatDuration(file.duration)}</span>
+                    </div>
+                  )}
+                  {file.resolution && (
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-gray-700">Resolution:</span>
+                      <span className="text-gray-900">{file.resolution}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">Created:</span>
+                    <span className="text-gray-900">{new Date(file.created_at).toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
-            )}
-          </Col>
-        </Row>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
-          Close
-        </Button>
-      </Modal.Footer>
-    </Modal>
+
+              {/* Stream Usage */}
+              <div>
+                <h4 className="text-base font-medium text-gray-900 mb-4">Stream Usage</h4>
+                {file.stream_count > 0 ? (
+                  <div className="space-y-2">
+                    {file.streams && file.streams.length > 0 ? (
+                      // Display full stream objects if available
+                      file.streams.map((stream, index) => (
+                        <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
+                          <div>
+                            <div className="font-medium text-gray-900">{stream.name}</div>
+                            {stream.description && (
+                              <div className="text-sm text-gray-500">{stream.description}</div>
+                            )}
+                          </div>
+                          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                            {stream.status}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      // Fallback to display stream names if full objects not available
+                      file.stream_names && file.stream_names.length > 0 ? (
+                        file.stream_names.map((streamName, index) => (
+                          <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
+                            <div className="font-medium text-gray-900">{streamName.trim()}</div>
+                            <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                              Unknown
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-gray-50 rounded-md">
+                          <div className="text-gray-500">Stream information not available</div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <FontAwesomeIcon icon={faInbox} className="text-4xl text-gray-300 mb-2" />
+                    <p className="text-gray-500">This file is not used in any streams</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+            <div className="flex justify-end">
+              <button
+                onClick={onHide}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

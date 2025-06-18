@@ -3,13 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Container, Row, Col, Card, Button, Spinner, Alert } from 'react-bootstrap';
-import { FaPlus, FaEye, FaEyeSlash, FaEdit, FaTrash, FaKey } from 'react-icons/fa';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus, faEye, faEyeSlash, faPencil, faTrash, faKey, faSpinner, faExclamationTriangle, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { userService, type User, type UserListResponse } from '@/services/userService';
 import { toast } from 'react-toastify';
 import UserForm from './components/UserForm';
 import PasswordUpdateModal from './components/PasswordUpdateModal';
-// Add import at the top
 import DeleteUserModal from './components/DeleteUserModal';
 
 export default function UsersPage() {
@@ -104,7 +103,6 @@ export default function UsersPage() {
   };
 
   // Handle delete user
-  // Add new state for delete modal
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [deleting, setDeleting] = useState<boolean>(false);
 
@@ -124,7 +122,6 @@ export default function UsersPage() {
     }
   };
 
-  // Add function to show delete modal
   const handleDeleteClick = (user: User) => {
     setUserToDelete(user);
   };
@@ -133,7 +130,7 @@ export default function UsersPage() {
   const toggleUserStatus = async (user: User) => {
     try {
       await userService.toggleUserStatus(user.id, !user.is_active);
-      toast.success(`User ${!user.is_active ? 'activated' : 'deactivated'} successfully`);
+      toast.success(`User ${user.is_active ? 'deactivated' : 'activated'} successfully`);
       fetchUsers(pagination.page, searchTerm);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update user status');
@@ -153,166 +150,197 @@ export default function UsersPage() {
     }
   };
 
-  if (status === 'loading' || loading) {
+  if (status === 'loading') {
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '50vh' }}>
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
+      <div className="flex justify-center items-center min-h-screen">
+        <FontAwesomeIcon icon={faSpinner} className="animate-spin text-4xl text-blue-500" />
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <Container className="mt-4">
-        <Alert variant="danger">{error}</Alert>
-      </Container>
-    );
+  if (!session?.user?.isAdmin) {
+    return null;
   }
 
   return (
-    <Container fluid className="py-4">
-      <div className="container-xxl">
-        <Card className="shadow-sm mb-4">
-          <Card.Body className="p-4">
-            <Row className="align-items-center mb-4">
-              <Col md={6} className="mb-3 mb-md-0">
-                <h5 className="mb-0">
-                  <i className="bi bi-people text-primary me-2"></i>
-                  User Management
-                </h5>
-              </Col>
-              <Col md={6} className="text-md-end">
-                <Button
-                  variant="primary"
-                  onClick={() => setShowAddModal(true)}
-                  className="d-inline-flex align-items-center"
-                >
-                  <FaPlus className="me-2" />
-                  Add User
-                </Button>
-              </Col>
-            </Row>
-
-            <form onSubmit={handleSearch} className="mb-4">
-              <div className="input-group">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Button type="submit" variant="outline-secondary">
-                  Search
-                </Button>
-              </div>
-            </form>
-
-            <div className="table-responsive">
-              <table className="table table-hover">
-                <thead>
-                  <tr>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Admin</th>
-                    <th>Status</th>
-                    <th className="text-end">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users?.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="text-center">
-                        {loading ? 'Loading...' : 'No users found'}
-                      </td>
-                    </tr>
-                  ) : (
-                    users?.map((user) => (
-                      <tr key={user.id}>
-                        <td>{user.username}</td>
-                        <td>{user.email}</td>
-                        <td>
-                          {user.is_admin ? (
-                            <span className="badge bg-success">Yes</span>
-                          ) : (
-                            <span className="badge bg-secondary">No</span>
-                          )}
-                        </td>
-                        <td>
-                          {user.is_active ? (
-                            <span className="badge bg-success">Active</span>
-                          ) : (
-                            <span className="badge bg-danger">Inactive</span>
-                          )}
-                        </td>
-                        <td className="text-end">
-                          <div className="btn-group" role="group">
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              className="me-2"
-                              onClick={() => toggleUserStatus(user)}
-                              title={user.is_active ? 'Deactivate' : 'Activate'}
-                            >
-                              {user.is_active ? <FaEyeSlash /> : <FaEye />}
-                            </Button>
-                            <Button
-                              variant="outline-secondary"
-                              size="sm"
-                              className="me-2"
-                              onClick={() => setEditingUser(user)}
-                              title="Edit"
-                            >
-                              <FaEdit />
-                            </Button>
-                            <Button
-                              variant="outline-info"
-                              size="sm"
-                              className="me-2"
-                              onClick={() => setPasswordUpdateUser(user)}
-                              title="Change Password"
-                            >
-                              <FaKey />
-                            </Button>
-                            <Button
-                              variant="outline-danger"
-                              size="sm"
-                              onClick={() => handleDeleteClick(user)}
-                              title="Delete"
-                              disabled={user.id === session?.user?.id}
-                            >
-                              <FaTrash />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+    <div className="container mx-auto px-4 py-8">
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                Add User
+              </button>
             </div>
 
-            {pagination.totalPages > 1 && (
-              <nav className="mt-4">
-                <ul className="pagination justify-content-center">
-                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((pageNum) => (
-                    <li key={pageNum} className={`page-item ${pagination.page === pageNum ? 'active' : ''}`}>
-                      <button
-                        className="page-link"
-                        onClick={() => handlePageChange(pageNum)}
-                        disabled={pagination.page === pageNum}
-                      >
-                        {pageNum}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
+            {/* Search Form */}
+            <form onSubmit={handleSearch} className="mt-4">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search users..."
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  <FontAwesomeIcon icon={faSearch} />
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="p-6">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+                <div className="flex">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-400 mr-2 mt-0.5" />
+                  <div className="text-sm text-red-700">{error}</div>
+                </div>
+              </div>
             )}
-          </Card.Body>
-        </Card>
+
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <FontAwesomeIcon icon={faSpinner} className="animate-spin text-2xl text-blue-500" />
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Username
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Role
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {users.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                            No users found
+                          </td>
+                        </tr>
+                      ) : (
+                        users.map((user) => (
+                          <tr key={user.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {user.username}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {user.email}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {user.is_admin ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                  Admin
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                  User
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {user.is_active ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Active
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                  Inactive
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <div className="flex justify-end space-x-2">
+                                <button
+                                  onClick={() => toggleUserStatus(user)}
+                                  title={user.is_active ? 'Deactivate' : 'Activate'}
+                                  className="text-blue-600 hover:text-blue-900"
+                                >
+                                  <FontAwesomeIcon icon={user.is_active ? faEyeSlash : faEye} />
+                                </button>
+                                <button
+                                  onClick={() => setEditingUser(user)}
+                                  title="Edit"
+                                  className="text-gray-600 hover:text-gray-900"
+                                >
+                                  <FontAwesomeIcon icon={faPencil} />
+                                </button>
+                                <button
+                                  onClick={() => setPasswordUpdateUser(user)}
+                                  title="Change Password"
+                                  className="text-indigo-600 hover:text-indigo-900"
+                                >
+                                  <FontAwesomeIcon icon={faKey} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteClick(user)}
+                                  title="Delete"
+                                  disabled={user.id === session?.user?.id}
+                                  className="text-red-600 hover:text-red-900 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                >
+                                  <FontAwesomeIcon icon={faTrash} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {pagination.totalPages > 1 && (
+                  <div className="mt-6 flex justify-center">
+                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                      {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((pageNum) => (
+                        <button
+                          key={pageNum}
+                          onClick={() => handlePageChange(pageNum)}
+                          disabled={pagination.page === pageNum}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            pagination.page === pageNum
+                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          } ${pageNum === 1 ? 'rounded-l-md' : ''} ${
+                            pageNum === pagination.totalPages ? 'rounded-r-md' : ''
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          {pageNum}
+                        </button>
+                      ))}
+                    </nav>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Add/Edit User Modal */}
         <UserForm
@@ -334,6 +362,7 @@ export default function UsersPage() {
           onSubmit={handlePasswordUpdate}
           user={passwordUpdateUser}
         />
+
         {/* Delete User Modal */}
         <DeleteUserModal
           show={!!userToDelete}
@@ -343,6 +372,6 @@ export default function UsersPage() {
           onConfirm={handleDeleteUser}
         />
       </div>
-    </Container>
+    </div>
   );
 }

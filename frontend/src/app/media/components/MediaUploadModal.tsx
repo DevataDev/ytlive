@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Modal, Button, Card, ProgressBar, Alert, Spinner } from 'react-bootstrap';
-import { Upload, X, CameraVideo, MusicNote, FileEarmark, ExclamationCircle } from 'react-bootstrap-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCloudUpload, faTimes, faVideo, faMusic, faFile, faExclamationTriangle, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { getSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
 import { useConfig } from '@/hooks/useConfig';
@@ -38,8 +38,6 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
   const [completedFiles, setCompletedFiles] = useState<Set<string>>(new Set());
   const [allUploadsComplete, setAllUploadsComplete] = useState(false);
 
-
-
   const config = useConfig();
 
   const formatFileSize = (bytes: number): string => {
@@ -52,9 +50,9 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
 
   const getFileIcon = (file: File) => {
     const fileType = file.type.split('/')[0];
-    if (fileType === 'video') return <CameraVideo size={24} />;
-    if (fileType === 'audio') return <MusicNote size={24} />;
-    return <FileEarmark size={24} />;
+    if (fileType === 'video') return faVideo;
+    if (fileType === 'audio') return faMusic;
+    return faFile;
   };
 
   const handleFiles = useCallback((newFiles: FileList) => {
@@ -93,142 +91,44 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
     setError(null);
     onUploadComplete();
     handleClose();
-   
   };
-
-
-  // const handleUpload = async () => {
-  //   if (files.length === 0) {
-  //     setError('No files selected');
-  //     return;
-  //   }
-
-  //   setIsUploading(true);
-  //   setError(null);
-  //   setSuccess(null);
-  //   setUploadProgress(0);
-
-  //   const formData = new FormData();
-  //   files.forEach(({ file }) => {
-  //     formData.append('files', file);
-  //   });
-
-  //   try {
-  //     const session = await getSession();
-  //     if (!session) {
-  //       setError('Session expired. Please login again.');
-  //       return;
-  //     }
-
-  //     const xhr = new XMLHttpRequest();
-
-  //     xhr.upload.addEventListener('progress', (e) => {
-  //       if (e.lengthComputable) {
-  //         const percentComplete = Math.round((e.loaded / e.total) * 100);
-  //         setUploadProgress(percentComplete);
-  //       }
-  //     });
-
-  //     xhr.onreadystatechange = function () {
-  //       if (xhr.readyState === 4) {
-  //         setIsUploading(false);
-
-  //         if (xhr.status === 200) {
-  //           try {
-  //             const response = JSON.parse(xhr.responseText);
-  //             setSuccess('Files uploaded successfully!');
-  //             setFiles([]);
-  //             toast.success('Media files uploaded successfully!');
-  //             setTimeout(() => {
-  //               onUploadComplete();
-  //               handleClose();
-  //             }, 1500);
-  //           } catch (e) {
-  //             setError('Error processing response');
-  //           }
-  //         } else {
-  //           let errorMessage = 'Error uploading files';
-
-  //           try {
-  //             if (xhr.responseText) {
-  //               const errorResponse = JSON.parse(xhr.responseText);
-  //               if (errorResponse?.error) {
-  //                 errorMessage = errorResponse.error;
-  //               }
-  //             }
-  //           } catch (e) {
-  //             // Ignore parse error
-  //           }
-
-  //           if (xhr.status === 413) {
-  //             errorMessage = 'File size too large. Maximum 2GB per file.';
-  //           } else if (xhr.status === 401) {
-  //             errorMessage = 'Session expired. Please login again.';
-  //           } else if (xhr.status === 0) {
-  //             errorMessage = 'Cannot connect to server. Check your internet connection.';
-  //           }
-
-  //           setError(errorMessage);
-  //           toast.error(errorMessage);
-  //         }
-  //       }
-  //     };
-
-  //     xhr.open('POST', `${config?.config?.apiUrl}/api/media/upload`, true);
-  //     xhr.setRequestHeader('Authorization', `Bearer ${session?.user?.backendToken}`);
-  //     xhr.send(formData);
-  //   } catch (err) {
-  //     setIsUploading(false);
-  //     setError('An unexpected error occurred');
-  //   }
-  // };
 
   const handleUpload = async () => {
     if (files.length === 0) {
-      if (selectedMediaFiles.length === 0) {
-        setError('No files selected');
-        return;
-      } else {
-        // Handle existing media files only
-        try {
-          setSuccess('Stream created! Redirecting...');
-          setFiles([]);
-          setUploadProgress(0);
-          toast.success('Stream created! Redirecting...');
-          setTimeout(() => {
-            onUploadComplete();
-            handleClose();
-          })
-        } catch (error) {
-          setError('Error creating stream');
-        }
-        return;
-      }
+      setError('No files selected');
+      return;
     }
 
-    // For new file uploads, use TusUploaderComp
     setIsUploading(true);
     setError(null);
     setSuccess(null);
+    setUploadProgress(0);
+    setUploadingFiles(new Set(files.map(f => f.id)));
+    setCompletedFiles(new Set());
 
-    // Reset upload tracking
+    // Use TusUploaderComp to handle the upload
+    if (tusUploaderRef.current) {
+      try {
+        tusUploaderRef.current.startUploads();
+      } catch (error) {
+        console.error('Upload failed:', error);
+        setError(error instanceof Error ? error.message : 'Upload failed');
+        setIsUploading(false);
+      }
+    }
+  };
+
+  const handleClose = () => {
+    if (isUploading) return;
+    
+    setFiles([]);
+    setError(null);
+    setSuccess(null);
+    setUploadProgress(0);
     setUploadingFiles(new Set());
     setCompletedFiles(new Set());
     setAllUploadsComplete(false);
-
-    // Start tus uploads
-    if (tusUploaderRef.current) {
-      tusUploaderRef.current.startUploads();
-    }
-  };
-  const handleClose = () => {
-    if (!isUploading) {
-      setFiles([]);
-      setError(null);
-      setSuccess(null);
-      setUploadProgress(0);
-      onHide();
-    }
+    onHide();
   };
 
   const handleUploadStart = (fileId: string) => {
@@ -248,117 +148,152 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
   };
   const tusUploaderRef = useRef<TusUploaderRef>(null);
 
-  return (
-    <Modal show={show} onHide={handleClose} size="lg" backdrop={isUploading ? 'static' : true}>
-      <Modal.Header closeButton={!isUploading}>
-        <Modal.Title>
-          <i className="bi bi-cloud-upload me-2"></i>
-          Upload Media Files
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <TusUploaderComp
-          ref={tusUploaderRef}
-          onSuccess={handleUploadSuccess}
-          onProgress={setUploadProgress}
-          onAllUploadsComplete={handleAllUploadsComplete} // New callback
-          onUploadStart={handleUploadStart}
-          onError={(error) => setError(error.message)}
-          onFilesSelected={handleFilesFromUploader} // New callback
-          hideMediaList={true}
-          uploadOnly={true}
-        />
+  if (!show) return null;
 
-        {files.length > 0 && (
-          <div className="mb-3 mt-4">
-            <h6 className="mb-2">Selected Files ({files.length})</h6>
-            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-              {files.map(({ file, id }) => (
-                <div
-                  key={id}
-                  className="d-flex align-items-center p-2 mb-2 border rounded bg-light"
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+          {/* Header */}
+          <div className="bg-white px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <FontAwesomeIcon icon={faCloudUpload} className="mr-2 text-blue-600" />
+                Upload Media Files
+              </h3>
+              {!isUploading && (
+                <button
+                  onClick={handleClose}
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  <div className="d-flex align-items-center justify-content-center bg-white rounded p-2 me-3">
-                    {getFileIcon(file)}
-                  </div>
-                  <div className="flex-grow-1 overflow-hidden">
-                    <div className="text-truncate fw-medium">{file.name}</div>
-                    <small className="text-muted">
-                      {formatFileSize(file.size)}
-                    </small>
-                  </div>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeFile(id);
-                    }}
-                    className="text-danger p-1"
-                    disabled={isUploading}
-                  >
-                    <X size={16} />
-                  </Button>
-                </div>
-              ))}
+                  <FontAwesomeIcon icon={faTimes} />
+                </button>
+              )}
             </div>
           </div>
-        )}
 
-        {uploadProgress > 0 && uploadProgress < 100 && (
-          <div className="mb-3 mt-2">
-            <ProgressBar now={uploadProgress} animated striped />
-            <p className="text-center text-muted small mt-4">
-              Uploading... {uploadProgress}%
-            </p>
+          {/* Body */}
+          <div className="bg-white px-6 py-4">
+            <TusUploaderComp
+              ref={tusUploaderRef}
+              onSuccess={handleUploadSuccess}
+              onProgress={setUploadProgress}
+              onAllUploadsComplete={handleAllUploadsComplete}
+              onUploadStart={handleUploadStart}
+              onError={(error) => setError(error.message)}
+              onFilesSelected={handleFilesFromUploader}
+              hideMediaList={true}
+              uploadOnly={true}
+            />
+
+            {files.length > 0 && (
+              <div className="mb-4 mt-6">
+                <h4 className="text-base font-medium text-gray-900 mb-3">
+                  Selected Files ({files.length})
+                </h4>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {files.map(({ file, id }) => (
+                    <div
+                      key={id}
+                      className="flex items-center p-3 border border-gray-200 rounded-md bg-gray-50"
+                    >
+                      <div className="flex items-center justify-center bg-white rounded p-2 mr-3">
+                        <FontAwesomeIcon icon={getFileIcon(file)} className="text-gray-600" size="lg" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 truncate">{file.name}</div>
+                        <div className="text-sm text-gray-500">
+                          {formatFileSize(file.size)}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFile(id);
+                        }}
+                        disabled={isUploading}
+                        className="text-red-600 hover:text-red-800 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <FontAwesomeIcon icon={faTimes} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="mb-4 mt-4">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+                <p className="text-center text-gray-500 text-sm mt-2">
+                  Uploading... {uploadProgress}%
+                </p>
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-4 mt-4 bg-red-50 border border-red-200 rounded-md p-4">
+                <div className="flex">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-400 mr-2 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-medium text-red-800 mb-1">Error</h4>
+                    <p className="text-sm text-red-700">{error}</p>
+                  </div>
+                  <button
+                    onClick={() => setError(null)}
+                    className="ml-auto text-red-400 hover:text-red-600"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-4 mt-4 bg-green-50 border border-green-200 rounded-md p-4">
+                <p className="text-sm text-green-700">{success}</p>
+              </div>
+            )}
           </div>
-        )}
 
-        {error && (
-          <Alert variant="danger" className="mb-3 mt-2" dismissible onClose={() => setError(null)}>
-            <Alert.Heading className="h6 mb-1">
-              <ExclamationCircle className="me-2" />
-              Error
-            </Alert.Heading>
-            {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert variant="success" className="mb-3 mt-2">
-            {success}
-          </Alert>
-        )}
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={handleClose} disabled={isUploading}>
-          {isUploading ? 'Uploading...' : 'Cancel'}
-        </Button>
-        <Button
-          variant="primary"
-          onClick={handleUpload}
-          disabled={files.length === 0 || isUploading}
-        >
-          {isUploading ? (
-            <>
-              <Spinner
-                as="span"
-                animation="border"
-                size="sm"
-                role="status"
-                aria-hidden="true"
-                className="me-2"
-              />
-              Uploading...
-            </>
-          ) : (
-            <>
-              <Upload className="me-2" size={16} />
-              Upload {files.length > 0 ? `${files.length} File${files.length > 1 ? 's' : ''}` : 'Files'}
-            </>
-          )}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+          {/* Footer */}
+          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+            <button
+              onClick={handleClose}
+              disabled={isUploading}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUploading ? 'Uploading...' : 'Cancel'}
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={files.length === 0 || isUploading}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            >
+              {isUploading ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <FontAwesomeIcon icon={faCloudUpload} className="mr-2" />
+                  Upload {files.length > 0 ? `${files.length} File${files.length > 1 ? 's' : ''}` : 'Files'}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

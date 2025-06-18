@@ -1,5 +1,8 @@
 'use client';
 
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faAngleDoubleLeft, faAngleLeft, faAngleRight, faAngleDoubleRight } from '@fortawesome/free-solid-svg-icons';
+
 interface PaginationProps {
   currentPage: number;
   maxPage: number;
@@ -9,57 +12,66 @@ interface PaginationProps {
 
 export default function Pagination({ currentPage, maxPage, onPageChange, itemsPerPage }: PaginationProps) {
   return (
-    <div className="d-flex align-items-center">
-      <nav aria-label="Page navigation">
-        <ul className="pagination pagination-sm mb-0">
-          <li className="page-item">
-            <button
-              className="page-link"
-              aria-label="First"
-              disabled={currentPage === 1}
-              onClick={() => onPageChange(1)}
-            >
-              <i className="bi bi-chevron-bar-left"></i>
-            </button>
-          </li>
-          <li className="page-item">
-            <button
-              className="page-link"
-              aria-label="Previous"
-              disabled={currentPage === 1}
-              onClick={() => onPageChange(currentPage - 1)}
-            >
-              <i className="bi bi-chevron-left"></i>
-            </button>
-          </li>
-          <li className="page-item disabled">
-            <span className="page-link text-muted">
-              Page {currentPage} of {maxPage}
-            </span>
-          </li>
-          <li className="page-item">
-            <button
-              className="page-link"
-              aria-label="Next"
-              disabled={currentPage >= maxPage}
-              onClick={() => onPageChange(currentPage + 1)}
-            >
-              <i className="bi bi-chevron-right"></i>
-            </button>
-          </li>
-          <li className="page-item">
-            <button
-              className="page-link"
-              aria-label="Last"
-              disabled={currentPage >= maxPage}
-              onClick={() => onPageChange(maxPage)}
-            >
-              <i className="bi bi-chevron-bar-right"></i>
-            </button>
-          </li>
-        </ul>
+    <div className="flex items-center space-x-4">
+      <nav className="flex items-center space-x-1" aria-label="Pagination">
+        <button
+          className={`inline-flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+            currentPage === 1
+              ? 'text-gray-300 cursor-not-allowed'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+          aria-label="First page"
+          disabled={currentPage === 1}
+          onClick={() => onPageChange(1)}
+        >
+          <FontAwesomeIcon icon={faAngleDoubleLeft} className="h-4 w-4" />
+        </button>
+        
+        <button
+          className={`inline-flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+            currentPage === 1
+              ? 'text-gray-300 cursor-not-allowed'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+          aria-label="Previous page"
+          disabled={currentPage === 1}
+          onClick={() => onPageChange(currentPage - 1)}
+        >
+          <FontAwesomeIcon icon={faAngleLeft} className="h-4 w-4" />
+        </button>
+        
+        <span className="px-3 py-2 text-sm text-gray-700 bg-gray-100 rounded-md">
+          Page {currentPage} of {maxPage}
+        </span>
+        
+        <button
+          className={`inline-flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+            currentPage >= maxPage
+              ? 'text-gray-300 cursor-not-allowed'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+          aria-label="Next page"
+          disabled={currentPage >= maxPage}
+          onClick={() => onPageChange(currentPage + 1)}
+        >
+          <FontAwesomeIcon icon={faAngleRight} className="h-4 w-4" />
+        </button>
+        
+        <button
+          className={`inline-flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+            currentPage >= maxPage
+              ? 'text-gray-300 cursor-not-allowed'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+          aria-label="Last page"
+          disabled={currentPage >= maxPage}
+          onClick={() => onPageChange(maxPage)}
+        >
+          <FontAwesomeIcon icon={faAngleDoubleRight} className="h-4 w-4" />
+        </button>
       </nav>
-      <div className="ms-2 small text-muted d-none d-md-block">
+      
+      <div className="hidden md:block text-sm text-gray-500">
         {itemsPerPage} per page
       </div>
     </div>

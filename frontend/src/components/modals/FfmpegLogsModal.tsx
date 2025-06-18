@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal, Button, Spinner, Badge } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner, faTimes, faCircle, faExclamationTriangle, faInfoCircle, faTrash, faSync, faBroadcastTower, faRepeat } from '@fortawesome/free-solid-svg-icons';
 import { getSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import { useConfig } from '@/hooks/useConfig';
@@ -148,14 +149,11 @@ const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
     setIsConnected(false);
     setIsLoading(false);
     setError(null);
-    setLogs('');
     onHide();
   };
 
   const handleReconnect = () => {
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.close();
-    }
+    setLogs('');
     connectWebSocket();
   };
 
@@ -167,7 +165,7 @@ const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
     if (show && itemId) {
       connectWebSocket();
     }
-    
+
     return () => {
       if (socketRef.current) {
         socketRef.current.close();
@@ -177,14 +175,16 @@ const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
   }, [show, itemId, itemType]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (logs) {
+      scrollToBottom();
+    }
   }, [logs]);
 
   const renderContent = () => {
     if (isLoading) {
       return (
-        <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '200px' }}>
-          <Spinner animation="border" variant="primary" className="me-2" />
+        <div className="flex items-center justify-center py-8">
+          <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
           <span>Loading logs...</span>
         </div>
       );
@@ -192,8 +192,8 @@ const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
 
     if (error) {
       return (
-        <div className="alert alert-danger d-flex align-items-center" role="alert">
-          <i className="bi bi-exclamation-triangle-fill me-2"></i>
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-center" role="alert">
+          <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-400 mr-2" />
           {error}
         </div>
       );
@@ -232,86 +232,106 @@ const FfmpegLogsModal: React.FC<FfmpegLogsModalProps> = ({
     );
   };
 
+  if (!show) return null;
+
   return (
-    <Modal 
-      show={show} 
-      onHide={handleClose} 
-      size="xl"
-      centered
-      backdrop="static"
-    >
-      <Modal.Header closeButton className="border-bottom">
-        <Modal.Title className="d-flex align-items-center">
-          <i className={`bi bi-${itemType === 'stream' ? 'broadcast' : 'arrow-repeat'} me-2`}></i>
-          {title}
-          <div className="ms-3">
-            {isConnected ? (
-              <Badge bg="success" className="d-flex align-items-center">
-                <i className="bi bi-circle-fill me-1" style={{ fontSize: '0.6rem' }}></i>
-                Live
-              </Badge>
-            ) : (
-              <Badge bg="secondary" className="d-flex align-items-center">
-                <i className="bi bi-circle me-1" style={{ fontSize: '0.6rem' }}></i>
-                Offline
-              </Badge>
-            )}
-          </div>
-        </Modal.Title>
-      </Modal.Header>
-      
-      <Modal.Body className="p-0">
-        <div className="p-3">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <div className="d-flex align-items-center">
-              <small className="text-muted me-3">
-                <i className="bi bi-info-circle me-1"></i>
-                Real-time FFmpeg output for {itemType} ID: <code>{itemId}</code>
-              </small>
-            </div>
-            <div className="d-flex gap-2">
-              <Button 
-                variant="outline-secondary" 
-                size="sm"
-                onClick={clearLogs}
-                disabled={!logs}
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full">
+          {/* Header */}
+          <div className="bg-white px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <FontAwesomeIcon 
+                  icon={itemType === 'stream' ? faBroadcastTower : faRepeat} 
+                  className="mr-2" 
+                />
+                {title}
+                <div className="ml-3">
+                  {isConnected ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <FontAwesomeIcon icon={faCircle} className="mr-1 text-xs" />
+                      Live
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      <FontAwesomeIcon icon={faCircle} className="mr-1 text-xs" />
+                      Offline
+                    </span>
+                  )}
+                </div>
+              </h3>
+              <button
+                onClick={handleClose}
+                className="text-gray-400 hover:text-gray-600"
               >
-                <i className="bi bi-trash3"></i> Clear
-              </Button>
-              <Button 
-                variant="outline-primary" 
-                size="sm"
-                onClick={handleReconnect}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Spinner animation="border" size="sm" className="me-1" />
-                ) : (
-                  <i className="bi bi-arrow-clockwise me-1"></i>
-                )}
-                Reconnect
-              </Button>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
             </div>
           </div>
           
-          {renderContent()}
-        </div>
-      </Modal.Body>
-      
-      <Modal.Footer className="border-top">
-        <div className="d-flex justify-content-between align-items-center w-100">
-          <small className="text-muted">
-            {logs.split('\n').length - 1} lines
-          </small>
-          <div>
-            <Button variant="secondary" onClick={handleClose}>
-              <i className="bi bi-x-lg me-1"></i>
-              Close
-            </Button>
+          {/* Body */}
+          <div className="bg-white">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center">
+                  <small className="text-gray-500 mr-3 flex items-center">
+                    <FontAwesomeIcon icon={faInfoCircle} className="mr-1" />
+                    Real-time FFmpeg output for {itemType} ID: <code className="ml-1 bg-gray-100 px-1 rounded">{itemId}</code>
+                  </small>
+                </div>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={clearLogs}
+                    disabled={!logs}
+                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FontAwesomeIcon icon={faTrash} className="mr-1" />
+                    Clear
+                  </button>
+                  <button 
+                    onClick={handleReconnect}
+                    disabled={isLoading}
+                    className="inline-flex items-center px-3 py-1.5 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-1" />
+                    ) : (
+                      <FontAwesomeIcon icon={faSync} className="mr-1" />
+                    )}
+                    Reconnect
+                  </button>
+                </div>
+              </div>
+              
+              {renderContent()}
+            </div>
+          </div>
+          
+          {/* Footer */}
+          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+            <div className="flex justify-between items-center">
+              <small className="text-gray-500">
+                {logs.split('\n').length - 1} lines
+              </small>
+              <div>
+                <button 
+                  onClick={handleClose}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <FontAwesomeIcon icon={faTimes} className="mr-1" />
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </Modal.Footer>
-    </Modal>
+      </div>
+    </div>
   );
 };
 

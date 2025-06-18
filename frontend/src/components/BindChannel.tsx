@@ -1,4 +1,3 @@
-import { Container } from 'react-bootstrap';
 import { useEffect, useState } from 'react';
 import styles from './footer.module.css';
 import { fetchFooterInfo } from '@/services/footerService';
@@ -20,29 +19,29 @@ export default function Footer() {
 
   return (
     <footer className={`${styles.footer} mt-auto`}>
-      <Container className="py-3">
-        <div className="row align-items-center">
-          <div className="col-md-6 text-center text-md-start mb-2 mb-md-0">
-            <div className="d-flex align-items-center justify-content-center justify-content-md-start">
-              <div className="me-3 d-flex align-items-center">
-                <i className={`bi bi-broadcast me-2 text-primary ${styles.broadcastIcon}`}></i>
+      <div className="container mx-auto py-3 px-4">
+        <div className="flex flex-col md:flex-row items-center">
+          <div className="flex-1 text-center md:text-left mb-2 md:mb-0">
+            <div className="flex items-center justify-center md:justify-start">
+              <div className="mr-3 flex items-center">
+                <i className={`bi bi-broadcast mr-2 text-blue-600 ${styles.broadcastIcon}`}></i>
                 <span className={styles.brandText}>Yuk Live!</span>
               </div>
-              <div className={`vr d-none d-md-block ${styles.vr}`}></div>
-              <div className="ms-md-3">
+              <div className={`hidden md:block border-l border-gray-300 h-6 ${styles.vr}`}></div>
+              <div className="md:ml-3">
                 <span className={styles.versionBadge} title={versionInfo.buildTime ? `Build: ${versionInfo.commit}\nDate: ${new Date(versionInfo.buildTime).toLocaleString()}` : ''}>
                   {versionInfo.version ? `v${versionInfo.version} (${versionInfo.commit?.slice(0, 7)})` : 'v0.0.0'}
                 </span>
               </div>
             </div>
           </div>
-          <div className="col-md-6 text-center text-md-end">
+          <div className="flex-1 text-center md:text-right">
             <div className={styles.copyrightText}>
               &copy; {sinceYear === currentYear ? sinceYear : `${sinceYear} - ${currentYear}`} PT Jejaring Internet Bersama. All rights reserved.
             </div>
           </div>
         </div>
-      </Container>
+      </div>
     </footer>
   );
 }
