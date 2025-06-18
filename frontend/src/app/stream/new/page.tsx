@@ -2,8 +2,8 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Card, Form, ProgressBar, Alert, Spinner } from 'react-bootstrap'
-import { Upload, X, CameraVideo, MusicNote, FileEarmark, ExclamationCircle } from 'react-bootstrap-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faUpload, faTimes, faVideo, faMusic, faFile, faExclamationTriangle, faSpinner, faFileVideo } from '@fortawesome/free-solid-svg-icons'
 import styles from './page.module.css'
 import { getSession } from 'next-auth/react'
 import { toast } from 'react-toastify';
@@ -56,9 +56,9 @@ export default function StreamNewPage() {
 
   const getFileIcon = (file: File) => {
     const fileType = file.type.split('/')[0]
-    if (fileType === 'video') return <CameraVideo size={24} />
-    if (fileType === 'audio') return <MusicNote size={24} />
-    return <FileEarmark size={24} />
+    if (fileType === 'video') return <FontAwesomeIcon icon={faVideo} className="text-blue-500" />
+    if (fileType === 'audio') return <FontAwesomeIcon icon={faMusic} className="text-green-500" />
+    return <FontAwesomeIcon icon={faFile} className="text-gray-500" />
   }
 
   const handleFiles = useCallback((newFiles: FileList) => {
@@ -128,206 +128,232 @@ export default function StreamNewPage() {
 
   const handleAllUploadsComplete = () => {
     setAllUploadsComplete(true);
-    setSuccess('All files uploaded successfully! Redirecting...');
-    //redirect to stream page
+    setIsUploading(false);
+    
+    // Redirect to streams page after successful upload
     setTimeout(() => {
-      router.push('/stream')
-    }, 1000);
+      router.push('/stream');
+    }, 2000);
   };
 
-  const handleFilesFromUploader = useCallback((selectedFiles: File[]) => {
-    const fileArray = selectedFiles.map(file => ({
-      file,
-      id: Math.random().toString(36).substr(2, 9)
-    }));
-    setFiles(prev => [...prev, ...fileArray]);
-  }, []);
-
-
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const tusUploaderRef = useRef<TusUploaderRef>(null);
 
   const formatDateTime = (date: Date) => {
-    const d = new Date(date);
-
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).replace(/(\d+)\/(\d+)\/(\d+),\s*(\d+:\d+:\d+)/, '$3-$1-$2 $4');
   };
 
   const handleUpload = async () => {
-    console.log(`Uploading ${files.length} files...`)
-    console.log('Selected media files:', selectedMediaFiles);
-    if (files.length === 0) {
-      if (selectedMediaFiles.length === 0) {
-        setError('No files selected');
-        return;
-      } else {
-        // Create the stream with the selected media files
-        const session = await getSession();
-        if (!session) {
-          setError('Session expired. Please login again.');
-          return;
-        }
-        // Stream 2025-06-05 19:38:26
-        const dateName = formatDateTime(new Date());
-        const streamName = `Stream ${dateName}`;
-        const streamData: CreateStreamNewData = {
-          Name: streamName,
-          Description: '',
-          MediaFileIds: selectedMediaFiles.map(file => file.ID),
-        }
-
-        try {
-          const response = await createStreamNew(streamData);
-          console.log('Stream created successfully:', response);
-          setSuccess('Stream created successfully! Redirecting...');
-          setTimeout(() => {
-            router.push(`/stream`);
-          }, 1000);
-        } catch (error) {
-          console.error('Error creating stream:', error);
-          setError('Failed to create stream. Please try again.');
-        }
-        return
-      }
+    if (files.length === 0 && selectedMediaFiles.length === 0) {
+      setError('Please select files to upload or choose existing media files.');
+      return;
     }
 
-    // For new file uploads, use TusUploaderComp
     setIsUploading(true);
     setError(null);
     setSuccess(null);
-
-    // Reset upload tracking
+    setUploadProgress(0);
     setUploadingFiles(new Set());
     setCompletedFiles(new Set());
     setAllUploadsComplete(false);
 
-    console.log('Uploading files...');
+    try {
+      const session = await getSession();
+      if (!session) {
+        throw new Error('Authentication required');
+      }
 
-    // Start tus uploads
-    if (tusUploaderRef.current) {
-      tusUploaderRef.current.startUploads();
+      if (selectedMediaFiles.length > 0 && files.length === 0) {
+        // Create stream directly with existing media files
+        const streamData: CreateStreamNewData = {
+          Name: `Stream ${formatDateTime(new Date())}`,
+          Description: `Stream created with ${selectedMediaFiles.length} media file(s)`,
+          MediaFileIds: selectedMediaFiles.map(file => file.ID),
+        };
+
+        const result = await createStreamNew(streamData);
+        
+        setSuccess('Stream created successfully with selected media files!');
+        setTimeout(() => {
+          router.push('/stream');
+        }, 2000);
+      } else {
+        // Upload new files first, then create stream
+        if (tusUploaderRef.current) {
+          tusUploaderRef.current.startUploads();
+        }
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred during upload');
+      setIsUploading(false);
     }
   };
 
   return (
-    <div className="container-xxl py-4">
-      <div className="mx-auto" style={{ maxWidth: '800px' }}>
-        <h1 className="h3 mb-4">Upload New Stream</h1>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h1 className="text-2xl font-bold text-gray-900">Create New Stream</h1>
+            <p className="mt-1 text-sm text-gray-600">
+              Upload media files or select existing ones to create a new stream
+            </p>
+          </div>
+          
+          <div className="p-6">
+            <div
+              className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                isDragging
+                  ? 'border-blue-400 bg-blue-50'
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <FontAwesomeIcon icon={faUpload} className="text-4xl text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Upload your media files
+              </h3>
+              <p className="text-gray-500 mb-4">
+                Drag and drop files here, or click to browse
+              </p>
+              <p className="text-sm text-gray-400">
+                Supports video and audio files
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="video/*,audio/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </div>
 
-        <Card>
-          <Card.Body className="p-4">
             <TusUploaderComp
               ref={tusUploaderRef}
               onSuccess={handleUploadSuccess}
+              onUploadStart={handleUploadStart}
               onAllUploadsComplete={handleAllUploadsComplete}
               onProgress={setUploadProgress}
-              onUploadStart={handleUploadStart}
               onError={(error) => setError(error.message)}
-              onFilesSelected={handleFilesFromUploader} // New callback
+              onFilesSelected={(selectedFiles) => {
+                const fileArray = selectedFiles.map(file => ({
+                  file,
+                  id: Math.random().toString(36).substr(2, 9)
+                }))
+                setFiles(prev => [...prev, ...fileArray])
+              }}
               hideMediaList={true}
               uploadOnly={false}
             />
 
             {files.length > 0 && (
-              <div className="mt-4">
+              <div className="mt-6 space-y-3">
                 {files.map(({ file, id }) => (
                   <div
                     key={id}
-                    className="d-flex align-items-center p-3 mb-2 border rounded bg-light"
+                    className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200"
                   >
-                    <div className="d-flex align-items-center justify-content-center bg-white rounded p-2 me-3">
+                    <div className="flex items-center justify-center w-12 h-12 bg-white rounded-lg border border-gray-200 mr-4">
                       {getFileIcon(file)}
                     </div>
-                    <div className="flex-grow-1 overflow-hidden">
-                      <div className="text-truncate fw-medium">{file.name}</div>
-                      <small className="text-muted">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 truncate">{file.name}</div>
+                      <div className="text-sm text-gray-500">
                         {formatFileSize(file.size)}
-                      </small>
+                      </div>
                     </div>
-                    <Button
-                      variant="link"
-                      size="sm"
+                    <button
                       onClick={(e) => {
                         e.stopPropagation()
                         removeFile(id)
                       }}
-                      className="text-danger p-1"
+                      className="ml-4 text-red-500 hover:text-red-700 focus:outline-none"
                     >
-                      <X size={20} />
-                    </Button>
+                      <FontAwesomeIcon icon={faTimes} />
+                    </button>
                   </div>
                 ))}
               </div>
             )}
 
             {uploadProgress > 0 && uploadProgress < 100 && (
-              <div className="mt-4">
-                <ProgressBar now={uploadProgress} animated striped />
-                <p className="text-center text-muted small mt-2">
+              <div className="mt-6">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+                <p className="text-center text-gray-600 text-sm mt-2">
                   Uploading... {uploadProgress}%
                 </p>
               </div>
             )}
 
             {error && (
-              <Alert variant="danger" className="mt-4" dismissible onClose={() => setError(null)}>
-                <Alert.Heading className="h6 mb-1">
-                  <ExclamationCircle className="me-2" />
-                  Error
-                </Alert.Heading>
-                {error}
-              </Alert>
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-500 mr-2" />
+                  <h3 className="text-sm font-medium text-red-800">Error</h3>
+                  <button
+                    onClick={() => setError(null)}
+                    className="ml-auto text-red-500 hover:text-red-700"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+                <p className="mt-2 text-sm text-red-700">{error}</p>
+              </div>
             )}
 
             {success && (
-              <Alert variant="success" className="mt-4">
-                {success}
-              </Alert>
+              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-700">{success}</p>
+              </div>
             )}
 
-            <div className="mt-4 d-flex justify-content-end gap-2">
-              <Button
-                variant="outline-primary"
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
                 onClick={() => setShowMediaSelection(true)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                <i className="bi bi-file-earmark-play me-2"></i>
+                <FontAwesomeIcon icon={faFileVideo} className="mr-2" />
                 Select Existing Media Files ({selectedMediaFiles.length})
-              </Button>
+              </button>
 
-              <Button
-                variant="primary"
+              <button
                 onClick={handleUpload}
                 disabled={(files.length === 0 && selectedMediaFiles.length === 0) || isUploading}
-                className="px-4"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUploading ? (
                   <>
-                    <Spinner
-                      as="span"
-                      animation="border"
-                      size="sm"
-                      role="status"
-                      aria-hidden="true"
-                      className="me-2"
-                    />
+                    <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
                     Processing...
                   </>
                 ) : (
                   <>
-                    <Upload className="me-2" />
+                    <FontAwesomeIcon icon={faUpload} className="mr-2" />
                     {selectedMediaFiles.length > 0 && files.length === 0
                       ? `Create Stream (${selectedMediaFiles.length} file${selectedMediaFiles.length > 1 ? 's' : ''})`
                       : `Upload ${files.length > 0 ? `${files.length} File${files.length > 1 ? 's' : ''}` : ''}`
                     }
                   </>
                 )}
-              </Button>
+              </button>
             </div>
 
             <MediaFileSelectionModal
@@ -339,10 +365,9 @@ export default function StreamNewPage() {
               allowMultiple={true}
               mediaTypeFilter="all"
             />
-          </Card.Body>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
-

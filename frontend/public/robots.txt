@@ -1,0 +1,28 @@
+User-agent: *
+Allow: /
+
+# Allow all crawlers to access public pages
+Allow: /login
+Allow: /register
+
+# Disallow private/admin areas
+Disallow: /dashboard
+Disallow: /stream
+Disallow: /channels
+Disallow: /media
+Disallow: /monitor
+Disallow: /mirror
+Disallow: /users
+Disallow: /tiktok
+Disallow: /api/
+
+# Allow crawling of static assets
+Allow: /images/
+Allow: /icons/
+Allow: /_next/static/
+
+# Sitemap location
+Sitemap: https://yuklive.com/sitemap.xml
+
+# Crawl delay (optional - 1 second between requests)
+Crawl-delay: 1

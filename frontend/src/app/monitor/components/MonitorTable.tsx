@@ -1,7 +1,16 @@
-import { Table, Badge, Button, Pagination } from 'react-bootstrap';
 import { Monitor } from '../types/monitor';
 import { formatDistanceToNow } from 'date-fns';
 import Image from 'next/image';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faPlay, 
+  faPause, 
+  faLink, 
+  faPencil, 
+  faTrash, 
+  faChevronLeft, 
+  faChevronRight 
+} from '@fortawesome/free-solid-svg-icons';
 
 interface MonitorTableProps {
   monitors: Monitor[];
@@ -69,163 +78,199 @@ export function MonitorTable({
 
   const getStatusBadge = (monitor: Monitor) => {
     if (!monitor.isActive) {
-      return <Badge bg="secondary">Paused</Badge>;
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          Paused
+        </span>
+      );
     }
 
     switch (monitor.status) {
       case 'online':
         return (
-          <Badge bg="success" className="d-flex align-items-center">
-            <span className="me-1">•</span> Online
-          </Badge>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <span className="mr-1">•</span> Online
+          </span>
         );
       case 'offline':
         return (
-          <Badge bg="secondary" className="d-flex align-items-center">
-            <span className="me-1">•</span> Offline
-          </Badge>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+            <span className="mr-1">•</span> Offline
+          </span>
         );
       case 'error':
         return (
-          <Badge bg="danger" className="d-flex align-items-center">
-            <span className="me-1">•</span> Error
-          </Badge>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            <span className="mr-1">•</span> Error
+          </span>
         );
       default:
         return (
-          <Badge bg="warning" className="d-flex align-items-center">
-            <span className="me-1">•</span> Unknown
-          </Badge>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            <span className="mr-1">•</span> Unknown
+          </span>
         );
     }
   };
 
   return (
     <>
-      <Table hover className="align-middle">
-        <thead>
-          <tr>
-            <th>User</th>
-            <th>Status</th>
-            <th>Last Checked</th>
-            <th>Created</th>
-            <th className="text-end">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {monitors.length === 0 ? (
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
             <tr>
-              <td colSpan={5} className="text-center py-4 text-muted">
-                No monitors found
-              </td>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                User
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Last Checked
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Created
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
-          ) : (
-            monitors.map((monitor) => (
-              <tr key={monitor.id}>
-                <td>
-                  <div className="d-flex align-items-center">
-                    <div className="avatar me-3">
-                      <Image
-                        src={getAvatar(monitor.username) || '/default-avatar.png'}
-                        alt={monitor.username}
-                        width={40}
-                        height={40}
-                        className="rounded-circle"
-                      />
-                    </div>
-                    <div>
-                      <div className="fw-medium">{monitor.displayName}</div>
-                      <div className="text-muted small">@{monitor.username}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>{getStatusBadge(monitor)}</td>
-                <td>
-                  {monitor.lastChecked
-                    ? formatDistanceToNow(new Date(monitor.lastChecked), { addSuffix: true })
-                    : 'Never'}
-                </td>
-                <td>{formatDistanceToNow(new Date(monitor.createdAt), { addSuffix: true })}</td>
-                <td className="text-end">
-                  <div className="d-flex justify-content-end gap-2">
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      onClick={() => onToggleStatus(monitor.id, !monitor.isActive)}
-                      title={monitor.isActive ? 'Pause' : 'Resume'}
-                    >
-                      <i className={`bi ${monitor.isActive ? 'bi-pause' : 'bi-play'}`}></i>
-                    </Button>
-                    <Button
-                      variant="outline-success"
-                      size="sm"
-                      onClick={() => onBindChannel(monitor)}
-                      title="Bind Channel"
-                    >
-                      <i className="bi bi-link-45deg"></i>
-                    </Button>
-                    <Button
-                      variant="outline-secondary"
-                      size="sm"
-                      onClick={() => onEdit(monitor)}
-                      title="Edit"
-                    >
-                      <i className="bi bi-pencil"></i>
-                    </Button>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={() => onDelete(monitor)} // Changed to pass monitor object
-                      title="Delete"
-                    >
-                      <i className="bi bi-trash"></i>
-                    </Button>
-                  </div>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {monitors.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                  No monitors found
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </Table>
+            ) : (
+              monitors.map((monitor) => (
+                <tr key={monitor.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="mr-3">
+                        <Image
+                          src={getAvatar(monitor.username) || '/default-avatar.png'}
+                          alt={monitor.username}
+                          width={40}
+                          height={40}
+                          className="rounded-full"
+                        />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{monitor.displayName}</div>
+                        <div className="text-sm text-gray-500">@{monitor.username}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {getStatusBadge(monitor)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {monitor.lastChecked
+                      ? formatDistanceToNow(new Date(monitor.lastChecked), { addSuffix: true })
+                      : 'Never'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {formatDistanceToNow(new Date(monitor.createdAt), { addSuffix: true })}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        onClick={() => onToggleStatus(monitor.id, !monitor.isActive)}
+                        title={monitor.isActive ? 'Pause' : 'Resume'}
+                        className="inline-flex items-center px-2.5 py-1.5 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        <FontAwesomeIcon icon={monitor.isActive ? faPause : faPlay} />
+                      </button>
+                      <button
+                        onClick={() => onBindChannel(monitor)}
+                        title="Bind Channel"
+                        className="inline-flex items-center px-2.5 py-1.5 border border-green-300 text-xs font-medium rounded text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      >
+                        <FontAwesomeIcon icon={faLink} />
+                      </button>
+                      <button
+                        onClick={() => onEdit(monitor)}
+                        title="Edit"
+                        className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                      >
+                        <FontAwesomeIcon icon={faPencil} />
+                      </button>
+                      <button
+                        onClick={() => onDelete(monitor)} // Changed to pass monitor object
+                        title="Delete"
+                        className="inline-flex items-center px-2.5 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      >
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
 
-      {total > 0 && (
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center pt-3 border-top">
-          <div className="text-muted small mb-3 mb-md-0">
-            Showing {startItem} to {endItem} of {total} monitors
+        {total > 0 && (
+          <div className="flex flex-col md:flex-row justify-between items-center pt-3 border-t border-gray-200">
+            <div className="text-sm text-gray-500 mb-3 md:mb-0">
+              Showing {startItem} to {endItem} of {total} monitors
+            </div>
+            <nav className="flex items-center space-x-1">
+              <button
+                disabled={page === 1}
+                onClick={() => onPageChange(page - 1)}
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  page === 1
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <FontAwesomeIcon icon={faChevronLeft} />
+              </button>
+              
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (page <= 3) {
+                  pageNum = i + 1;
+                } else if (page >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = page - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => onPageChange(pageNum)}
+                    className={`px-3 py-2 text-sm font-medium rounded-md ${
+                      pageNum === page
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              
+              <button
+                disabled={page === totalPages}
+                onClick={() => onPageChange(page + 1)}
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  page === totalPages
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <FontAwesomeIcon icon={faChevronRight} />
+              </button>
+            </nav>
           </div>
-          <Pagination className="mb-0">
-            <Pagination.Prev
-              disabled={page === 1}
-              onClick={() => onPageChange(page - 1)}
-            />
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (page <= 3) {
-                pageNum = i + 1;
-              } else if (page >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = page - 2 + i;
-              }
-              return (
-                <Pagination.Item
-                  key={pageNum}
-                  active={pageNum === page}
-                  onClick={() => onPageChange(pageNum)}
-                >
-                  {pageNum}
-                </Pagination.Item>
-              );
-            })}
-            <Pagination.Next
-              disabled={page === totalPages}
-              onClick={() => onPageChange(page + 1)}
-            />
-          </Pagination>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }

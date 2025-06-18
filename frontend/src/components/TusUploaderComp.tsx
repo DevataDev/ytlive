@@ -128,7 +128,9 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
 
     // Defer the parent notification to avoid state updates during render
     if (onFilesSelected) {
-      onFilesSelected(selectedFiles);
+      setTimeout(() => {
+        onFilesSelected(selectedFiles);
+      }, 0);
     }
   };
 

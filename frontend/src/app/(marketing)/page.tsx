@@ -103,12 +103,13 @@ export default function LandingPage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[75vh]">
             <div className="space-y-6">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                Stream Live to Multiple Platforms
-                <span className="text-yellow-400"> Simultaneously</span>
+                Professional Multi-Platform Live Streaming
+                <span className="text-yellow-400"> Solution</span>
               </h1>
               <p className="text-xl text-gray-100 leading-relaxed">
-                Reach your audience everywhere with our powerful multi-platform streaming solution. 
-                Stream to YouTube, TikTok, Facebook, and more with just one click.
+                Stream simultaneously to YouTube, TikTok, Facebook, Instagram, and more platforms with our 
+                professional streaming solution. Advanced analytics, media management, and real-time monitoring 
+                for content creators and businesses.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link href="/register" className="px-8 py-4 bg-yellow-500 text-gray-900 rounded-lg font-semibold text-lg hover:bg-yellow-400 transition-all transform hover:scale-105">
