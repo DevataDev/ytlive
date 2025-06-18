@@ -238,7 +238,6 @@ export default function TikTokCard({ room, onAddToMirror, loading = false }: Tik
                 crossOrigin: 'anonymous',
                 playsInline: true,
                 disablePictureInPicture: true,
-                preload: 'auto'
               },
               forceHLS: liveUrl.includes('m3u'),
               forceFLV: liveUrl.includes('flv'),
