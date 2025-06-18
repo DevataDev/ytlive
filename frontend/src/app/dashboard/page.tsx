@@ -88,11 +88,19 @@ export default function DashboardPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
 
-  // Format network speed
-  const formatNetworkSpeed = (bytes: number) => {
-    if (bytes < 1024) return `${bytes.toFixed(2)} B/s`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB/s`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB/s`;
+  // Format network speed with appropriate units (Kbps, Mbps, Gbps)
+  const formatNetworkSpeed = (bytesPerSecond: number) => {
+    const bitsPerSecond = bytesPerSecond * 8; // Convert bytes to bits
+    
+    if (bitsPerSecond < 1000) {
+      return `${bitsPerSecond.toFixed(0)} bps`;
+    } else if (bitsPerSecond < 1000 * 1000) {
+      return `${(bitsPerSecond / 1000).toFixed(1)} Kbps`;
+    } else if (bitsPerSecond < 1000 * 1000 * 1000) {
+      return `${(bitsPerSecond / (1000 * 1000)).toFixed(2)} Mbps`;
+    } else {
+      return `${(bitsPerSecond / (1000 * 1000 * 1000)).toFixed(2)} Gbps`;
+    }
   };
 
   // Update system metrics from WebSocket
@@ -102,7 +110,9 @@ export default function DashboardPage() {
       cpu: metrics.cpu,
       memory: metrics.memory,
       download: metrics.download,
-      upload: metrics.upload
+      upload: metrics.upload,
+      ramTotal: metrics.ramTotal,
+      ramUsed: metrics.ramUsed
     }));
 
     setNetworkData(prev => ({
