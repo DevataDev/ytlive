@@ -183,6 +183,15 @@ func (h *StreamHandler) ListStreams(c *gin.Context) {
 	})
 }
 
+// Helper function to get keys from map
+func getKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // POST /api/streams - create a new stream for current user
 func (h *StreamHandler) CreateStream(c *gin.Context) {
 	userID, ok := c.Get("user_id")
@@ -1088,11 +1097,33 @@ func (h *StreamHandler) CreateStreamFromExisting(c *gin.Context) {
 		return
 	}
 
+	deduplicateFiles := make(map[string]bool)
+	for _, id := range req.MediaFileIds {
+		if _, ok := deduplicateFiles[id]; !ok {
+			deduplicateFiles[id] = true
+		}
+	}
+	req.MediaFileIds = getKeys(deduplicateFiles)
+
+	log.Println("Media file IDs:", req.MediaFileIds)
+
+	// Debug: Log the SQL query that will be executed
+	query := h.DB.Debug().Where("id IN ? OR tus_file_id IN ?", req.MediaFileIds, req.MediaFileIds)
+	log.Printf("Executing query: %s", query.Statement.SQL.String())
+	log.Printf("With params: %v", query.Statement.Vars)
+
 	// Fetch media files from database
 	var mediaFiles []models.MediaFile
-	if err := h.DB.Where("id IN ?", req.MediaFileIds).Find(&mediaFiles).Error; err != nil {
+	if err := query.Find(&mediaFiles).Error; err != nil {
+		log.Printf("Error fetching media files: %v", err)
 		c.JSON(500, gin.H{"error": "Failed to fetch media files."})
 		return
+	}
+
+	// Debug: Log the number of media files found
+	log.Printf("Found %d media files in database", len(mediaFiles))
+	for i, file := range mediaFiles {
+		log.Printf("MediaFile[%d]: ID=%s, FilePath=%s", i, file.ID, file.FilePath)
 	}
 	// Create a new stream
 	// Generate a new stream ID
@@ -1115,6 +1146,8 @@ func (h *StreamHandler) CreateStreamFromExisting(c *gin.Context) {
 		return
 	}
 
+	log.Println("Media Files : ", mediaFiles)
+
 	// create new medial files entries
 	for _, mediaFile := range mediaFiles {
 		mediaStreamMap := models.StreamMediaFile{
@@ -1130,7 +1163,10 @@ func (h *StreamHandler) CreateStreamFromExisting(c *gin.Context) {
 			log.Println(err)
 			continue
 		}
+		log.Println("Media file added to stream.")
 	}
+
+	log.Println("Stream created successfully.")
 
 	// Broadcast updates to all clients
 	go func() {

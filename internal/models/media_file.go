@@ -25,6 +25,7 @@ type MediaFile struct {
 	Duration      *float64       `gorm:"default:null" json:"duration,omitempty"`       // Durasi dalam detik
 	Resolution    *string        `gorm:"default:null" json:"resolution,omitempty"`     // Resolusi video (e.g., "1920x1080")
 	ThumbnailPath *string        `gorm:"default:null" json:"thumbnail_path,omitempty"` // Path thumbnail
+	TusFileId     string         `gorm:"default:null" json:"tus_file_id,omitempty"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`

@@ -3,6 +3,7 @@ import React, { useState, useRef, forwardRef, useImperativeHandle, useEffect } f
 import { useConfig } from '@/hooks/useConfig';
 import { getSession } from 'next-auth/react';
 import * as tus from 'tus-js-client';
+import type { DetailedError } from 'tus-js-client';
 import { ulid } from 'ulid';
 import { flushSync } from 'react-dom';
 import { toast } from 'react-toastify';
@@ -122,15 +123,14 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
   };
 
   const handleFiles = (selectedFiles: File[]) => {
-    flushSync(() => {
-      setFiles(selectedFiles);
-    });
-
-    // Defer the parent notification to avoid state updates during render
+    // Update the local state immediately for UI
+    setFiles(selectedFiles);
+    
+    // Notify parent component in the next tick to avoid state updates during render
     if (onFilesSelected) {
-      setTimeout(() => {
+      Promise.resolve().then(() => {
         onFilesSelected(selectedFiles);
-      }, 0);
+      });
     }
   };
 
@@ -153,8 +153,10 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
     if (files.length === 0) {
       onError(new Error('No files selected'));
       return;
-    };
-
+    }
+    
+    // Clear any previous errors
+    setValidationErrors([]);
 
     const session = await getSession();
     if (!session) {
@@ -162,66 +164,134 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
       return;
     }
 
-    const uploadStreamId = streamId || ulid();
+    // Generate a unique upload session ID
+    const uploadSessionId = ulid();
     const uploadIds = new Set<string>();
 
+    // Process each file for upload
     files.forEach((file, index) => {
-      const fileId = `${file.name}_${index}_${Date.now()}`;
+      // Create a unique ID for this file upload
+      const fileId = `${uploadSessionId}_${index}`;
       uploadIds.add(fileId);
 
+      // Notify parent component that upload is starting
       if (onUploadStart) {
         onUploadStart(fileId);
       }
 
+      console.log(`Starting upload for file: ${file.name} (${fileId})`);
+
+      // Configure the tus upload
       const upload = new tus.Upload(file, {
         endpoint: `${config?.config?.apiUrl}/files/`,
         retryDelays: [0, 3000, 5000, 10000, 20000],
-        chunkSize: 50 * 1024 * 1024,
+        chunkSize: 50 * 1024 * 1024, // 50MB chunks
         metadata: {
           filename: file.name,
           filetype: file.type,
           userId: session.user?.id as string,
-          streamId: uploadStreamId,
+          streamId: streamId || '',
           mediaType: mediaType,
-          uploadOnly: uploadOnly ? 'true' : 'false'
+          uploadOnly: 'true',
+          tusFileId: fileId,
+          uploadSessionId: uploadSessionId // Add upload session ID for grouping
         },
         headers: {
-          'Authorization': `Bearer ${session?.user?.backendToken}`
+          'Authorization': `Bearer ${session?.user?.backendToken}`,
+          'Upload-Metadata': `filename ${btoa(encodeURIComponent(file.name))},filetype ${btoa(file.type)}`
         },
-        onError: function (error) {
+        onError: function (error: Error | DetailedError) {
+          console.error(`Upload failed for ${file.name}:`, error);
+          
+          // Update active uploads state
           setActiveUploads(prev => {
             const newActive = new Set(prev);
             newActive.delete(fileId);
             return newActive;
           });
-          onError(error);
+          
+          // Create a more user-friendly error message
+          let errorMessage = `Failed to upload ${file.name}: `;
+          
+          // Check if this is a DetailedError with status code
+          if ('originalRequest' in error && error.originalRequest) {
+            // Handle HTTP errors
+            const status = 'status' in error ? error.status : 0;
+            if (status === 413) {
+              errorMessage += 'File is too large';
+            } else if (status === 401 || status === 403) {
+              errorMessage += 'Authentication failed. Please log in again.';
+            } else {
+              errorMessage += `Server error (${status})`;
+            }
+          } else if (error.message) {
+            // Handle other errors
+            errorMessage += error.message;
+          } else {
+            errorMessage += 'Unknown error occurred';
+          }
+          
+          onError(new Error(errorMessage));
+          
+          // Check if all uploads have failed
+          setCompletedUploads(prev => {
+            const newCompleted = new Set(prev);
+            newCompleted.add(fileId);
+            
+            if (newCompleted.size === uploadIds.size && onAllUploadsComplete) {
+              onAllUploadsComplete();
+            }
+            
+            return newCompleted;
+          });
         },
         onProgress: function (bytesUploaded, bytesTotal) {
           const percentage = ((bytesUploaded / bytesTotal) * 100);
           onProgress(percentage);
         },
         onSuccess: function () {
-          setCompletedUploads(prev => {
-            const newCompleted = new Set(prev);
-            newCompleted.add(fileId);
-
-            // Check if all uploads are complete
-            if (newCompleted.size === uploadIds.size) {
-              if (onAllUploadsComplete) {
-                onAllUploadsComplete();
-              }
-            }
-
-            return newCompleted;
-          });
-
+          // The fileId was generated at the start of the upload
+          const fileId = `${uploadSessionId}_${files.indexOf(file)}`;
+          
+          if (!fileId) {
+            console.error('Could not find upload ID for file:', file.name);
+            return;
+          }
+          
+          // The actual file URL will be constructed from the tus endpoint and file ID
+          const fileUrl = `${config?.config?.apiUrl}/files/${fileId}`;
+          
+          console.log('Upload completed:', { fileId, fileUrl, fileName: file.name });
+          
+          // Update active uploads state
           setActiveUploads(prev => {
             const newActive = new Set(prev);
             newActive.delete(fileId);
             return newActive;
           });
-
-          onSuccess(upload.url ?? '', fileId);
+          
+          // Update completed uploads state first
+          setCompletedUploads(prev => {
+            const newCompleted = new Set(prev);
+            newCompleted.add(fileId);
+            
+            // Check if all uploads are complete
+            const allComplete = newCompleted.size === uploadIds.size;
+            
+            // Use setTimeout to defer the success callbacks to the next tick
+            // This avoids state updates during render
+            setTimeout(() => {
+              // Call the success callback with the file URL and upload ID
+              // The upload ID is used as the media file ID in the backend
+              onSuccess(fileUrl, fileId);
+              
+              if (allComplete && onAllUploadsComplete) {
+                onAllUploadsComplete();
+              }
+            }, 0);
+            
+            return newCompleted;
+          });
         }
       });
 

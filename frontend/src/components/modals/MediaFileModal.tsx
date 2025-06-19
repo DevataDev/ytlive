@@ -168,10 +168,20 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
         }
     };
 
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    // Handle refresh when needed
+    useEffect(() => {
+        if (refreshTrigger > 0) {
+            loadMediaFiles();
+        }
+    }, [refreshTrigger]);
+
     const handleUploadSuccess = useCallback((uploadedFile: any) => {
         console.log('Upload successful:', uploadedFile);
         toast.success('Media file uploaded successfully');
-        loadMediaFiles(); // Refresh the media files list
+        // Trigger a refresh by updating the refreshTrigger
+        setRefreshTrigger(prev => prev + 1);
     }, []);
 
     const handleUploadProgress = useCallback((progress: number) => {
@@ -188,7 +198,8 @@ const MediaFileModal: React.FC<MediaFileModalProps> = ({
     const handleAllUploadsComplete = useCallback(() => {
         console.log('All uploads completed');
         setUploading(false);
-        loadMediaFiles(); // Refresh the media files list
+        // Trigger a refresh by updating the refreshTrigger
+        setRefreshTrigger(prev => prev + 1);
     }, []);
 
     if (!show) return null;

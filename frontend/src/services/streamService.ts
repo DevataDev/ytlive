@@ -187,18 +187,42 @@ export interface CreateStreamNewData {
   Name: string;
   Description?: string;
   MediaFileIds?: string[];
+  IsActive?: boolean;
 }
 
-export const createStreamNew= async (streamData: CreateStreamNewData): Promise<SuccessResponse> => {
+export interface CreateStreamNewResponse extends SuccessResponse {
+  ID: string;
+}
+
+export interface CreateStreamNewUploadResponse extends SuccessResponse {
+  stream: Stream;
+}
+
+export const createStreamNew = async (streamData: CreateStreamNewData): Promise<CreateStreamNewResponse> => {
   const session = await getSession();
-  var jsonData = {
-    "name": streamData.Name,
-    "description": streamData.Description,
-    "media_file_ids": streamData.MediaFileIds,
-  }
-  const response = await api.post<SuccessResponse>('/api/streams/new', jsonData, {
+  const jsonData = {
+    name: streamData.Name,
+    description: streamData.Description,
+    media_file_ids: streamData.MediaFileIds,
+    is_active: streamData.IsActive !== undefined ? streamData.IsActive : false,
+  };
+  const response = await api.post<CreateStreamNewResponse>('/api/streams/new', jsonData, {
     headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }
-  })
+  });
+  return response;
+}
+
+export const createStreamNewUpload = async (streamData: CreateStreamNewData): Promise<CreateStreamNewUploadResponse> => {
+  const session = await getSession();
+  const jsonData = {
+    name: streamData.Name,
+    description: streamData.Description,
+    media_file_ids: streamData.MediaFileIds,
+    is_active: streamData.IsActive !== undefined ? streamData.IsActive : false,
+  };
+  const response = await api.post<CreateStreamNewUploadResponse>('/api/streams/new', jsonData, {
+    headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }
+  });
   return response;
 }
 

@@ -1,18 +1,26 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faUpload, faTimes, faVideo, faMusic, faFile, faExclamationTriangle, faSpinner, faFileVideo } from '@fortawesome/free-solid-svg-icons'
-import styles from './page.module.css'
-import { getSession } from 'next-auth/react'
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faUpload, 
+  faTimes, 
+  faVideo, 
+  faMusic, 
+  faFile, 
+  faExclamationTriangle, 
+  faSpinner, 
+  faFileVideo 
+} from '@fortawesome/free-solid-svg-icons';
+import { getSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
 import { useConfig } from '@/hooks/useConfig';
-import { TusUploaderRef } from '@/components/TusUploaderComp'
+import { TusUploaderRef } from '@/components/TusUploaderComp';
 import TusUploaderComp from '@/components/TusUploaderComp';
 
 import MediaFileSelectionModal from '@/components/modals/MediaFileSelectionModal';
-import { CreateStreamNewData, MediaFile, createStreamNew } from '@/services/streamService';
+import { createStreamNew, CreateStreamNewData, CreateStreamNewResponse, MediaFile, createStreamNewUpload } from '@/services/streamService';
 
 interface FilePreview {
   file: File
@@ -20,17 +28,23 @@ interface FilePreview {
 }
 
 export default function StreamNewPage() {
-  const [files, setFiles] = useState<FilePreview[]>([])
-  const [isDragging, setIsDragging] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [isUploading, setIsUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [files, setFiles] = useState<FilePreview[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  const [completedFiles, setCompletedFiles] = useState<Set<string>>(new Set());
+  const [uploadedFileUrls, setUploadedFileUrls] = useState<{id: string, url: string}[]>([]);
+  const [allUploadsComplete, setAllUploadsComplete] = useState(false);
+  const [uploadsComplete, setUploadsComplete] = useState(false);
+  const [hasProcessedUploads, setHasProcessedUploads] = useState(false);
+  const [selectedMediaFiles, setSelectedMediaFiles] = useState<MediaFile[]>([]);
+  const [showMediaSelection, setShowMediaSelection] = useState(false);
 
   const router = useRouter()
-  // Add to your component state
-  const [showMediaSelection, setShowMediaSelection] = useState(false);
-  const [selectedMediaFiles, setSelectedMediaFiles] = useState<MediaFile[]>([]);
 
   const config = useConfig();
 
@@ -99,45 +113,7 @@ export default function StreamNewPage() {
     }
   }
 
-  // Add these state variables
-  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
-  const [completedFiles, setCompletedFiles] = useState<Set<string>>(new Set());
-  const [allUploadsComplete, setAllUploadsComplete] = useState(false);
-
-  const handleUploadSuccess = (uploadUrl: string, fileId: string) => {
-    setCompletedFiles(prev => {
-      const newCompleted = new Set(prev);
-      newCompleted.add(fileId);
-
-      // Don't redirect here - wait for all uploads to complete
-      if (newCompleted.size < uploadingFiles.size) {
-        setSuccess(`Uploaded ${newCompleted.size} of ${uploadingFiles.size} files...`);
-      }
-
-      return newCompleted;
-    });
-  };
-
-  const handleUploadStart = (fileId: string) => {
-    setUploadingFiles(prev => {
-      const newUploading = new Set(prev);
-      newUploading.add(fileId);
-      return newUploading;
-    });
-  };
-
-  const handleAllUploadsComplete = () => {
-    setAllUploadsComplete(true);
-    setIsUploading(false);
-    
-    // Redirect to streams page after successful upload
-    setTimeout(() => {
-      router.push('/stream');
-    }, 2000);
-  };
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const tusUploaderRef = useRef<TusUploaderRef>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const formatDateTime = (date: Date) => {
     return date.toLocaleString('en-US', {
@@ -151,6 +127,219 @@ export default function StreamNewPage() {
     }).replace(/(\d+)\/(\d+)\/(\d+),\s*(\d+:\d+:\d+)/, '$3-$1-$2 $4');
   };
 
+  // Memoize the stream creation function to avoid recreation on every render
+  const hasProcessedUploadsRef = useRef(false);
+  const createStreamWithUploadedFiles = useCallback(async (): Promise<boolean> => {
+    console.log('createStreamWithUploadedFiles called with files:', uploadedFileUrls);
+    
+    if (uploadedFileUrls.length === 0) {
+      console.warn('No files available to create stream');
+      setError('No files available to create stream');
+      hasProcessedUploadsRef.current = false; // Reset flag to allow retry
+      return false;
+    }
+
+    console.log('Uploaded file details:', uploadedFileUrls);
+    
+    // Use the tusFileId (file ID from tus upload) as the media file ID
+    // The backend will handle looking up by either the ID or tusFileId
+    const validFileIds = uploadedFileUrls
+      .filter(file => file.id) // Only include files with an ID
+      .map(file => file.id);   // Use the tusFileId as the media file ID
+    
+    if (validFileIds.length === 0) {
+      console.warn('No valid media file IDs found in:', uploadedFileUrls);
+      setError('No valid media files available. Please upload files again.');
+      hasProcessedUploadsRef.current = false;
+      return false;
+    }
+    
+    console.log('Using media file IDs for stream creation:', validFileIds);
+    
+    console.log('Creating stream with media file IDs:', validFileIds);
+    
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Create the stream with the uploaded files
+      const streamData: CreateStreamNewData = {
+        Name: `Stream ${formatDateTime(new Date())}`,
+        Description: 'Stream created from uploaded files',
+        MediaFileIds: validFileIds,
+        IsActive: false, // Start inactive by default
+      };
+      
+      console.log('Stream data to be created:', streamData);
+      
+      const response = await createStreamNewUpload(streamData);
+      
+      if (response.success && response.stream.id) {
+        setSuccess('Stream created successfully!');
+        
+        // Navigate to the stream page after a short delay
+        setTimeout(() => {
+          router.push(`/stream`);
+        }, 1500);
+        
+        return true;
+      } else {
+        throw new Error('Failed to create stream: Invalid response from server');
+      }
+    } catch (err) {
+      console.error('Error creating stream:', err);
+      setError(`Failed to create stream: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      hasProcessedUploadsRef.current = false; // Reset flag on error to allow retry
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [uploadedFileUrls, router]);
+
+  // Handle successful file uploads
+  const handleUploadSuccess = useCallback((uploadUrl: string, fileId: string) => {
+    console.log('Upload success:', { uploadUrl, fileId });
+    
+    // Update completed files
+    setCompletedFiles(prev => {
+      const newCompleted = new Set(prev);
+      newCompleted.add(fileId);
+      return newCompleted;
+    });
+    
+    // Add the file to uploadedFileUrls if not already present
+    setUploadedFileUrls(prev => {
+      if (prev.some(file => file.id === fileId)) {
+        return prev;
+      }
+      return [...prev, { id: fileId, url: uploadUrl }];
+    });
+  }, []);
+  
+  // Effect to handle when all uploads are complete
+  useEffect(() => {
+    if (completedFiles.size > 0 && completedFiles.size === uploadingFiles.size) {
+      setUploadsComplete(true);
+      setAllUploadsComplete(true);
+      
+      // Small delay to ensure all state updates are processed
+      const timer = setTimeout(() => {
+        if (!hasProcessedUploadsRef.current) {
+          hasProcessedUploadsRef.current = true;
+          void createStreamWithUploadedFiles();
+        }
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [completedFiles, uploadingFiles, createStreamWithUploadedFiles]);
+
+  const handleUploadStart = useCallback((fileId: string) => {
+    console.log('Upload started for file ID:', fileId);
+    setUploadingFiles(prev => {
+      const newUploading = new Set(prev);
+      newUploading.add(fileId);
+      console.log('Currently uploading files:', Array.from(newUploading));
+      return newUploading;
+    });
+  }, []);
+
+  // Handle the completion of uploads and create stream
+  useEffect(() => {
+    let isMounted = true;
+    
+    const finalizeUploads = async () => {
+      if (!isMounted) return;
+      
+      try {
+        console.log('Finalizing uploads with files:', uploadedFileUrls);
+        
+        // Only proceed if we have uploaded files
+        if (uploadedFileUrls.length > 0) {
+          console.log(`Creating stream with ${uploadedFileUrls.length} uploaded files...`);
+          const success = await createStreamWithUploadedFiles();
+          
+          if (!isMounted) return;
+          
+          if (success) {
+            console.log('Stream created successfully, updating state...');
+            setAllUploadsComplete(true);
+            
+            // Clear the file input after successful stream creation
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
+            
+            // Reset states after a delay to allow the success message to be seen
+            const timer = setTimeout(() => {
+              if (!isMounted) return;
+              setUploadedFileUrls([]);
+              setUploadingFiles(new Set());
+              setCompletedFiles(new Set());
+              setAllUploadsComplete(false);
+              setUploadsComplete(false);
+              hasProcessedUploadsRef.current = false;
+            }, 3000);
+            
+            return () => clearTimeout(timer);
+          } else {
+            console.log('Stream creation was not successful');
+            setUploadsComplete(false); // Allow retry
+          }
+        } else {
+          console.error('No files were uploaded successfully');
+          setError('No files were uploaded successfully. Please try again.');
+          setUploadsComplete(false); // Allow retry
+          setAllUploadsComplete(true);
+          setIsUploading(false);
+        }
+      } catch (err) {
+        console.error('Error finalizing uploads:', err);
+        if (isMounted) {
+          setError(`Failed to finalize uploads: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          setUploadsComplete(false); // Allow retry on error
+        }
+      }
+    };
+    
+    if (uploadsComplete && !allUploadsComplete) {
+      console.log('All uploads complete, checking for files...');
+      finalizeUploads();
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [uploadsComplete, allUploadsComplete, uploadedFileUrls, createStreamWithUploadedFiles, setError, setIsUploading]);
+
+  // Handle when all uploads are complete
+  useEffect(() => {
+    // Only process if we have files, they're all complete, and we haven't processed them yet
+    if (files.length > 0 && 
+        completedFiles.size === files.length && 
+        !hasProcessedUploads && 
+        !uploadsComplete) {
+      console.log('All uploads completed, preparing to create stream...');
+      setHasProcessedUploads(true);
+      setUploadsComplete(true);
+    }
+  }, [completedFiles.size, files.length, hasProcessedUploads, uploadsComplete]);
+
+  // Reset the processed state when new files are selected
+  useEffect(() => {
+    if (files.length > 0) {
+      setHasProcessedUploads(false);
+      setUploadsComplete(false);
+      setAllUploadsComplete(false);
+      setError(null);
+      setSuccess(null);
+    }
+  }, [files.length]);
+
+  const tusUploaderRef = useRef<TusUploaderRef>(null);
+
+
+
   const handleUpload = async () => {
     if (files.length === 0 && selectedMediaFiles.length === 0) {
       setError('Please select files to upload or choose existing media files.');
@@ -163,6 +352,7 @@ export default function StreamNewPage() {
     setUploadProgress(0);
     setUploadingFiles(new Set());
     setCompletedFiles(new Set());
+    setUploadedFileUrls([]);
     setAllUploadsComplete(false);
 
     try {
@@ -188,6 +378,7 @@ export default function StreamNewPage() {
       } else {
         // Upload new files first, then create stream
         if (tusUploaderRef.current) {
+          // Start the upload process
           tusUploaderRef.current.startUploads();
         }
       }
@@ -210,42 +401,11 @@ export default function StreamNewPage() {
           </div>
           
           <div className="p-6">
-            <div
-              className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                isDragging
-                  ? 'border-blue-400 bg-blue-50'
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <FontAwesomeIcon icon={faUpload} className="text-4xl text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Upload your media files
-              </h3>
-              <p className="text-gray-500 mb-4">
-                Drag and drop files here, or click to browse
-              </p>
-              <p className="text-sm text-gray-400">
-                Supports video and audio files
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="video/*,audio/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </div>
 
             <TusUploaderComp
               ref={tusUploaderRef}
               onSuccess={handleUploadSuccess}
               onUploadStart={handleUploadStart}
-              onAllUploadsComplete={handleAllUploadsComplete}
               onProgress={setUploadProgress}
               onError={(error) => setError(error.message)}
               onFilesSelected={(selectedFiles) => {

@@ -128,6 +128,7 @@ func (h *TusUploadHandler) processCompletedUpload(event handler.HookEvent) {
 	streamID := metadata["streamId"]
 	mediaType := metadata["mediaType"]
 	uploadOnly := metadata["uploadOnly"] == "true" // Convert string to bool
+	tusFileId := metadata["tusFileId"]
 
 	log.Println("Processing completed upload, mediaType : ", mediaType)
 	if mediaType == "detect" {
@@ -187,6 +188,7 @@ func (h *TusUploadHandler) processCompletedUpload(event handler.HookEvent) {
 			MediaType: models.MediaType(mediaType),
 			MimeType:  metadata["filetype"],
 			UserId:    userID,
+			TusFileId: tusFileId,
 		}
 
 		// Start a transaction
@@ -228,20 +230,38 @@ func (h *TusUploadHandler) processCompletedUpload(event handler.HookEvent) {
 		}
 		log.Printf("Successfully processed completed upload: %s", mediaFile.ID)
 	} else {
-		log.Println("Upload only flag is set, skipping stream creation")
+		log.Println("Upload only flag is set, creating media file record only")
+
+		// Generate a unique ID for the media file
+		fileID := generateULID()
+		log.Println("Generated file ID: ", fileID)
+
+		// Create media file record
 		mediaFile := models.MediaFile{
-			ID:        generateULID(),
+			ID:        fileID,
 			FileName:  fileName,
 			FilePath:  filePathStr,
 			FileSize:  fileInfo.Size(),
 			MediaType: models.MediaType(mediaType),
 			MimeType:  metadata["filetype"],
 			UserId:    userID,
+			TusFileId: tusFileId,
 		}
-		if err := h.DB.Create(&mediaFile).Error; err != nil {
+
+		// Create the media file record in a transaction
+		tx := h.DB.Begin()
+		if err := tx.Create(&mediaFile).Error; err != nil {
+			tx.Rollback()
 			log.Printf("Failed to create media file record: %s", err)
 			return
 		}
-		log.Printf("Successfully processed completed upload: %s", mediaFile.ID)
+
+		// Commit the transaction
+		if err := tx.Commit().Error; err != nil {
+			log.Printf("Failed to commit transaction: %s", err)
+			return
+		}
+
+		log.Printf("Successfully created media file record: %s", mediaFile.ID)
 	}
 }
