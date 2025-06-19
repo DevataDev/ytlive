@@ -88,18 +88,13 @@ export default function DashboardPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
 
-  // Format network speed with appropriate units (Kbps, Mbps, Gbps)
-  const formatNetworkSpeed = (bytesPerSecond: number) => {
-    const bitsPerSecond = bytesPerSecond * 8; // Convert bytes to bits
-    
-    if (bitsPerSecond < 1000) {
-      return `${bitsPerSecond.toFixed(0)} bps`;
-    } else if (bitsPerSecond < 1000 * 1000) {
-      return `${(bitsPerSecond / 1000).toFixed(1)} Kbps`;
-    } else if (bitsPerSecond < 1000 * 1000 * 1000) {
-      return `${(bitsPerSecond / (1000 * 1000)).toFixed(2)} Mbps`;
+  // Format network speed with appropriate units (Mbps, Gbps)
+  // Note: Backend sends values in Mbps
+  const formatNetworkSpeed = (mbps: number) => {
+    if (mbps < 1000) {
+      return `${mbps.toFixed(2)} Mbps`;
     } else {
-      return `${(bitsPerSecond / (1000 * 1000 * 1000)).toFixed(2)} Gbps`;
+      return `${(mbps / 1000).toFixed(2)} Gbps`;
     }
   };
 
