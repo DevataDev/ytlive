@@ -1,20 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { getSession } from 'next-auth/react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+
 export const dynamic = 'force-dynamic';
   
 
-export default function YouTubeCallbackPage() {
+function CallbackContent() {
+    const searchParams = useSearchParams();
     const [result, setResult] = useState<string>('');
     const [isSuccess, setIsSuccess] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [countdown, setCountdown] = useState<number>(5);
     const router = useRouter();
-    const searchParams = useSearchParams();
+
 
     useEffect(() => {
         const handleCallback = async () => {
@@ -69,27 +73,37 @@ export default function YouTubeCallbackPage() {
     }, [searchParams, router]);
 
     return (
-        <div className="container-fluid container-xl dashboard-container">
-            <h2>YouTube OAuth Callback</h2>
+        <div className="container mx-auto px-4 py-8">
+            <h2 className="text-2xl font-bold mb-6">YouTube OAuth Callback</h2>
             {isLoading ? (
-                <div className="d-flex align-items-center">
-                    <div className="spinner-border spinner-border-sm me-2" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                    </div>
+                <div className="flex items-center">
+                    <FontAwesomeIcon icon={faSpinner} className="animate-spin h-5 w-5 mr-2" />
                     <span>Processing callback...</span>
                 </div>
             ) : (
                 <>
-                    <p className={isSuccess ? 'text-success' : 'text-danger'}>
+                    <p className={isSuccess ? 'text-green-600' : 'text-red-600'}>
                         {result}
                     </p>
                     {isSuccess && countdown > 0 && (
-                        <p className="text-muted">
+                        <p className="text-gray-500 mt-2">
                             Redirecting to channels in {countdown} seconds...
                         </p>
                     )}
                 </>
             )}
         </div>
+    );
+}
+
+export default function YouTubeCallbackPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex justify-center items-center min-h-screen">
+                <FontAwesomeIcon icon={faSpinner} className="animate-spin h-8 w-8 text-blue-600" />
+            </div>
+        }>
+            <CallbackContent />
+        </Suspense>
     );
 }
