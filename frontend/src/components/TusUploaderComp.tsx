@@ -186,6 +186,7 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
         endpoint: `${config?.config?.apiUrl}/files/`,
         retryDelays: [0, 3000, 5000, 10000, 20000],
         chunkSize: 50 * 1024 * 1024, // 50MB chunks
+        removeFingerprintOnSuccess: true,
         metadata: {
           filename: file.name,
           filetype: file.type,
