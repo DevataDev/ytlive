@@ -159,7 +159,7 @@ export const updateStreamKey = async (id: string, streamKey: string): Promise<bo
 
 export const updateRtmpUrl = async (id: string, rtmpUrl: string): Promise<Stream> => {
   const session = await getSession();
-  const response = await api.putRaw<Stream>(`/api/streams/${id}`, { RTMPUrl: rtmpUrl }, {
+  const response = await api.putRaw<Stream>(`/api/streams/${id}/rtmpurl`, { RTMPUrl: rtmpUrl }, {
     headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }
   });
   return response.data;
@@ -167,7 +167,7 @@ export const updateRtmpUrl = async (id: string, rtmpUrl: string): Promise<Stream
 
 export const toggleLoopVideo = async (id: string, loop: boolean): Promise<Stream> => {
   const session = await getSession();
-  const response = await api.putRaw<Stream>(`/api/streams/${id}`, { LoopVideo: loop }, {
+  const response = await api.putRaw<Stream>(`/api/streams/${id}/loop`, { LoopVideo: loop }, {
     headers: { 'Authorization': `Bearer ${session?.user?.backendToken}` }
   });
   return response.data;
