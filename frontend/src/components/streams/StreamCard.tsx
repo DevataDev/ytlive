@@ -80,6 +80,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const { showModal, itemId, itemType, openModal, closeModal } = useFfmpegLogsModal();
   const [showMediaModal, setShowMediaModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showPlatformModal, setShowPlatformModal] = useState(false);
   // Add these state variables after the existing ones
   const [selectedPlatform, setSelectedPlatform] = useState<string>(() => {
     const currentUrl = stream.rtmpUrl || 'rtmp://a.rtmp.youtube.com/live2/';
@@ -294,7 +295,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const fileSize = stream.fileSize || stream.fileSizeBytes;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-shadow duration-200">
+    <div className="bg-white rounded-lg shadow-sm overflow-visible border border-gray-200 hover:shadow-md transition-shadow duration-200">
       {/* Card Header */}
       <div className="p-4 border-b border-gray-100">
         <div className="flex justify-between items-start">
@@ -326,7 +327,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
             </button>
             
             {showDropdown && (
-              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-100">
+              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100 max-h-96 overflow-y-auto">
                 <button 
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
                   onClick={() => {
@@ -377,6 +378,16 @@ const StreamCard: React.FC<StreamCardProps> = ({
                   <FontAwesomeIcon icon={faGear} className="w-4 h-4 mr-2 text-gray-500" />
                   Settings
                 </button>
+                <button 
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                  onClick={() => {
+                    setShowPlatformModal(true);
+                    setShowDropdown(false);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faLink} className="w-4 h-4 mr-2 text-gray-500" />
+                  Change Platform
+                </button>
                 <div className="border-t border-gray-100 my-1"></div>
                 <button 
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
@@ -403,36 +414,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
           </div>
         )}
 
-        {/* Platform Selector */}
-        <div className="mb-4">
-          <PlatformSelector
-            selectedPlatform={selectedPlatform}
-            customRtmpUrl={customRtmpUrl}
-            streamKey={streamKey}
-            onPlatformChange={(platform: Platform) => {
-              setSelectedPlatform(platform.id);
-              if (platform.id !== 'custom') {
-                setRtmpUrl(platform.rtmpUrl);
-              } else {
-                setRtmpUrl(customRtmpUrl);
-              }
-            }}
-            onCustomRtmpChange={(url: string) => {
-              setCustomRtmpUrl(url);
-              setRtmpUrl(url);
-            }}
-            onStreamKeyChange={setStreamKey}
-            onSave={async () => {
-              await handleUpdateRtmpUrl();
-              if (streamKey) {
-                await handleUpdateStreamKey();
-              }
-            }}
-            isLoading={isLoading}
-            showStreamKey={showPassword}
-            onToggleStreamKeyVisibility={() => setShowPassword(!showPassword)}
-          />
-        </div>
+
 
         {/* File Info */}
         {stream.fileSizeBytes && (
@@ -706,6 +688,56 @@ const StreamCard: React.FC<StreamCardProps> = ({
         stream={stream}
         onStreamUpdate={handleStreamUpdate}
       />
+
+      {/* Platform Selector Modal */}
+      {showPlatformModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onClick={() => setShowPlatformModal(false)}>
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white" onClick={(e) => e.stopPropagation()}>
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Change Streaming Platform</h3>
+                <button
+                  onClick={() => setShowPlatformModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <FontAwesomeIcon icon={faTimes} className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="mt-4">
+                <PlatformSelector
+                  selectedPlatform={selectedPlatform}
+                  customRtmpUrl={customRtmpUrl}
+                  streamKey={streamKey}
+                  onPlatformChange={(platform: Platform) => {
+                    setSelectedPlatform(platform.id);
+                    if (platform.id !== 'custom') {
+                      setRtmpUrl(platform.rtmpUrl);
+                    } else {
+                      setRtmpUrl(customRtmpUrl);
+                    }
+                  }}
+                  onCustomRtmpChange={(url: string) => {
+                    setCustomRtmpUrl(url);
+                    setRtmpUrl(url);
+                  }}
+                  onStreamKeyChange={setStreamKey}
+                  onSave={async () => {
+                    await handleUpdateRtmpUrl();
+                    if (streamKey) {
+                      await handleUpdateStreamKey();
+                    }
+                    setShowPlatformModal(false);
+                  }}
+                  isLoading={isLoading}
+                  showStreamKey={showPassword}
+                  onToggleStreamKeyVisibility={() => setShowPassword(!showPassword)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
