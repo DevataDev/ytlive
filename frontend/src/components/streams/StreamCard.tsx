@@ -306,13 +306,10 @@ const StreamCard: React.FC<StreamCardProps> = ({
               </h3>
               {renderStatusBadge()}
             </div>
-            <div className="mt-1 flex items-center text-xs text-gray-500">
-              <span>ID: {stream.id || 'N/A'}</span>
+            <div className="mt-1 text-xs text-gray-500">
+              <div>ID: {stream.id || 'N/A'}</div>
               {stream.createdAt && (
-                <span className="mx-2">•</span>
-              )}
-              {stream.createdAt && (
-                <span>{new Date(stream.createdAt).toLocaleString()}</span>
+                <div className="mt-1">{new Date(stream.createdAt).toLocaleString()}</div>
               )}
             </div>
           </div>
