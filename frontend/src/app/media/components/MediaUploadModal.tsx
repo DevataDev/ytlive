@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUpload, faTimes, faVideo, faMusic, faFile, faExclamationTriangle, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { getSession } from 'next-auth/react';
@@ -121,6 +121,7 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
   const handleClose = () => {
     if (isUploading) return;
     
+    // Reset all state
     setFiles([]);
     setError(null);
     setSuccess(null);
@@ -128,6 +129,13 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
     setUploadingFiles(new Set());
     setCompletedFiles(new Set());
     setAllUploadsComplete(false);
+    setSelectedMediaFiles([]);
+    
+    // Reset TusUploader component if it exists
+    if (tusUploaderRef.current) {
+      tusUploaderRef.current.reset?.();
+    }
+    
     onHide();
   };
 
@@ -140,11 +148,14 @@ export default function MediaUploadModal({ show, onHide, onUploadComplete }: Med
   };
 
   const handleFilesFromUploader = (selectedFiles: File[]) => {
+    // Clear existing files and replace with new selection
     const fileArray = selectedFiles.map(file => ({
       file,
       id: Math.random().toString(36).substr(2, 9)
     }));
-    setFiles(prev => [...prev, ...fileArray]);
+    setFiles(fileArray); // Replace instead of append
+    setError(null);
+    setSuccess(null);
   };
   const tusUploaderRef = useRef<TusUploaderRef>(null);
 

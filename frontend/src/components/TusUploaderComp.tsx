@@ -11,6 +11,7 @@ import { toast } from 'react-toastify';
 // Add interface for ref methods
 export interface TusUploaderRef {
   startUploads: () => void;
+  reset: () => void;
 }
 
 interface TusUploaderProps {
@@ -103,8 +104,12 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-
-    if (!e.target.files || e.target.files.length === 0) return;
+    e.stopPropagation();
+    
+    if (!e.target.files || e.target.files.length === 0) {
+      e.target.value = '';
+      return;
+    }
 
     const { valid, invalid, errors } = validateFiles(e.target.files);
 
@@ -115,11 +120,9 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
     } else {
       onError(new Error('Invalid file type or size'));
     }
-    // setFiles(selectedFiles);
-
-    // if (e.target.files && e.target.files.length > 0) {
-    //   handleFiles(Array.from(e.target.files));
-    // }
+    
+    // Reset the input value to allow selecting the same file again
+    e.target.value = '';
   };
 
   const handleFiles = (selectedFiles: File[]) => {
@@ -239,10 +242,6 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
             const newCompleted = new Set(prev);
             newCompleted.add(fileId);
             
-            if (newCompleted.size === uploadIds.size && onAllUploadsComplete) {
-              onAllUploadsComplete();
-            }
-            
             return newCompleted;
           });
         },
@@ -276,18 +275,24 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
             const newCompleted = new Set(prev);
             newCompleted.add(fileId);
             
-            // Check if all uploads are complete
-            const allComplete = newCompleted.size === uploadIds.size;
-            
             // Use setTimeout to defer the success callbacks to the next tick
             // This avoids state updates during render
             setTimeout(() => {
               // Call the success callback with the file URL and upload ID
-              // The upload ID is used as the media file ID in the backend
               onSuccess(fileUrl, fileId);
               
-              if (allComplete && onAllUploadsComplete) {
-                onAllUploadsComplete();
+              // Check if all uploads are complete after state update
+              if (newCompleted.size === uploadIds.size && onAllUploadsComplete) {
+                // Use a flag to prevent multiple calls
+                const allUploadsCompleteKey = `allComplete_${uploadSessionId}`;
+                if (!(window as any)[allUploadsCompleteKey]) {
+                  (window as any)[allUploadsCompleteKey] = true;
+                  onAllUploadsComplete();
+                  // Clean up the flag after a short delay
+                  setTimeout(() => {
+                    delete (window as any)[allUploadsCompleteKey];
+                  }, 1000);
+                }
               }
             }, 0);
             
@@ -315,9 +320,22 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Expose startUploads method to parent
+  const resetComponent = () => {
+    setFiles([]);
+    setSelectedFiles([]);
+    setActiveUploads(new Set());
+    setCompletedUploads(new Set());
+    setValidationErrors([]);
+    setIsDragging(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Expose methods to parent
   useImperativeHandle(ref, () => ({
-    startUploads
+    startUploads,
+    reset: resetComponent
   }));
 
   return (
@@ -326,17 +344,23 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
         className={`border border-2 rounded p-5 text-center ${isDragging ? 'border-primary bg-light' : 'border-secondary border-opacity-25'}`}
         style={{
           borderStyle: 'dashed',
-          transition: 'all 0.3s ease',
-          cursor: 'pointer'
+          transition: 'all 0.3s ease'
         }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
       >
         <h5 className="mb-2">Drag and drop files here</h5>
         <p className="text-muted mb-3">or</p>
-        <button className="btn btn-outline-primary">Browse Files</button>
+        <button 
+          className="btn btn-outline-primary"
+          onClick={(e) => {
+            e.stopPropagation();
+            fileInputRef.current?.click();
+          }}
+        >
+          Browse Files
+        </button>
         <input
           ref={fileInputRef}
           type="file"
