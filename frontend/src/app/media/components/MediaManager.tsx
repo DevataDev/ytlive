@@ -80,7 +80,7 @@ export default function MediaManager() {
 
       const params = new URLSearchParams({
         user_id: session.user.id,
-        page: currentPage.toString(),
+        offset: ((currentPage - 1) * limit).toString(),
         limit: limit.toString(),
         type: mediaType,
         sort: sortBy,
