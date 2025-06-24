@@ -11,54 +11,127 @@ import {
   faFile, 
   faExclamationTriangle, 
   faSpinner, 
-  faFileVideo 
+  faFileVideo,
+  faSearch,
+  faFolderOpen,
+  faInfoCircle,
+  faPlay
 } from '@fortawesome/free-solid-svg-icons';
 import { getSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
 import { useConfig } from '@/hooks/useConfig';
-import { TusUploaderRef } from '@/components/TusUploaderComp';
-import TusUploaderComp from '@/components/TusUploaderComp';
-
-import MediaFileSelectionModal from '@/components/modals/MediaFileSelectionModal';
-import { createStreamNew, CreateStreamNewData, CreateStreamNewResponse, MediaFile, createStreamNewUpload } from '@/services/streamService';
-
-interface FilePreview {
-  file: File
-  id: string
-}
+import { api } from '@/lib/api';
+import { createStreamNew, CreateStreamNewData, CreateStreamNewResponse, MediaFile, createStreamNewUpload, MediaListResponse, MediaFileData } from '@/services/streamService';
 
 export default function StreamNewPage() {
-  const [files, setFiles] = useState<FilePreview[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
+  // Media file selection state
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  const [selectedMediaFiles, setSelectedMediaFiles] = useState<MediaFile[]>([]);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
-  const [completedFiles, setCompletedFiles] = useState<Set<string>>(new Set());
-  const [uploadedFileUrls, setUploadedFileUrls] = useState<{id: string, url: string}[]>([]);
-  const [allUploadsComplete, setAllUploadsComplete] = useState(false);
-  const [uploadsComplete, setUploadsComplete] = useState(false);
-  const [hasProcessedUploads, setHasProcessedUploads] = useState(false);
-  const [selectedMediaFiles, setSelectedMediaFiles] = useState<MediaFile[]>([]);
-  const [showMediaSelection, setShowMediaSelection] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentFilter, setCurrentFilter] = useState<'video' | 'audio' | 'all'>('all');
+  const [pagination, setPagination] = useState({
+    total: 0,
+    limit: 20,
+    offset: 0,
+    has_more: false
+  });
+  const [hasLoadedInitial, setHasLoadedInitial] = useState(false);
+  const [isCreatingStream, setIsCreatingStream] = useState(false);
 
   const router = useRouter()
-
   const config = useConfig();
 
-  // Add handler for media file selection
-  const handleMediaFileSelection = (files: MediaFile[]) => {
-    setSelectedMediaFiles(files);
-    toast.success(`${files.length} media file(s) selected`);
-  };
+  // Load user media files function
+  const loadUserMediaFiles = useCallback(async (reset = false) => {
+    try {
+      if (reset) {
+        setLoading(true);
+        setMediaFiles([]);
+        setPagination({ total: 0, limit: 20, offset: 0, has_more: false });
+      } else {
+        setLoadingMore(true);
+      }
 
-  // Add handler to clear selection when modal is hidden without selection
-  const handleModalHide = () => {
-    setShowMediaSelection(false);
-    // Don't reset selectedMediaFiles here - only reset when user explicitly clears
-  };
+      const apiUrl = config.config?.apiUrl || process.env.API_URL || 'http://localhost:8081'
+      const session = await getSession();
+      if (!session) {
+        setError('Please log in to view media files');
+        return;
+      }
+
+      const sessionToken = await session.user?.backendToken;
+      if (!sessionToken) {
+        throw new Error('No session token available');
+      }
+
+      const params = new URLSearchParams({
+        limit: pagination.limit.toString(),
+        offset: (reset ? 0 : pagination.offset).toString(),
+      });
+
+      if (currentFilter && currentFilter !== 'all') {
+        params.append('type', currentFilter);
+      } else {
+        params.append('type', 'all');
+      }
+
+      const response = await api.get<MediaListResponse>(`/api/media/user?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+      });
+
+      const newFiles: MediaFile[] = response.files?.map((file: any) => ({
+        ID: file.id,
+        FileName: file.file_name,
+        FilePath: file.file_path,
+        FileSize: file.file_size,
+        MediaType: file.media_type,
+        MimeType: file.mime_type,
+        CreatedAt: file.created_at,
+        UpdatedAt: file.updated_at,
+      } as MediaFile)) || [];
+
+      if (reset) {
+        setMediaFiles(newFiles);
+      } else {
+        setMediaFiles(prev => [...prev, ...newFiles]);
+      }
+
+      setPagination({
+        total: response.pagination?.total || 0,
+        limit: response.pagination?.limit || 20,
+        offset: response.pagination?.offset || 0,
+        has_more: response.pagination?.has_more || false,
+      });
+    } catch (err) {
+      console.error('Error loading media files:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load media files');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [pagination.limit, pagination.offset, currentFilter, config.config?.apiUrl]);
+
+  // Load media files on component mount
+  useEffect(() => {
+    if (!hasLoadedInitial) {
+      setHasLoadedInitial(true);
+      loadUserMediaFiles(true);
+    }
+  }, [loadUserMediaFiles, hasLoadedInitial]);
+
+  // Reload when filter changes
+  useEffect(() => {
+    if (hasLoadedInitial) {
+      loadUserMediaFiles(true);
+    }
+  }, [currentFilter, loadUserMediaFiles, hasLoadedInitial]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes'
@@ -68,52 +141,58 @@ export default function StreamNewPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-  const getFileIcon = (file: File) => {
-    const fileType = file.type.split('/')[0]
-    if (fileType === 'video') return <FontAwesomeIcon icon={faVideo} className="text-blue-500" />
-    if (fileType === 'audio') return <FontAwesomeIcon icon={faMusic} className="text-green-500" />
-    return <FontAwesomeIcon icon={faFile} className="text-gray-500" />
-  }
-
-  const handleFiles = useCallback((newFiles: FileList) => {
-    const fileArray = Array.from(newFiles).map(file => ({
-      file,
-      id: Math.random().toString(36).substr(2, 9)
-    }))
-    setFiles(prev => [...prev, ...fileArray])
-    setError(null)
-  }, [])
-
-  const removeFile = (id: string) => {
-    setFiles(prev => prev.filter(f => f.id !== id))
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFiles(e.dataTransfer.files)
+  const getMediaTypeIcon = (mediaType: string) => {
+    if (mediaType.startsWith('video/')) {
+      return <FontAwesomeIcon icon={faVideo} className="text-blue-500" />;
+    } else if (mediaType.startsWith('audio/')) {
+      return <FontAwesomeIcon icon={faMusic} className="text-green-500" />;
+    } else {
+      return <FontAwesomeIcon icon={faFile} className="text-gray-500" />;
     }
-  }
+  };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      handleFiles(e.target.files)
+  const handleLoadMore = () => {
+    setPagination(prev => ({ ...prev, offset: prev.offset + prev.limit }));
+    loadUserMediaFiles(false);
+  };
+
+  const handleFileToggle = (fileId: string) => {
+    const isSelected = selectedFileIds.includes(fileId);
+    if (isSelected) {
+      setSelectedFileIds(prev => prev.filter(id => id !== fileId));
+      setSelectedMediaFiles(prev => prev.filter(file => file.ID !== fileId));
+    } else {
+      setSelectedFileIds(prev => [...prev, fileId]);
+      const file = mediaFiles.find(f => f.ID === fileId);
+      if (file) {
+        setSelectedMediaFiles(prev => [...prev, file]);
+      }
     }
-  }
+  };
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleSelectAll = () => {
+    const allFileIds = getFilteredFiles().map(file => file.ID);
+    setSelectedFileIds(allFileIds);
+    setSelectedMediaFiles(getFilteredFiles());
+  };
+
+  const handleClearSelection = () => {
+    setSelectedFileIds([]);
+    setSelectedMediaFiles([]);
+  };
+
+  const getFilteredFiles = () => {
+    return mediaFiles.filter(file => {
+      const matchesSearch = !searchTerm || 
+        file.FileName.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesType = currentFilter === 'all' || 
+        (currentFilter === 'video' && file.MediaType.startsWith('video/')) ||
+        (currentFilter === 'audio' && file.MediaType.startsWith('audio/'));
+      
+      return matchesSearch && matchesType;
+    });
+  };
 
   const formatDateTime = (date: Date) => {
     return date.toLocaleString('en-US', {
@@ -127,57 +206,30 @@ export default function StreamNewPage() {
     }).replace(/(\d+)\/(\d+)\/(\d+),\s*(\d+:\d+:\d+)/, '$3-$1-$2 $4');
   };
 
-  // Memoize the stream creation function to avoid recreation on every render
-  const hasProcessedUploadsRef = useRef(false);
-  const createStreamWithUploadedFiles = useCallback(async (): Promise<boolean> => {
-    console.log('createStreamWithUploadedFiles called with files:', uploadedFileUrls);
-    
-    if (uploadedFileUrls.length === 0) {
-      console.warn('No files available to create stream');
-      setError('No files available to create stream');
-      hasProcessedUploadsRef.current = false; // Reset flag to allow retry
+  const createStreamWithSelectedFiles = useCallback(async (): Promise<boolean> => {
+    if (selectedMediaFiles.length === 0) {
+      setError('Please select media files to create a stream.');
       return false;
     }
 
-    console.log('Uploaded file details:', uploadedFileUrls);
-    
-    // Use the tusFileId (file ID from tus upload) as the media file ID
-    // The backend will handle looking up by either the ID or tusFileId
-    const validFileIds = uploadedFileUrls
-      .filter(file => file.id) // Only include files with an ID
-      .map(file => file.id);   // Use the tusFileId as the media file ID
-    
-    if (validFileIds.length === 0) {
-      console.warn('No valid media file IDs found in:', uploadedFileUrls);
-      setError('No valid media files available. Please upload files again.');
-      hasProcessedUploadsRef.current = false;
-      return false;
-    }
-    
-    console.log('Using media file IDs for stream creation:', validFileIds);
-    
-    console.log('Creating stream with media file IDs:', validFileIds);
+    const validFileIds = selectedMediaFiles.map(file => file.ID);
     
     try {
-      setLoading(true);
+      setIsCreatingStream(true);
       setError('');
       
-      // Create the stream with the uploaded files
       const streamData: CreateStreamNewData = {
         Name: `Stream ${formatDateTime(new Date())}`,
-        Description: 'Stream created from uploaded files',
+        Description: 'Stream created from selected media files',
         MediaFileIds: validFileIds,
-        IsActive: false, // Start inactive by default
+        IsActive: false,
       };
-      
-      console.log('Stream data to be created:', streamData);
       
       const response = await createStreamNewUpload(streamData);
       
       if (response.success && response.stream.id) {
         setSuccess('Stream created successfully!');
         
-        // Navigate to the stream page after a short delay
         setTimeout(() => {
           router.push(`/stream`);
         }, 1500);
@@ -189,205 +241,16 @@ export default function StreamNewPage() {
     } catch (err) {
       console.error('Error creating stream:', err);
       setError(`Failed to create stream: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      hasProcessedUploadsRef.current = false; // Reset flag on error to allow retry
       return false;
     } finally {
-      setLoading(false);
+      setIsCreatingStream(false);
     }
-  }, [uploadedFileUrls, router]);
+  }, [selectedMediaFiles, router]);
 
-  // Handle successful file uploads
-  const handleUploadSuccess = useCallback((uploadUrl: string, fileId: string) => {
-    console.log('Upload success:', { uploadUrl, fileId });
-    
-    // Update completed files
-    setCompletedFiles(prev => {
-      const newCompleted = new Set(prev);
-      newCompleted.add(fileId);
-      return newCompleted;
-    });
-    
-    // Add the file to uploadedFileUrls if not already present
-    setUploadedFileUrls(prev => {
-      if (prev.some(file => file.id === fileId)) {
-        return prev;
-      }
-      return [...prev, { id: fileId, url: uploadUrl }];
-    });
-  }, []);
-  
-  // Effect to handle when all uploads are complete
-  useEffect(() => {
-    if (completedFiles.size > 0 && completedFiles.size === uploadingFiles.size) {
-      setUploadsComplete(true);
-      setAllUploadsComplete(true);
-      
-      // Small delay to ensure all state updates are processed
-      const timer = setTimeout(() => {
-        if (!hasProcessedUploadsRef.current) {
-          hasProcessedUploadsRef.current = true;
-          void createStreamWithUploadedFiles();
-        }
-      }, 100);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [completedFiles, uploadingFiles, createStreamWithUploadedFiles]);
-
-  const handleUploadStart = useCallback((fileId: string) => {
-    console.log('Upload started for file ID:', fileId);
-    setUploadingFiles(prev => {
-      const newUploading = new Set(prev);
-      newUploading.add(fileId);
-      console.log('Currently uploading files:', Array.from(newUploading));
-      return newUploading;
-    });
-  }, []);
-
-  // Handle the completion of uploads and create stream
-  useEffect(() => {
-    let isMounted = true;
-    
-    const finalizeUploads = async () => {
-      if (!isMounted) return;
-      
-      try {
-        console.log('Finalizing uploads with files:', uploadedFileUrls);
-        
-        // Only proceed if we have uploaded files
-        if (uploadedFileUrls.length > 0) {
-          console.log(`Creating stream with ${uploadedFileUrls.length} uploaded files...`);
-          const success = await createStreamWithUploadedFiles();
-          
-          if (!isMounted) return;
-          
-          if (success) {
-            console.log('Stream created successfully, updating state...');
-            setAllUploadsComplete(true);
-            
-            // Clear the file input after successful stream creation
-            if (fileInputRef.current) {
-              fileInputRef.current.value = '';
-            }
-            
-            // Reset states after a delay to allow the success message to be seen
-            const timer = setTimeout(() => {
-              if (!isMounted) return;
-              setUploadedFileUrls([]);
-              setUploadingFiles(new Set());
-              setCompletedFiles(new Set());
-              setAllUploadsComplete(false);
-              setUploadsComplete(false);
-              hasProcessedUploadsRef.current = false;
-            }, 3000);
-            
-            return () => clearTimeout(timer);
-          } else {
-            console.log('Stream creation was not successful');
-            setUploadsComplete(false); // Allow retry
-          }
-        } else {
-          console.error('No files were uploaded successfully');
-          setError('No files were uploaded successfully. Please try again.');
-          setUploadsComplete(false); // Allow retry
-          setAllUploadsComplete(true);
-          setIsUploading(false);
-        }
-      } catch (err) {
-        console.error('Error finalizing uploads:', err);
-        if (isMounted) {
-          setError(`Failed to finalize uploads: ${err instanceof Error ? err.message : 'Unknown error'}`);
-          setUploadsComplete(false); // Allow retry on error
-        }
-      }
-    };
-    
-    if (uploadsComplete && !allUploadsComplete) {
-      console.log('All uploads complete, checking for files...');
-      finalizeUploads();
-    }
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [uploadsComplete, allUploadsComplete, uploadedFileUrls, createStreamWithUploadedFiles, setError, setIsUploading]);
-
-  // Handle when all uploads are complete
-  useEffect(() => {
-    // Only process if we have files, they're all complete, and we haven't processed them yet
-    if (files.length > 0 && 
-        completedFiles.size === files.length && 
-        !hasProcessedUploads && 
-        !uploadsComplete) {
-      console.log('All uploads completed, preparing to create stream...');
-      setHasProcessedUploads(true);
-      setUploadsComplete(true);
-    }
-  }, [completedFiles.size, files.length, hasProcessedUploads, uploadsComplete]);
-
-  // Reset the processed state when new files are selected
-  useEffect(() => {
-    if (files.length > 0) {
-      setHasProcessedUploads(false);
-      setUploadsComplete(false);
-      setAllUploadsComplete(false);
-      setError(null);
-      setSuccess(null);
-    }
-  }, [files.length]);
-
-  const tusUploaderRef = useRef<TusUploaderRef>(null);
-
-
-
-  const handleUpload = async () => {
-    if (files.length === 0 && selectedMediaFiles.length === 0) {
-      setError('Please select files to upload or choose existing media files.');
-      return;
-    }
-
-    setIsUploading(true);
-    setError(null);
-    setSuccess(null);
-    setUploadProgress(0);
-    setUploadingFiles(new Set());
-    setCompletedFiles(new Set());
-    setUploadedFileUrls([]);
-    setAllUploadsComplete(false);
-
-    try {
-      const session = await getSession();
-      if (!session) {
-        throw new Error('Authentication required');
-      }
-
-      if (selectedMediaFiles.length > 0 && files.length === 0) {
-        // Create stream directly with existing media files
-        const streamData: CreateStreamNewData = {
-          Name: `Stream ${formatDateTime(new Date())}`,
-          Description: `Stream created with ${selectedMediaFiles.length} media file(s)`,
-          MediaFileIds: selectedMediaFiles.map(file => file.ID),
-        };
-
-        const result = await createStreamNew(streamData);
-        
-        setSuccess('Stream created successfully with selected media files!');
-        setTimeout(() => {
-          router.push('/stream');
-        }, 2000);
-      } else {
-        // Upload new files first, then create stream
-        if (tusUploaderRef.current) {
-          // Start the upload process
-          tusUploaderRef.current.startUploads();
-        }
-      }
-    } catch (err) {
-      console.error('Upload error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during upload');
-      setIsUploading(false);
-    }
+  const handleCreateStream = async () => {
+    await createStreamWithSelectedFiles();
   };
+
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -396,80 +259,18 @@ export default function StreamNewPage() {
           <div className="px-6 py-4 border-b border-gray-200">
             <h1 className="text-2xl font-bold text-gray-900">Create New Stream</h1>
             <p className="mt-1 text-sm text-gray-600">
-              Upload media files or select existing ones to create a new stream
+              Select existing media files to create a new stream
             </p>
           </div>
           
           <div className="p-6">
-
-            <TusUploaderComp
-              ref={tusUploaderRef}
-              onSuccess={handleUploadSuccess}
-              onUploadStart={handleUploadStart}
-              onProgress={setUploadProgress}
-              onError={(error) => setError(error.message)}
-              onFilesSelected={(selectedFiles) => {
-                const fileArray = selectedFiles.map(file => ({
-                  file,
-                  id: Math.random().toString(36).substr(2, 9)
-                }))
-                setFiles(prev => [...prev, ...fileArray])
-              }}
-              hideMediaList={true}
-              uploadOnly={false}
-            />
-
-            {files.length > 0 && (
-              <div className="mt-6 space-y-3">
-                {files.map(({ file, id }) => (
-                  <div
-                    key={id}
-                    className="flex items-center p-4 bg-gray-50 rounded-lg border border-gray-200"
-                  >
-                    <div className="flex items-center justify-center w-12 h-12 bg-white rounded-lg border border-gray-200 mr-4">
-                      {getFileIcon(file)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 truncate">{file.name}</div>
-                      <div className="text-sm text-gray-500">
-                        {formatFileSize(file.size)}
-                      </div>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeFile(id)
-                      }}
-                      className="ml-4 text-red-500 hover:text-red-700 focus:outline-none"
-                    >
-                      <FontAwesomeIcon icon={faTimes} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {uploadProgress > 0 && uploadProgress < 100 && (
-              <div className="mt-6">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  ></div>
-                </div>
-                <p className="text-center text-gray-600 text-sm mt-2">
-                  Uploading... {uploadProgress}%
-                </p>
-              </div>
-            )}
-
             {error && (
-              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center">
                   <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-500 mr-2" />
                   <h3 className="text-sm font-medium text-red-800">Error</h3>
                   <button
-                    onClick={() => setError(null)}
+                    onClick={() => setError('')}
                     className="ml-auto text-red-500 hover:text-red-700"
                   >
                     <FontAwesomeIcon icon={faTimes} />
@@ -480,51 +281,189 @@ export default function StreamNewPage() {
             )}
 
             {success && (
-              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-sm text-green-700">{success}</p>
               </div>
             )}
 
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={() => setShowMediaSelection(true)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <FontAwesomeIcon icon={faFileVideo} className="mr-2" />
-                Select Existing Media Files ({selectedMediaFiles.length})
-              </button>
+            {/* Search and Filter Controls */}
+            <div className="mb-6 space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search media files..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <select
+                    value={currentFilter}
+                    onChange={(e) => setCurrentFilter(e.target.value as 'all' | 'video' | 'audio')}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="video">Video Only</option>
+                    <option value="audio">Audio Only</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
+            {/* Selection Controls */}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleSelectAll}
+                  disabled={getFilteredFiles().length === 0}
+                  className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                >
+                  Select All ({getFilteredFiles().length})
+                </button>
+                <button
+                  onClick={handleClearSelection}
+                  disabled={selectedFileIds.length === 0}
+                  className="text-sm text-gray-600 hover:text-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+                >
+                  Clear Selection
+                </button>
+              </div>
+              <div className="text-sm text-gray-600">
+                {selectedFileIds.length} of {getFilteredFiles().length} selected
+              </div>
+            </div>
+
+            {/* Selection Summary */}
+            {selectedMediaFiles.length > 0 && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="text-sm font-medium text-blue-800 mb-2">
+                  Selected Files ({selectedMediaFiles.length})
+                </h3>
+                <div className="space-y-1">
+                  {selectedMediaFiles.slice(0, 3).map((file) => (
+                    <div key={file.ID} className="text-sm text-blue-700">
+                      {file.FileName} ({formatFileSize(file.FileSize)})
+                    </div>
+                  ))}
+                  {selectedMediaFiles.length > 3 && (
+                    <div className="text-sm text-blue-600">
+                      ... and {selectedMediaFiles.length - 3} more files
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* File List */}
+            <div className="border border-gray-200 rounded-lg">
+              {loadingMore && mediaFiles.length === 0 ? (
+                <div className="p-8 text-center">
+                  <FontAwesomeIcon icon={faSpinner} className="animate-spin text-gray-400 text-2xl mb-2" />
+                  <p className="text-gray-500">Loading media files...</p>
+                </div>
+              ) : getFilteredFiles().length === 0 ? (
+                <div className="p-8 text-center">
+                  <FontAwesomeIcon icon={faFile} className="text-gray-300 text-3xl mb-4" />
+                  <p className="text-gray-500 mb-2">No media files found</p>
+                  <p className="text-sm text-gray-400">
+                    {searchTerm || currentFilter !== 'all'
+                      ? 'Try adjusting your search or filter criteria'
+                      : 'Upload some media files first to create a stream'}
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {getFilteredFiles().map((file) => {
+                    const isSelected = selectedFileIds.includes(file.ID);
+                    return (
+                      <div
+                        key={file.ID}
+                        className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                          isSelected ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                        }`}
+                        onClick={() => handleFileToggle(file.ID)}
+                      >
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 mr-4">
+                            <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg">
+                              {getMediaTypeIcon(file.MediaType)}
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium text-gray-900 truncate">
+                                {file.FileName}
+                              </h4>
+                              <div className="ml-4 flex-shrink-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleFileToggle(file.ID)}
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                            </div>
+                            <div className="mt-1 flex items-center text-sm text-gray-500">
+                              <span>{formatFileSize(file.FileSize)}</span>
+                              <span className="mx-2">•</span>
+                              <span className="capitalize">
+                                {file.MediaType.split('/')[0]}
+                              </span>
+                              <span className="mx-2">•</span>
+                              <span>{new Date(file.CreatedAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Load More Button */}
+            {pagination.has_more && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loadingMore ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Load More'
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex justify-end">
               <button
-                onClick={handleUpload}
-                disabled={(files.length === 0 && selectedMediaFiles.length === 0) || isUploading}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleCreateStream}
+                disabled={selectedMediaFiles.length === 0 || isCreatingStream}
+                className="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isUploading ? (
+                {isCreatingStream ? (
                   <>
                     <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
-                    Processing...
+                    Creating Stream...
                   </>
                 ) : (
                   <>
-                    <FontAwesomeIcon icon={faUpload} className="mr-2" />
-                    {selectedMediaFiles.length > 0 && files.length === 0
-                      ? `Create Stream (${selectedMediaFiles.length} file${selectedMediaFiles.length > 1 ? 's' : ''})`
-                      : `Upload ${files.length > 0 ? `${files.length} File${files.length > 1 ? 's' : ''}` : ''}`
-                    }
+                    <FontAwesomeIcon icon={faPlay} className="mr-2" />
+                    Create Stream ({selectedMediaFiles.length} file{selectedMediaFiles.length !== 1 ? 's' : ''})
                   </>
                 )}
               </button>
             </div>
-
-            <MediaFileSelectionModal
-              show={showMediaSelection}
-              onHide={() => setShowMediaSelection(false)}
-              onSelect={handleMediaFileSelection}
-              selectedFileIds={selectedMediaFiles.map(file => file.ID)}
-              title="Select Media Files for New Stream"
-              allowMultiple={true}
-              mediaTypeFilter="all"
-            />
           </div>
         </div>
       </div>
