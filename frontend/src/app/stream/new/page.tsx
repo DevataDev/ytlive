@@ -47,7 +47,7 @@ export default function StreamNewPage() {
   const config = useConfig();
 
   // Load user media files function
-  const loadUserMediaFiles = useCallback(async (reset = false) => {
+  const loadUserMediaFiles = useCallback(async (reset = false, customOffset?: number) => {
     try {
       if (reset) {
         setLoading(true);
@@ -69,9 +69,10 @@ export default function StreamNewPage() {
         throw new Error('No session token available');
       }
 
+      const currentOffset = reset ? 0 : (customOffset !== undefined ? customOffset : pagination.offset);
       const params = new URLSearchParams({
         limit: pagination.limit.toString(),
-        offset: (reset ? 0 : pagination.offset).toString(),
+        offset: currentOffset.toString(),
       });
 
       if (currentFilter && currentFilter !== 'all') {
@@ -116,7 +117,7 @@ export default function StreamNewPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [pagination.limit, pagination.offset, currentFilter, config.config?.apiUrl]);
+  }, [pagination.limit, currentFilter, config.config?.apiUrl]);
 
   // Load media files on component mount
   useEffect(() => {
@@ -152,8 +153,8 @@ export default function StreamNewPage() {
   };
 
   const handleLoadMore = () => {
-    setPagination(prev => ({ ...prev, offset: prev.offset + prev.limit }));
-    loadUserMediaFiles(false);
+    const nextOffset = pagination.offset + pagination.limit;
+    loadUserMediaFiles(false, nextOffset);
   };
 
   const handleFileToggle = (fileId: string) => {
