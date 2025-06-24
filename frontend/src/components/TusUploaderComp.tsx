@@ -48,6 +48,7 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [fileProgress, setFileProgress] = useState<Map<string, number>>(new Map());
   const config = useConfig();
 
   const validateFileExtension = (file: File): boolean => {
@@ -214,6 +215,33 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
             return newActive;
           });
           
+          // Remove this file from progress tracking since it failed
+          setFileProgress(prev => {
+            const newProgress = new Map(prev);
+            newProgress.delete(fileId);
+            
+            // Recalculate overall progress without the failed file
+            let totalProgress = 0;
+            let fileCount = 0;
+            
+            uploadIds.forEach(id => {
+               if (newProgress.has(id)) {
+                 const fileProgress = newProgress.get(id) || 0;
+                 totalProgress += fileProgress;
+                 fileCount++;
+               }
+             });
+             
+             const overallProgress = fileCount > 0 ? totalProgress / fileCount : 0;
+             
+             // Defer the progress callback to avoid setState during render
+             setTimeout(() => {
+               onProgress(overallProgress);
+             }, 0);
+            
+            return newProgress;
+          });
+          
           // Create a more user-friendly error message
           let errorMessage = `Failed to upload ${file.name}: `;
           
@@ -247,7 +275,32 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
         },
         onProgress: function (bytesUploaded, bytesTotal) {
           const percentage = ((bytesUploaded / bytesTotal) * 100);
-          onProgress(percentage);
+          
+          // Update progress for this specific file
+          setFileProgress(prev => {
+            const newProgress = new Map(prev);
+            newProgress.set(fileId, percentage);
+            
+            // Calculate overall progress across all files
+            let totalProgress = 0;
+            let fileCount = 0;
+            
+            // Include progress from all files being uploaded
+            uploadIds.forEach(id => {
+              const fileProgress = newProgress.get(id) || 0;
+              totalProgress += fileProgress;
+              fileCount++;
+            });
+            
+            const overallProgress = fileCount > 0 ? totalProgress / fileCount : 0;
+            
+            // Defer the progress callback to avoid setState during render
+            setTimeout(() => {
+              onProgress(overallProgress);
+            }, 0);
+            
+            return newProgress;
+          });
         },
         onSuccess: function () {
           // The fileId was generated at the start of the upload
@@ -268,6 +321,13 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
             const newActive = new Set(prev);
             newActive.delete(fileId);
             return newActive;
+          });
+          
+          // Mark this file as 100% complete in progress tracking
+          setFileProgress(prev => {
+            const newProgress = new Map(prev);
+            newProgress.set(fileId, 100);
+            return newProgress;
           });
           
           // Update completed uploads state first
@@ -325,6 +385,7 @@ const TusUploaderComp = forwardRef<TusUploaderRef, TusUploaderProps>(({
     setSelectedFiles([]);
     setActiveUploads(new Set());
     setCompletedUploads(new Set());
+    setFileProgress(new Map());
     setValidationErrors([]);
     setIsDragging(false);
     if (fileInputRef.current) {
