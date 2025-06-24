@@ -18,6 +18,7 @@ import DeleteConfirmModal from './DeleteConfirmModal';
 import Pagination from './Pagination';
 import { api } from '@/lib/api';
 import { MediaListResponse, Stream } from '@/services/streamService';
+import { renameMediaFile } from '@/services/mediaFileService';
 import MediaUploadModal from './MediaUploadModal';
 
 interface MediaFile {
@@ -63,6 +64,10 @@ export default function MediaManager() {
   const [fileToDelete, setFileToDelete] = useState<MediaFile | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [fileToRename, setFileToRename] = useState<MediaFile | null>(null);
+  const [newFileName, setNewFileName] = useState('');
+  const [renaming, setRenaming] = useState(false);
 
   const limit = 20;
 
@@ -179,6 +184,30 @@ export default function MediaManager() {
 
   const handleUploadComplete = () => {
     fetchMediaFiles(); // Refresh the media files list
+  };
+
+  const handleRename = (file: MediaFile) => {
+    setFileToRename(file);
+    setNewFileName(file.file_name);
+    setShowRenameModal(true);
+  };
+
+  const confirmRename = async () => {
+    if (!fileToRename || !newFileName.trim()) return;
+
+    try {
+      setRenaming(true);
+      await renameMediaFile(fileToRename.id, newFileName.trim());
+      toast.success('File renamed successfully');
+      setShowRenameModal(false);
+      setFileToRename(null);
+      setNewFileName('');
+      fetchMediaFiles();
+    } catch (err) {
+      toast.error('Failed to rename file');
+    } finally {
+      setRenaming(false);
+    }
   };
 
   if (!session) {
@@ -341,6 +370,7 @@ export default function MediaManager() {
                             setShowDetailsModal(true);
                           }}
                           onDelete={handleDelete}
+                          onRename={handleRename}
                           formatFileSize={formatFileSize}
                           formatDuration={formatDuration}
                         />
@@ -388,6 +418,57 @@ export default function MediaManager() {
         onHide={() => setShowUploadModal(false)}
         onUploadComplete={handleUploadComplete}
       />
+
+      {/* Rename Modal */}
+      {showRenameModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Rename File</h3>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  File Name
+                </label>
+                <input
+                  type="text"
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter new file name"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowRenameModal(false);
+                    setFileToRename(null);
+                    setNewFileName('');
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                  disabled={renaming}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmRename}
+                  disabled={renaming || !newFileName.trim()}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {renaming ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} className="animate-spin mr-2" />
+                      Renaming...
+                    </>
+                  ) : (
+                    'Rename'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

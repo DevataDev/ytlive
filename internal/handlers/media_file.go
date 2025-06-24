@@ -837,24 +837,84 @@ func (h *MediaFileHandler) CreateTusUpload(c *gin.Context) {
 	})
 }
 
-func (h *MediaFileHandler) DeleteMediaFileByID(c *gin.Context) {
-	mediaID := c.Param("id")
-	if mediaID == "" {
-		c.JSON(400, gin.H{"error": "media_id required"})
+func (h *MediaFileHandler) RenameMediaFile(c *gin.Context) {
+	mediaFileID := c.Param("id")
+	if mediaFileID == "" {
+		c.JSON(400, gin.H{"error": "media_file_id required"})
 		return
 	}
 
-	// Get media file
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var req struct {
+		FileName string `json:"file_name" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request: file_name is required"})
+		return
+	}
+
+	// Validate file name
+	if strings.TrimSpace(req.FileName) == "" {
+		c.JSON(400, gin.H{"error": "file_name cannot be empty"})
+		return
+	}
+
+	// Verify media file exists and belongs to user
 	var mediaFile models.MediaFile
-	if err := h.DB.First(&mediaFile, "id = ?", mediaID).Error; err != nil {
+	if err := h.DB.First(&mediaFile, "id = ? AND user_id = ?", mediaFileID, userID).Error; err != nil {
 		c.JSON(404, gin.H{"error": "media file not found"})
 		return
 	}
 
-	// Delete file from storage
-	if err := os.Remove(mediaFile.FilePath); err != nil && !os.IsNotExist(err) {
-		c.JSON(500, gin.H{"error": "failed to delete file from storage"})
+	// Update the file name
+	mediaFile.FileName = strings.TrimSpace(req.FileName)
+	mediaFile.UpdatedAt = time.Now()
+
+	if err := h.DB.Save(&mediaFile).Error; err != nil {
+		c.JSON(500, gin.H{"error": "failed to rename media file"})
 		return
+	}
+
+	c.JSON(200, gin.H{"message": "media file renamed successfully", "file": mediaFile})
+}
+
+func (h *MediaFileHandler) DeleteMediaFileByID(c *gin.Context) {
+	mediaFileID := c.Param("id")
+	if mediaFileID == "" {
+		c.JSON(400, gin.H{"error": "media_file_id required"})
+		return
+	}
+
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Verify media file exists and belongs to user
+	var mediaFile models.MediaFile
+	if err := h.DB.First(&mediaFile, "id = ? AND user_id = ?", mediaFileID, userID).Error; err != nil {
+		c.JSON(404, gin.H{"error": "media file not found"})
+		return
+	}
+
+	// Delete the file from filesystem
+	if err := os.Remove(mediaFile.FilePath); err != nil {
+		log.Printf("Failed to delete file from filesystem: %v", err)
+		// Continue with database deletion even if file deletion fails
+	}
+
+	// Delete thumbnail if exists
+	if mediaFile.ThumbnailPath != nil && *mediaFile.ThumbnailPath != "" {
+		if err := os.Remove(*mediaFile.ThumbnailPath); err != nil {
+			log.Printf("Failed to delete thumbnail from filesystem: %v", err)
+		}
 	}
 
 	// delete file .info if exist
@@ -863,9 +923,9 @@ func (h *MediaFileHandler) DeleteMediaFileByID(c *gin.Context) {
 		log.Println("Error deleting file.info:", err)
 	}
 
-	// Delete record from database
+	// Delete from database
 	if err := h.DB.Delete(&mediaFile).Error; err != nil {
-		c.JSON(500, gin.H{"error": "failed to delete media file record"})
+		c.JSON(500, gin.H{"error": "failed to delete media file"})
 		return
 	}
 

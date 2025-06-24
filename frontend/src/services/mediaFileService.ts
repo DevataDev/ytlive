@@ -110,3 +110,18 @@ export const uploadUserMediaFiles = async (
 
   return response;
 };
+
+export const renameMediaFile = async (
+  fileId: string,
+  fileName: string
+): Promise<{ message: string; file: MediaFile }> => {
+  const session = await getSession();
+  const response = await api.put<{ message: string; file: MediaFile }>(
+    `/api/media/${fileId}/rename`,
+    { file_name: fileName },
+    {
+      headers: { Authorization: `Bearer ${session?.user?.backendToken}` },
+    }
+  );
+  return response;
+};

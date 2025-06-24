@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faVideo, faMusic, faEye, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faVideo, faMusic, faEye, faTrash, faEdit } from '@fortawesome/free-solid-svg-icons';
 
 interface MediaFile {
   id: string;
@@ -22,11 +22,12 @@ interface Props {
   file: MediaFile;
   onViewDetails: (file: MediaFile) => void;
   onDelete: (file: MediaFile) => void;
+  onRename: (file: MediaFile) => void;
   formatFileSize: (bytes: number) => string;
   formatDuration: (seconds?: number) => string;
 }
 
-export default function MediaFileRow({ file, onViewDetails, onDelete, formatFileSize, formatDuration }: Props) {
+export default function MediaFileRow({ file, onViewDetails, onDelete, onRename, formatFileSize, formatDuration }: Props) {
   const getMediaTypeIcon = (type: string) => {
     return type === 'video' ? faVideo : faMusic;
   };
@@ -75,6 +76,13 @@ export default function MediaFileRow({ file, onViewDetails, onDelete, formatFile
             title="View details"
           >
             <FontAwesomeIcon icon={faEye} />
+          </button>
+          <button
+            className="text-yellow-600 hover:text-yellow-900 p-1"
+            onClick={() => onRename(file)}
+            title="Rename file"
+          >
+            <FontAwesomeIcon icon={faEdit} />
           </button>
           <button
             className={`p-1 ${file.stream_count > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'}`}
