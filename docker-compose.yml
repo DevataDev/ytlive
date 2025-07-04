@@ -70,6 +70,7 @@ services:
         - VERSION=${VERSION:-dev}
         - COMMIT=${COMMIT:-unknown}
         - BUILD_DATE=${BUILD_DATE:-unknown}
+        - SALES_MODE=${SALES_MODE:-false}
     container_name: ytlive-backend
     volumes:
       - ./uploads:/app/uploads
@@ -101,12 +102,15 @@ services:
       args:
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
         - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+        - NEXT_PUBLIC_SALES_MODE=${SALES_MODE:-false}
     container_name: ytlive-frontend
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
       - NEXTAUTH_URL=${NEXTAUTH_URL}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXT_PUBLIC_SALES_MODE=${SALES_MODE:-false}
+      - SALES_MODE=${SALES_MODE:-false}
       - NODE_ENV=production
     depends_on:
       - backend
