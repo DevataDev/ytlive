@@ -1,17 +1,54 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { isSalesMode } from './config/salesMode';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // Define public paths that don't require authentication
-  const publicPaths = ['/', '/login', '/api/auth', '/api/login', '/api/login/', '/api/config', '/api/config/'];
-  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
+  // Check if the path is a public path that doesn't require authentication
+  const isPublicPath = (
+    pathname === '/' || 
+    pathname === '/login' || 
+    pathname === '/404' || 
+    pathname.startsWith('/api/') // All API routes are public
+  );
   
+
   // If it's a public path, just continue
   if (isPublicPath) {
     return NextResponse.next();
+  }
+  
+  // Check for sales mode restricted paths
+  if (isSalesMode()) {
+    // Define paths that should be blocked in sales mode
+    const restrictedPaths = [
+      '/mirror', 
+      '/tiktok', 
+      '/monitor',
+      '/tiktok/live',
+      '/tiktok/search',
+    ];
+    
+    // More precise path matching for restricted routes
+    const isRestrictedPath = restrictedPaths.some(path => {
+      // Exact match (e.g., '/mirror' matches '/mirror')
+      if (pathname === path) return true;
+      
+      // Path with trailing slash (e.g., '/mirror/' matches '/mirror')
+      if (pathname === `${path}/`) return true;
+      
+      // Path with additional segments (e.g., '/mirror/something' matches '/mirror')
+      if (pathname.startsWith(`${path}/`)) return true;
+      
+      return false;
+    });
+    
+    // If trying to access a restricted path in sales mode, return 404
+    if (isRestrictedPath) {
+      return NextResponse.rewrite(new URL('/404', request.url));
+    }
   }
   
   // Check for authentication

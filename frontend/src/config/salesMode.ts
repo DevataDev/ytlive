@@ -1,12 +1,33 @@
 /**
  * Sales mode configuration
  * This file handles the sales mode feature which hides certain features in the UI
+ * Works in both client and server contexts
  */
 
-// Check if sales mode is enabled from environment variable
-export const SALES_MODE = process.env.NEXT_PUBLIC_SALES_MODE === 'true' || process.env.SALES_MODE === 'true';
-
-// Export a function to check if sales mode is enabled
+/**
+ * Check if sales mode is enabled from environment variable
+ * 
+ * In client components: Uses NEXT_PUBLIC_SALES_MODE
+ * In server components/middleware: Uses process.env.NEXT_PUBLIC_SALES_MODE
+ */
 export const isSalesMode = (): boolean => {
-  return SALES_MODE;
+  // For client-side
+  if (typeof window !== 'undefined') {
+    // Access from window.__ENV__ if available (runtime)
+    if (window.__ENV__ && window.__ENV__.NEXT_PUBLIC_SALES_MODE) {
+      return window.__ENV__.NEXT_PUBLIC_SALES_MODE === 'true';
+    }
+  }
+  
+  // For server-side or fallback
+  return process.env.NEXT_PUBLIC_SALES_MODE === 'true';
 };
+
+// For TypeScript
+declare global {
+  interface Window {
+    __ENV__?: {
+      NEXT_PUBLIC_SALES_MODE?: string;
+    };
+  }
+}

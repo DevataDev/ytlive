@@ -52,16 +52,12 @@ export class DashboardWebSocket {
       
       // Default to localhost if no URL is provided
       this.wsUrl = `${baseUrl || 'ws://localhost:8080'}/ws`;
-      
-      console.log('WebSocket URL:', this.wsUrl);
 
       // Create WebSocket URL with token
       const url = new URL(this.wsUrl);
       
       // Add token as query parameter
       url.searchParams.append('token', token);
-      
-      console.log('Connecting to WebSocket:', url.toString());
       
       // Create WebSocket connection
       this.socket = new WebSocket(url.toString());
@@ -70,7 +66,6 @@ export class DashboardWebSocket {
       this.socket.binaryType = 'arraybuffer';
 
       this.socket.onopen = () => {
-        console.log('WebSocket connected to', this.wsUrl);
         this.reconnectAttempts = 0;
         if (this.callbacks.onOpen) {
           this.callbacks.onOpen();
@@ -87,7 +82,6 @@ export class DashboardWebSocket {
       };
 
       this.socket.onclose = () => {
-        console.log('WebSocket disconnected');
         if (this.callbacks.onClose) {
           this.callbacks.onClose();
         }
@@ -108,12 +102,10 @@ export class DashboardWebSocket {
 
   private reconnect() {
     if (!this.shouldReconnect || this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('Max reconnection attempts reached');
       return;
     }
 
     this.reconnectAttempts++;
-    console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
     
     setTimeout(() => {
       this.connect();
