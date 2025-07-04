@@ -53,17 +53,20 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
   const [hasLoadedInitial, setHasLoadedInitial] = useState(false);
   const config = useConfig();
 
-  const loadUserMediaFiles = useCallback(async (reset = false) => {
+  const loadUserMediaFiles = useCallback(async (reset = false, newOffset?: number) => {
     try {
+      // Use the provided newOffset if available, otherwise use pagination.offset
+      // For reset operations, always use 0
+      const currentOffset = reset ? 0 : (newOffset !== undefined ? newOffset : pagination.offset);
+      
       if (reset) {
         setLoading(true);
         setMediaFiles([]);
-        setPagination({ total: 0, limit: 20, offset: 0, has_more: false });
+        setPagination(prev => ({ ...prev, offset: 0, has_more: false }));
       } else {
         setLoadingMore(true);
       }
 
-      const apiUrl = config.config?.apiUrl || process.env.API_URL || 'http://localhost:8081'
       const session = await getSession();
       if (!session) {
         setError('Please log in to view media files');
@@ -77,7 +80,7 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
 
       const params = new URLSearchParams({
         limit: pagination.limit.toString(),
-        offset: (reset ? 0 : pagination.offset).toString(),
+        offset: currentOffset.toString(),
       });
 
       if (currentFilter && currentFilter !== 'all') {
@@ -109,10 +112,11 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
         setMediaFiles(prev => [...prev, ...newFiles]);
       }
 
+      // The API returns the offset we sent, so we just use that
       setPagination({
         total: response.pagination?.total || 0,
         limit: response.pagination?.limit || 20,
-        offset: response.pagination?.offset || 0,
+        offset: currentOffset,
         has_more: response.pagination?.has_more || false,
       });
     } catch (err) {
@@ -122,7 +126,9 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [pagination.limit, pagination.offset, currentFilter]);
+  // Remove pagination from dependencies to prevent infinite loops
+  // We access pagination inside but don't need to recreate this function when it changes
+  }, [currentFilter, config.config?.apiUrl]);
 
   // Load media files when modal opens
   useEffect(() => {
@@ -130,7 +136,7 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
       setHasLoadedInitial(true);
       loadUserMediaFiles(true);
     }
-  }, [show, loadUserMediaFiles, hasLoadedInitial]);
+  }, [show, hasLoadedInitial]); // Remove loadUserMediaFiles from dependencies
 
   // Reset when modal closes
   useEffect(() => {
@@ -150,14 +156,27 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
 
   // Reload when filter changes
   useEffect(() => {
-    if (hasLoadedInitial) {
+    if (hasLoadedInitial && show) {
       loadUserMediaFiles(true);
     }
-  }, [currentFilter, loadUserMediaFiles, hasLoadedInitial]);
+  }, [currentFilter, hasLoadedInitial, show]); // Remove loadUserMediaFiles from dependencies
 
   const handleLoadMore = () => {
-    setPagination(prev => ({ ...prev, offset: prev.offset + prev.limit }));
-    loadUserMediaFiles(false);
+    if (loadingMore) return; // Prevent multiple simultaneous loads
+    
+    // Calculate the new offset
+    const newOffset = pagination.offset + pagination.limit;
+    
+    // Pass the new offset directly to loadUserMediaFiles
+    // This ensures we use the correct offset regardless of state update timing
+    loadUserMediaFiles(false, newOffset);
+    
+    // Update the pagination state (this will be overwritten by the API response)
+    // but we set it here to provide immediate UI feedback
+    setPagination(prev => ({
+      ...prev,
+      offset: newOffset
+    }));
   };
 
   const handleFileToggle = (fileId: string) => {
@@ -380,7 +399,7 @@ const MediaFileSelectionModal: React.FC<MediaFileSelectionModalProps> = ({
                               Loading...
                             </>
                           ) : (
-                            `Load More (${pagination.total - pagination.offset} remaining)`
+                            `Load More Files`
                           )}
                         </button>
                       </div>
