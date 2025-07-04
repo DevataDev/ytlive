@@ -17,6 +17,8 @@ COPY . .
 # 5. Build the Next.js app without environment variables
 # This creates a universal build that can work with any API URL
 ENV NODE_ENV=production
+ARG SALES_MODE
+ENV SALES_MODE=${SALES_MODE:-false}
 RUN npm run build
 
 # --- Final stage: run optimized production build ---
