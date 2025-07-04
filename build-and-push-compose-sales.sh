@@ -6,7 +6,7 @@ set -e
 # Configuration
 DOCKER_REGISTRY="registry.ppn.net.id"  # Change this to your Docker registry
 PROJECT_NAME="ytlive-sales"    # Based on your go.mod module name
-IMAGE_NAME="ytlive"
+IMAGE_NAME="ytlivesales"
 TAG="sales"  # Fixed tag for sales mode deployment
 
 # Colors for output
