@@ -7,7 +7,7 @@ set -e
 DOCKER_REGISTRY="registry.ppn.net.id"  # Change this to your Docker registry
 PROJECT_NAME="ytlive"    # Based on your go.mod module name
 IMAGE_NAME="ytlive"
-TAG="${1:-latest}"
+TAG="sales"  # Fixed tag for sales mode deployment
 
 # Colors for output
 RED='\033[0;31m'
@@ -29,7 +29,9 @@ export COMMIT="$COMMIT"
 export BUILD_DATE="$BUILD_DATE"
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
 export NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-}"
-export SALES_MODE="${SALES_MODE:-false}"
+# Force sales mode to be enabled
+export SALES_MODE="true"
+export NEXT_PUBLIC_SALES_MODE="true"
 
 echo -e "${GREEN}Building with docker-compose...${NC}"
 docker compose build --no-cache

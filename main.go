@@ -18,6 +18,8 @@ import (
 	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/job"
+	// metrics package is used by handlers.NewMetricsHandler
+	_ "windsorf-youtube-live/internal/metrics"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/redisutil"
 	"windsorf-youtube-live/internal/tiktok"
@@ -558,6 +560,12 @@ func main() {
 
 	tiktokSignHandler := handlers.NewTiktokSignHandler(cfg)
 	r.POST("/api/tiktok/sign", tiktokSignHandler.Sign)
+
+	// Initialize and register Prometheus metrics handler
+	metricsHandler := handlers.NewMetricsHandler(db)
+	// Expose metrics endpoint without authentication for Prometheus scraping
+	// In production, consider securing this endpoint with IP allowlisting or basic auth
+	r.GET("/metrics", metricsHandler.PrometheusHandler())
 
 	r.GET("/api/version", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
