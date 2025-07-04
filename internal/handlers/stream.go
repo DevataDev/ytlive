@@ -324,8 +324,14 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 	timezone := req.Timezone
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid timezone"})
-		return
+		log.Printf("Failed to load location: %v", err)
+		//set to timezone to "Asia/Jakarta"
+		timezone = "Asia/Jakarta"
+		loc, err = time.LoadLocation(timezone)
+		if err != nil {
+			log.Printf("Failed to load location: %v", err)
+			return
+		}
 	}
 	start, err1 := time.ParseInLocation("2006-01-02T15:04", req.ScheduledAt, loc)
 	end, err2 := time.ParseInLocation("2006-01-02T15:04", req.StoppedAt, loc)
@@ -337,8 +343,13 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 	now := time.Now().UTC()
 
 	if err1 != nil || err2 != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date/time format"})
-		return
+		// try to parse 2025-07-04T04:14:00.000Z
+		start, err1 = time.Parse("2006-01-02T15:04:05.999Z", req.ScheduledAt)
+		end, err2 = time.Parse("2006-01-02T15:04:05.999Z", req.StoppedAt)
+		if err1 != nil || err2 != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date/time format"})
+			return
+		}
 	}
 	if start.Before(now) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Start time cannot be earlier than the current time"})
