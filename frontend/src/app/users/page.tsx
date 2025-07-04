@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 import UserForm from './components/UserForm';
 import PasswordUpdateModal from './components/PasswordUpdateModal';
 import DeleteUserModal from './components/DeleteUserModal';
+import { isSalesMode } from '@/config/salesMode';
 
 export default function UsersPage() {
   const { data: session, status } = useSession();
@@ -44,12 +45,19 @@ export default function UsersPage() {
     try {
       setLoading(true);
       const data = await userService.getUsers(page, pagination.limit, search);
-      setUsers(data.users);
+      
+      // Filter out the default admin user (username: admin) when in sales mode
+      let filteredUsers = data.users;
+      if (isSalesMode()) {
+        filteredUsers = data.users.filter(user => user.username !== 'admin');
+      }
+      
+      setUsers(filteredUsers);
       setPagination({
         page: data.page,
         limit: data.limit,
-        total: data.total,
-        totalPages: data.totalPages,
+        total: isSalesMode() ? data.total - 1 : data.total, // Adjust total count when filtering
+        totalPages: Math.ceil((isSalesMode() ? data.total - 1 : data.total) / data.limit),
       });
       setError(null);
     } catch (err: any) {

@@ -21,6 +21,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import styles from './header.module.css';
 import { faTiktok } from '@fortawesome/free-brands-svg-icons';
+import { isSalesMode } from '@/config/salesMode';
 
 export default function Header() {
   const { data: session } = useSession();
@@ -95,50 +96,55 @@ export default function Header() {
                 <span>Stream</span>
               </Link>
               
-              <Link 
-                href="/mirror" 
-                className={`px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 transition-colors ${
-                  isActive('/mirror') 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <FontAwesomeIcon icon={faPlay} className="h-4 w-4" />
-                <span>Mirror</span>
-              </Link>
+              {/* Only show Mirror menu if not in sales mode */}
+              {!isSalesMode() && (
+                <Link 
+                  href="/mirror" 
+                  className={`px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 transition-colors ${
+                    isActive('/mirror') 
+                      ? 'bg-blue-100 text-blue-700' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faPlay} className="h-4 w-4" />
+                  <span>Mirror</span>
+                </Link>
+              )}
               
-              {/* TikTok Dropdown */}
-              <div className="relative group">
-                <button className={`px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 transition-colors ${
-                  pathname.startsWith('/tiktok') 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}>
-                  <FontAwesomeIcon icon={faTiktok} className="h-4 w-4" />
-                  <span>TikTok</span>
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                  <div className="py-1">
-                    <Link 
-                      href="/tiktok/live" 
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                    >
-                      <FontAwesomeIcon icon={faBroadcastTower} className="h-4 w-4 mr-3" />
-                      <span>Live</span>
-                    </Link>
-                    <Link 
-                      href="/tiktok/search" 
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                    >
-                      <FontAwesomeIcon icon={faSearch} className="h-4 w-4 mr-3" />
-                      <span>Search</span>
-                    </Link>
+              {/* TikTok Dropdown - Only show if not in sales mode */}
+              {!isSalesMode() && (
+                <div className="relative group">
+                  <button className={`px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 transition-colors ${
+                    pathname.startsWith('/tiktok') 
+                      ? 'bg-blue-100 text-blue-700' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}>
+                    <FontAwesomeIcon icon={faTiktok} className="h-4 w-4" />
+                    <span>TikTok</span>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="py-1">
+                      <Link 
+                        href="/tiktok/live" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        <FontAwesomeIcon icon={faBroadcastTower} className="h-4 w-4 mr-3" />
+                        <span>Live</span>
+                      </Link>
+                      <Link 
+                        href="/tiktok/search" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        <FontAwesomeIcon icon={faSearch} className="h-4 w-4 mr-3" />
+                        <span>Search</span>
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
               
               {session?.user?.isAdmin && (
                 <Link 
@@ -154,6 +160,7 @@ export default function Header() {
                 </Link>
               )}
               
+              {!isSalesMode() && (
               <Link 
                 href="/monitor" 
                 className={`px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 transition-colors ${
@@ -165,6 +172,7 @@ export default function Header() {
                 <FontAwesomeIcon icon={faChartLine} className="h-4 w-4" />
                 <span>Monitor</span>
               </Link>
+              )}
               
               <Link 
                 href="/channels" 
@@ -276,44 +284,52 @@ export default function Header() {
                 <span>Stream</span>
               </Link>
               
-              <Link 
-                href="/mirror" 
-                className={`block px-3 py-2 rounded-md text-base font-medium flex items-center space-x-3 ${
-                  isActive('/mirror') 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <FontAwesomeIcon icon={faPlay} className="h-5 w-5" />
-                <span>Mirror</span>
-              </Link>
+              {/* Only show Mirror menu if not in sales mode */}
+              {!isSalesMode() && (
+                <Link 
+                  href="/mirror" 
+                  className={`block px-3 py-2 rounded-md text-base font-medium flex items-center space-x-3 ${
+                    isActive('/mirror') 
+                      ? 'bg-blue-100 text-blue-700' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <FontAwesomeIcon icon={faPlay} className="h-5 w-5" />
+                  <span>Mirror</span>
+                </Link>
+              )}
               
-              <Link 
-                href="/tiktok/live" 
-                className={`block px-3 py-2 rounded-md text-base font-medium flex items-center space-x-3 ${
-                  isActive('/tiktok/live') 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <FontAwesomeIcon icon={faBroadcastTower} className="h-5 w-5" />
-                <span>TikTok Live</span>
-              </Link>
-              
-              <Link 
-                href="/tiktok/search" 
-                className={`block px-3 py-2 rounded-md text-base font-medium flex items-center space-x-3 ${
-                  isActive('/tiktok/search') 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <FontAwesomeIcon icon={faSearch} className="h-5 w-5" />
-                <span>TikTok Search</span>
-              </Link>
+              {/* Only show TikTok menus if not in sales mode */}
+              {!isSalesMode() && (
+                <>
+                  <Link 
+                    href="/tiktok/live" 
+                    className={`block px-3 py-2 rounded-md text-base font-medium flex items-center space-x-3 ${
+                      isActive('/tiktok/live') 
+                        ? 'bg-blue-100 text-blue-700' 
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <FontAwesomeIcon icon={faBroadcastTower} className="h-5 w-5" />
+                    <span>TikTok Live</span>
+                  </Link>
+                  
+                  <Link 
+                    href="/tiktok/search" 
+                    className={`block px-3 py-2 rounded-md text-base font-medium flex items-center space-x-3 ${
+                      isActive('/tiktok/search') 
+                        ? 'bg-blue-100 text-blue-700' 
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <FontAwesomeIcon icon={faSearch} className="h-5 w-5" />
+                    <span>TikTok Search</span>
+                  </Link>
+                </>
+              )}
               
               {session?.user?.isAdmin && (
                 <Link 
@@ -330,18 +346,20 @@ export default function Header() {
                 </Link>
               )}
               
-              <Link 
-                href="/monitor" 
-                className={`block px-3 py-2 rounded-md text-base font-medium flex items-center space-x-3 ${
-                  isActive('/monitor') 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <FontAwesomeIcon icon={faChartLine} className="h-5 w-5" />
-                <span>Monitor</span>
-              </Link>
+              {!isSalesMode() && (
+                <Link 
+                  href="/monitor" 
+                  className={`block px-3 py-2 rounded-md text-base font-medium flex items-center space-x-3 ${
+                    isActive('/monitor') 
+                      ? 'bg-blue-100 text-blue-700' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <FontAwesomeIcon icon={faChartLine} className="h-5 w-5" />
+                  <span>Monitor</span>
+                </Link>
+              )}
               
               <Link 
                 href="/channels" 

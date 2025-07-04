@@ -14,11 +14,12 @@ RUN npm install
 # 4. Copy source
 COPY . .
 
-# 5. Build the Next.js app without environment variables
-# This creates a universal build that can work with any API URL
+# 5. Build the Next.js app with environment variables
+# This creates a build that includes the SALES_MODE setting
 ENV NODE_ENV=production
 ARG SALES_MODE
-ENV SALES_MODE=${SALES_MODE:-false}
+ENV NEXT_PUBLIC_SALES_MODE=${SALES_MODE:-false}
+RUN echo "Building with SALES_MODE=${SALES_MODE:-false}"
 RUN npm run build
 
 # --- Final stage: run optimized production build ---
@@ -31,6 +32,8 @@ WORKDIR /app
 COPY --from=builder /app ./
 
 # 8. Set env for production
+ARG SALES_MODE
+ENV NEXT_PUBLIC_SALES_MODE=${SALES_MODE:-false}
 ENV NODE_ENV=production
 
 # 9. Create entrypoint script for runtime configuration
