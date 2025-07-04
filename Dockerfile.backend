@@ -31,7 +31,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo \
 FROM alpine:latest
 
 # Install runtime dependencies
-RUN apk --no-cache add ca-certificates ffmpeg sqlite
+RUN apk --no-cache add ca-certificates ffmpeg sqlite tzdata
 
 WORKDIR /app
 
