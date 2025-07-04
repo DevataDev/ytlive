@@ -33,6 +33,9 @@ export NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-}"
 export SALES_MODE="true"
 export NEXT_PUBLIC_SALES_MODE="true"
 
+echo -e "${GREEN}Sales mode enabled${NC}"
+echo -e "${GREEN}Tag: ${TAG}${NC}"
+
 echo -e "${GREEN}Building with docker-compose...${NC}"
 docker compose build --no-cache
 
