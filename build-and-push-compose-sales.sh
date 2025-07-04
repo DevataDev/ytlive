@@ -41,6 +41,11 @@ docker compose build --no-cache
 
 # Tag images for registry
 echo -e "${BLUE}Tagging images...${NC}"
+echo "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:${TAG}"
+echo "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:latest"
+echo "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}"
+echo "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:latest"
+
 docker tag "$(docker compose images -q backend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:${TAG}"
 docker tag "$(docker compose images -q backend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:latest"
 docker tag "$(docker compose images -q frontend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}"
