@@ -19,6 +19,8 @@ import (
 	"windsorf-youtube-live/internal/redisutil"
 	"windsorf-youtube-live/internal/utils"
 
+	_ "time/tzdata"
+
 	"github.com/gin-gonic/gin"
 	"github.com/oklog/ulid/v2"
 	"gorm.io/gorm"
@@ -330,6 +332,7 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 		loc, err = time.LoadLocation(timezone)
 		if err != nil {
 			log.Printf("Failed to load location: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid timezone"})
 			return
 		}
 	}
