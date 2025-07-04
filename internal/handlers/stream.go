@@ -324,16 +324,21 @@ func (h *StreamHandler) SetSchedule(c *gin.Context) {
 
 	// convert start and end from local time to utc
 	timezone := req.Timezone
+	// Ensure timezone data is loaded
+	_ = "time/tzdata"
+	
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
-		log.Printf("Failed to load location: %v", err)
-		//set to timezone to "Asia/Jakarta"
+		log.Printf("Failed to load location %s: %v", timezone, err)
+		// Try with a fallback timezone
 		timezone = "Asia/Jakarta"
 		loc, err = time.LoadLocation(timezone)
 		if err != nil {
-			log.Printf("Failed to load location: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid timezone"})
-			return
+			log.Printf("Failed to load fallback location %s: %v", timezone, err)
+			// Last resort: use UTC
+			timezone = "UTC"
+			loc = time.UTC
+			log.Printf("Using UTC timezone as fallback")
 		}
 	}
 	start, err1 := time.ParseInLocation("2006-01-02T15:04", req.ScheduledAt, loc)
