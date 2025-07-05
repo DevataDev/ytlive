@@ -5,6 +5,8 @@ import { isSalesMode } from './config/salesMode';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  console.log(`Sales Mode : ${isSalesMode()}`)
   
   // Check if the path is a public path that doesn't require authentication
   const isPublicPath = (
