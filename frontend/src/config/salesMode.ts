@@ -13,6 +13,20 @@
 export const isSalesMode = (): boolean => {
     // hardcoded sales mode
     return true;
+  // For client-side
+  if (typeof window !== 'undefined') {
+    // Access from window.__ENV__ if available (runtime)
+    if (window.__ENV__ && window.__ENV__.NEXT_PUBLIC_SALES_MODE) {
+        console.log("Sales mode found in window.__ENV__");
+      return window.__ENV__.NEXT_PUBLIC_SALES_MODE === 'true';
+    } else {
+        console.log("Sales mode not found in window.__ENV__");
+        return process.env.NEXT_PUBLIC_SALES_MODE === 'true';
+    }
+  }
+  
+  // For server-side or fallback
+  return process.env.NEXT_PUBLIC_SALES_MODE === 'true';
 };
 
 // For TypeScript
