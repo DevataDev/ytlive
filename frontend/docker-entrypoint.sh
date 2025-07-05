@@ -8,6 +8,8 @@ export API_BASE_URL="${API_BASE_URL:-${NEXT_PUBLIC_API_BASE_URL:-http://localhos
 export NEXTAUTH_URL="${NEXTAUTH_URL:-http://localhost:3000}"
 export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-your-secret-key}"
 export JWT_SECRET="${JWT_SECRET:-your-jwt-secret-key}"
+export SALES_MODE="${SALES_MODE:-false}"
+export NEXT_PUBLIC_SALES_MODE="${SALES_MODE:-false}"
 
 echo "Starting frontend with configuration:"
 echo "API_URL: $API_URL"
@@ -15,6 +17,8 @@ echo "API_BASE_URL: $API_BASE_URL"
 echo "NEXTAUTH_URL: $NEXTAUTH_URL"
 echo "NEXTAUTH_SECRET: [HIDDEN]"
 echo "JWT_SECRET: [HIDDEN]"
+echo "SALES_MODE: $SALES_MODE"
+echo "NEXT_PUBLIC_SALES_MODE: $NEXT_PUBLIC_SALES_MODE"
 
 
 # # Injecting to .env.local
