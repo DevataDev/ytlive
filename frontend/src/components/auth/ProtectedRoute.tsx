@@ -26,7 +26,7 @@ export default function ProtectedRoute({
   }, []);
 
   useEffect(() => {
-    if (status === 'unauthenticated' && !AUTH_PUBLIC_ROUTES.includes(pathname)) {
+    if (status === 'unauthenticated' && !AUTH_PUBLIC_ROUTES.includes(pathname || '')) {
       router.push(redirectPath);
     }
   }, [status, pathname, redirectPath, router]);
@@ -43,7 +43,7 @@ export default function ProtectedRoute({
   }
 
   // If not authenticated and not on a public route, the useEffect will handle the redirect
-  if (status !== 'authenticated' && !AUTH_PUBLIC_ROUTES.includes(pathname)) {
+  if (status !== 'authenticated' && !AUTH_PUBLIC_ROUTES.includes(pathname || '')) {
     return null;
   }
 

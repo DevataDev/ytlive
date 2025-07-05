@@ -22,8 +22,8 @@ function CallbackContent() {
 
     useEffect(() => {
         const handleCallback = async () => {
-            const code = searchParams.get('code');
-            const state = searchParams.get('state');
+            const code = searchParams?.get('code');
+            const state = searchParams?.get('state');
             const session = await getSession();
             const jwtToken = session?.user?.backendToken;
 

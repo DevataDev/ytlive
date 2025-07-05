@@ -52,8 +52,8 @@ interface UseAuthReturn {
 export function useAuth(): UseAuthReturn {
   const { data: session, status, update } = useSession();
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const pathname = usePathname() || '';
+  const searchParams = useSearchParams() || '';
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);

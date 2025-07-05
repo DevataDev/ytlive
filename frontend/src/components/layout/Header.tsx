@@ -26,7 +26,7 @@ import { isSalesMode } from '@/config/salesMode';
 export default function Header() {
   const { data: session } = useSession();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const [isLoading, setIsLoading] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -115,7 +115,7 @@ export default function Header() {
               {!isSalesMode() && (
                 <div className="relative group">
                   <button className={`px-3 py-2 rounded-md text-sm font-medium flex items-center space-x-2 transition-colors ${
-                    pathname.startsWith('/tiktok') 
+                    (pathname.startsWith('/tiktok')) 
                       ? 'bg-blue-100 text-blue-700' 
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}>
