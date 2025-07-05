@@ -37,7 +37,7 @@ export default function Footer() {
                 className={styles.versionBadge} 
                 title={versionInfo.buildTime ? `Build: ${versionInfo.commit}\nDate: ${new Date(versionInfo.buildTime).toLocaleString()}` : ''}
               >
-                {versionInfo.version ? `v${versionInfo.version} (${versionInfo.commit?.slice(0, 7)})` : 'v0.0.0'}
+                {versionInfo.version ? `${versionInfo.version} (${versionInfo.commit?.slice(0, 7)})` : 'v0.0.0'}
               </span>
             </div>
           </div>

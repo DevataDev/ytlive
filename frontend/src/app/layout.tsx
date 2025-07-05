@@ -8,6 +8,7 @@ import { SessionProvider } from 'next-auth/react';
 import { ToastContainer } from 'react-toastify';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+
 import { usePathname } from 'next/navigation';
 
 // Load Inter font with all weights
@@ -39,10 +40,11 @@ export default function RootLayout({
     '/login/[...nextauth]',
   ];
 
-  const shouldHide = hideHeaderFooter.includes(pathname);
+  const shouldHide = hideHeaderFooter.includes(pathname || '');
 
   return (
     <html lang="en" className={inter.variable}>
+      
       <body className="flex flex-col min-h-screen">
           <SessionProvider>
             <AuthProvider>

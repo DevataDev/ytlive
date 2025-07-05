@@ -56,9 +56,9 @@ export default function LandingPage() {
               <Link href="/login" className="px-4 py-2 text-primary-600 border border-primary-600 rounded-lg hover:bg-primary-600 hover:text-white transition-all">
                 Sign In
               </Link>
-              <Link href="/register" className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all">
+              {/* <Link href="/register" className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all">
                 Get Started
-              </Link>
+              </Link> */}
             </div>
             
             {/* Mobile menu button */}
@@ -112,18 +112,18 @@ export default function LandingPage() {
                 for content creators and businesses.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/register" className="px-8 py-4 bg-yellow-500 text-gray-900 rounded-lg font-semibold text-lg hover:bg-yellow-400 transition-all transform hover:scale-105">
-                  Start Streaming Free
+                <Link href="https://yuklive.com" target="_blank" className="px-8 py-4 bg-yellow-500 text-gray-900 rounded-lg font-semibold text-lg hover:bg-yellow-400 transition-all transform hover:scale-105">
+                  Order Now
                 </Link>
                 <button className="px-8 py-4 border-2 border-white text-white rounded-lg font-semibold text-lg hover:bg-white hover:text-gray-900 transition-all flex items-center justify-center space-x-2">
                   <FontAwesomeIcon icon={faPlay} />
                   <span>Watch Demo</span>
                 </button>
               </div>
-              <div className="flex items-center space-x-2 text-gray-200">
+              {/* <div className="flex items-center space-x-2 text-gray-200">
                 <FontAwesomeIcon icon={faCheckCircle} className="text-green-400" />
                 <span>No credit card required • 14-day free trial</span>
-              </div>
+              </div> */}
             </div>
             <div className="flex justify-center">
               <div className="relative max-w-md w-full">
@@ -257,35 +257,35 @@ export default function LandingPage() {
           <div className="grid lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
             <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 transform hover:-translate-y-2 transition-all duration-300">
               <div className="text-center mb-8">
-                <h5 className="text-xl font-bold text-primary-600 mb-4">Starter</h5>
+                <h5 className="text-xl font-bold text-primary-600 mb-4">Pemula</h5>
                 <div className="mb-2">
-                  <span className="text-5xl font-bold text-gray-900">$9</span>
-                  <span className="text-gray-600">/month</span>
+                  <span className="text-5xl font-bold text-gray-900">IDR 250.000</span>
+                  <span className="text-gray-600">/bulan</span>
                 </div>
-                <p className="text-gray-600">Perfect for beginners</p>
+                <p className="text-gray-600">Cocok untuk streamer pemula!</p>
               </div>
               
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                  <span>Stream to 3 platforms</span>
+                  <span>CPU: 4 Core</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                  <span>5 hours recording storage</span>
+                  <span>RAM: 8 GB</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                  <span>Basic analytics</span>
+                  <span>Storage: 250 GB</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                  <span>Email support</span>
+                  <span>20++ Live Streaming (Fair Usage Bandwidth)</span>
                 </li>
               </ul>
               
-              <Link href="/register" className="w-full block text-center px-6 py-3 border border-primary-600 text-primary-600 rounded-lg font-semibold hover:bg-primary-600 hover:text-white transition-all">
-                Start Free Trial
+              <Link href="https://yuklive.com/" target="_blank" className="w-full block text-center px-6 py-3 border border-primary-600 text-primary-600 rounded-lg font-semibold hover:bg-primary-600 hover:text-white transition-all">
+                Order Now
               </Link>
             </div>
             
@@ -297,76 +297,72 @@ export default function LandingPage() {
               <div className="text-center mb-8 mt-4">
                 <h5 className="text-xl font-bold mb-4">Professional</h5>
                 <div className="mb-2">
-                  <span className="text-5xl font-bold">$29</span>
-                  <span className="text-primary-200">/month</span>
+                  <span className="text-5xl font-bold">IDR 450.000</span>
+                  <span className="text-primary-200">/bulan</span>
                 </div>
-                <p className="text-primary-200">For serious creators</p>
+                <p className="text-primary-200">Cocok untuk anda yang membutuhkan spesifikasi yang lebih tinggi</p>
               </div>
               
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-yellow-400" />
-                  <span>Stream to 10 platforms</span>
+                  <span>CPU : 8 Core</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-yellow-400" />
-                  <span>50 hours recording storage</span>
+                  <span>RAM : 16 GB</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-yellow-400" />
-                  <span>Advanced analytics</span>
+                  <span>Storage : 500 GB</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-yellow-400" />
-                  <span>Priority support</span>
-                </li>
-                <li className="flex items-center space-x-3">
-                  <FontAwesomeIcon icon={faCheckCircle} className="text-yellow-400" />
-                  <span>Custom branding</span>
+                  <span>20++ Live Streaming (Fair Usage Bandwidth)</span>
                 </li>
               </ul>
               
-              <Link href="/register" className="w-full block text-center px-6 py-3 bg-yellow-400 text-gray-900 rounded-lg font-bold hover:bg-yellow-300 transition-all">
-                Start Free Trial
+              <Link href="https://yuklive.com" className="w-full block text-center px-6 py-3 bg-yellow-400 text-gray-900 rounded-lg font-bold hover:bg-yellow-300 transition-all">
+                Order Now
               </Link>
             </div>
             
             <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 transform hover:-translate-y-2 transition-all duration-300">
               <div className="text-center mb-8">
-                <h5 className="text-xl font-bold text-primary-600 mb-4">Enterprise</h5>
+                <h5 className="text-xl font-bold text-primary-600 mb-4">Dedicated</h5>
                 <div className="mb-2">
-                  <span className="text-5xl font-bold text-gray-900">$99</span>
-                  <span className="text-gray-600">/month</span>
+                  <span className="text-5xl font-bold text-gray-900">Harga Spesial</span>
+                  {/* <span className="text-gray-600">/bulan</span> */}
                 </div>
-                <p className="text-gray-600">For large organizations</p>
+                <p className="text-gray-600">Untuk anda yang membutuhkan spesifikasi yang sesuai dengan kebutuhan anda</p>
               </div>
               
               <ul className="space-y-4 mb-8">
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                  <span>Unlimited platforms</span>
+                  <span>Custom Spesifikasi Server</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                  <span>Unlimited storage</span>
+                  <span>Bandwidth Shared 1 Gbps (Fair Usage)</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                  <span>White-label solution</span>
+                  <span>Dedicated IP</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                  <span>24/7 phone support</span>
+                  <span>Dedicated Hardware</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                  <span>API access</span>
+                  <span>Pembayaran bulanan</span>
                 </li>
               </ul>
               
-              <button className="w-full px-6 py-3 border border-primary-600 text-primary-600 rounded-lg font-semibold hover:bg-primary-600 hover:text-white transition-all">
+              <Link href="https://yuklive.com" className="w-full px-6 py-3 border border-primary-600 text-primary-600 rounded-lg font-semibold hover:bg-primary-600 hover:text-white transition-all">
                 Contact Sales
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -378,12 +374,12 @@ export default function LandingPage() {
           <h2 className="text-4xl md:text-5xl font-bold mb-6">Ready to Start Streaming?</h2>
           <p className="text-xl mb-8 text-gray-100">Join thousands of creators who trust YukLive for their multi-platform streaming needs.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register" className="px-10 py-4 bg-yellow-500 text-gray-900 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-all transform hover:scale-105">
-              Start Your Free Trial
+            <Link href="https://yuklive.com" target="_blank" className="px-10 py-4 bg-yellow-500 text-gray-900 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-all transform hover:scale-105">
+              Order Now
             </Link>
-            <button className="px-10 py-4 border-2 border-white text-white rounded-lg font-bold text-lg hover:bg-white hover:text-gray-900 transition-all">
+            {/* <button className="px-10 py-4 border-2 border-white text-white rounded-lg font-bold text-lg hover:bg-white hover:text-gray-900 transition-all">
               Schedule a Demo
-            </button>
+            </button> */}
           </div>
         </div>
       </section>

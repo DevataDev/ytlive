@@ -288,6 +288,8 @@ export default function DashboardPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">CPU Usage</p>
                 <p className="text-3xl font-bold text-gray-900">{stats.cpu.toFixed(1)}%</p>
+                {/* Placeholder to align with memory used/total line */}
+                <p className="text-xs text-gray-500 mt-1 invisible">0 / 0</p>
               </div>
               <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <FontAwesomeIcon icon={faMicrochip} className="h-6 w-6 text-blue-600" />

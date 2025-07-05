@@ -11,22 +11,20 @@
  * In server components/middleware: Uses process.env.NEXT_PUBLIC_SALES_MODE
  */
 export const isSalesMode = (): boolean => {
-    // hardcoded sales mode
-    return true;
-  // For client-side
-//   if (typeof window !== 'undefined') {
-//     // Access from window.__ENV__ if available (runtime)
-//     if (window.__ENV__ && window.__ENV__.NEXT_PUBLIC_SALES_MODE) {
-//         console.log("Sales mode found in window.__ENV__");
-//       return window.__ENV__.NEXT_PUBLIC_SALES_MODE === 'true';
-//     } else {
-//         console.log("Sales mode not found in window.__ENV__");
-//         return process.env.NEXT_PUBLIC_SALES_MODE === 'true';
-//     }
-//   }
-  
-//   // For server-side or fallback
-//   return process.env.NEXT_PUBLIC_SALES_MODE === 'true';
+    // Determine sales mode dynamically
+  // Client-side execution
+  if (typeof window !== 'undefined') {
+    // Prefer value injected at runtime from _document.tsx
+    if (window.__ENV__ && typeof window.__ENV__.NEXT_PUBLIC_SALES_MODE !== 'undefined') {
+      return window.__ENV__.NEXT_PUBLIC_SALES_MODE === 'true';
+    }
+
+    // Fall back to value inlined at build time
+    return process.env.NEXT_PUBLIC_SALES_MODE === 'true';
+  }
+
+  // Server-side or middleware execution
+  return process.env.NEXT_PUBLIC_SALES_MODE === 'true';
 };
 
 // For TypeScript
