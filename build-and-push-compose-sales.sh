@@ -7,7 +7,7 @@ set -e
 DOCKER_REGISTRY="registry.ppn.net.id"  # Change this to your Docker registry
 PROJECT_NAME="ytsales"    # Based on your go.mod module name
 IMAGE_NAME="ytlivesales"
-TAG="sales"  # Fixed tag for sales mode deployment
+TAG="${1:-latest} "  # Fixed tag for sales mode deployment
 
 # Colors for output
 RED='\033[0;31m'
@@ -46,10 +46,10 @@ echo "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:latest"
 echo "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}"
 echo "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:latest"
 
-docker tag "$(docker compose images -q backend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:${TAG}"
-docker tag "$(docker compose images -q backend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:latest"
-docker tag "$(docker compose images -q frontend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}"
-docker tag "$(docker compose images -q frontend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:latest"
+docker tag "$(docker images -q ytlive-backend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:${TAG}"
+docker tag "$(docker images -q ytlive-backend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-backend:latest"
+docker tag "$(docker images -q ytlive-frontend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:${TAG}"
+docker tag "$(docker images -q ytlive-frontend)" "${DOCKER_REGISTRY}/${PROJECT_NAME}/${IMAGE_NAME}-frontend:latest"
 
 # Push images
 echo -e "${BLUE}Pushing images...${NC}"
