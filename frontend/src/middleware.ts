@@ -10,11 +10,12 @@ export async function middleware(request: NextRequest) {
   const isPublicPath = (
     pathname === '/' || 
     pathname === '/login' || 
+    pathname.startsWith('/login/') || // Include any subpaths of login
     pathname === '/404' || 
-    pathname.startsWith('/api/') // All API routes are public
+    pathname.startsWith('/api/') || // All API routes are public
+    pathname.startsWith('/login') // All sales routes are public
   );
   
-
   // If it's a public path, just continue
   if (isPublicPath) {
     return NextResponse.next();
@@ -62,8 +63,17 @@ export async function middleware(request: NextRequest) {
   }
   
   // If we have a token and trying to access login, redirect to dashboard
-  if (token && pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  if (token && (pathname === '/login' || pathname.startsWith('/login/'))) {
+    // Get the callbackUrl if it exists, otherwise default to dashboard
+    const callbackUrl = request.nextUrl.searchParams.get('callbackUrl') || '/dashboard';
+    
+    // If the callbackUrl is also a login page, redirect to dashboard to break the loop
+    if (callbackUrl === '/login' || callbackUrl.startsWith('/login/')) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    
+    // Otherwise redirect to the callbackUrl
+    return NextResponse.redirect(new URL(callbackUrl, request.url));
   }
   
   // If we have a token, continue with the request
