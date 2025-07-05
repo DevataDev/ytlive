@@ -16,6 +16,9 @@ export const isSalesMode = (): boolean => {
     // Access from window.__ENV__ if available (runtime)
     if (window.__ENV__ && window.__ENV__.NEXT_PUBLIC_SALES_MODE) {
       return window.__ENV__.NEXT_PUBLIC_SALES_MODE === 'true';
+    } else {
+        console.log("Sales mode not found in window.__ENV__");
+        return process.env.NEXT_PUBLIC_SALES_MODE === 'true';
     }
   }
   
