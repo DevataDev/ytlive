@@ -1,0 +1,32 @@
+# === Ops Project Git Ignore ===
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/.turbo/
+frontend/dist/
+frontend/.cache/
+frontend/.env*
+frontend/out/
+
+# Backend (Go)
+backend/bin/
+backend/build/
+backend/coverage.out
+backend/.env*
+
+# Agent (Go)
+agent/bin/
+agent/build/
+agent/coverage.out
+
+# Common
+*.log
+.DS_Store
+.idea/
+.vscode/
+.env*
+*.local
+npm-debug.log*
+
+# OS / Editor junk
+Thumbs.db
