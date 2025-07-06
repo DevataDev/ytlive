@@ -252,7 +252,7 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 	// find media files
 	var streamMediaFiles []models.StreamMediaFile
 	if err := database.Preload("MediaFile").Where("stream_id = ?", streamID).Find(&streamMediaFiles).Error; err != nil {
-	    return nil, 0, err
+		return nil, 0, err
 	}
 
 	// Deduplicate media files
@@ -260,10 +260,10 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 	var uniqueStreamMediaFiles []models.StreamMediaFile
 
 	for _, smf := range streamMediaFiles {
-	    if !uniqueMediaFileIDs[smf.MediaFileID] {
-	        uniqueMediaFileIDs[smf.MediaFileID] = true
-	        uniqueStreamMediaFiles = append(uniqueStreamMediaFiles, smf)
-	    }
+		if !uniqueMediaFileIDs[smf.MediaFileID] {
+			uniqueMediaFileIDs[smf.MediaFileID] = true
+			uniqueStreamMediaFiles = append(uniqueStreamMediaFiles, smf)
+		}
 	}
 
 	streamMediaFiles = uniqueStreamMediaFiles
@@ -332,7 +332,20 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 	}
 
 	var cmd *exec.Cmd
-	args := buildFfmpegArgsWithMediaFiles(maxBitrate, loopVideo, worker.Videos, worker.Audio, streamKey, rtmpUrl, loopCount)
+	var args []string
+	// check if stream only have video files only then used the previous buildFfmpegArgs function
+	if len(worker.Audio) == 0 {
+		if len(worker.Videos) == 0 {
+			return nil, 0, errors.New("no video found")
+		}
+		videoFilePath := worker.Videos[0].FilePath
+		args = buildFfmpegArgs(maxBitrate, loopVideo, videoFilePath, streamKey, rtmpUrl, loopCount)
+	} else {
+		if len(worker.Videos) == 0 {
+			return nil, 0, errors.New("no video found")
+		}
+		args = buildFfmpegArgsWithMediaFiles(maxBitrate, loopVideo, worker.Videos, worker.Audio, streamKey, rtmpUrl, loopCount)
+	}
 
 	log.Println("FFmpeg command (stream id: ", streamID, "):", strings.Join(args, " "))
 
