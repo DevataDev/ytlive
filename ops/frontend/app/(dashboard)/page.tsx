@@ -10,12 +10,25 @@ type Server = {
   status: "online" | "offline" | "unknown";
 };
 
-const mockServers: Server[] = [
-  { id: "srv-1", name: "Edge-01", address: "10.0.1.10", status: "online" },
-  { id: "srv-2", name: "Edge-02", address: "10.0.1.11", status: "offline" },
-  { id: "srv-3", name: "Transcoder", address: "10.0.2.20", status: "online" },
-  { id: "srv-4", name: "Monitor", address: "10.0.3.30", status: "unknown" },
-];
+// Fetch server list from backend API
+async function fetchServers(): Promise<Server[]> {
+  const base = process.env.NEXT_PUBLIC_OPS_API_URL ?? "http://localhost:8080";
+  const url = `${base}/servers`;
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) {
+      throw new Error(`API responded with ${res.status}`);
+    }
+    return res.json();
+  } catch (err) {
+    console.error("fetchServers() error:", err);
+    // Rethrow so caller can decide how to render
+    throw err;
+  }
+}
+
+
+// Fallback: adjust typing later
 
 function statusColor(status: Server["status"]): string {
   switch (status) {
@@ -28,10 +41,17 @@ function statusColor(status: Server["status"]): string {
   }
 }
 
-export default function DashboardHome() {
+export default async function DashboardHome() {
+  let servers: Server[] = [];
+  let errMsg: string | null = null;
+  try {
+    servers = await fetchServers();
+  } catch {
+    errMsg = "Unable to load servers right now. Please try again later.";
+  }
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {mockServers.map((srv) => (
+      {servers.map((srv) => (
         <Card key={srv.id} className="hover:shadow-md transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-2">
@@ -49,6 +69,11 @@ export default function DashboardHome() {
           </CardContent>
         </Card>
       ))}
+      {errMsg && (
+        <p className="col-span-full mt-2 text-sm text-red-600" role="alert">
+          {errMsg}
+        </p>
+      )}
     </div>
   );
 }
