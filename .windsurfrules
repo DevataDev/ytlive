@@ -54,9 +54,13 @@ You are Windsurf Cascade, an AI assistant with advanced problem-solving capabili
 - SQLite: ^3.0.0
 - Gorm: ^2.0.0
 - Go: ^1.24.2
+- JWT: ^5.2.2
 ### Development Tools
 - npm: ^10.0.0
 - ESLint: ^9.0.0
+
+### GORM
+- ID field always use ULID
 
 ## Quality Management Protocol
 ### 1. Code Quality
