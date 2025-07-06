@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
+	netio "github.com/shirou/gopsutil/v3/net"
 )
 
 var (
@@ -16,6 +17,7 @@ var (
 	once     sync.Once
 
 	// System metrics
+
 	cpuUsage = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "ytlive_system_cpu_usage_percent",
 		Help: "Current CPU usage in percent",
@@ -29,6 +31,17 @@ var (
 	memoryTotal = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "ytlive_system_memory_total_bytes",
 		Help: "Total system memory in bytes",
+	})
+
+	// Network metrics (bytes per second)
+	netUploadRate = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "ytlive_system_network_upload_bytes_per_second",
+		Help: "Network upload rate in bytes per second (aggregated)",
+	})
+
+	netDownloadRate = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "ytlive_system_network_download_bytes_per_second",
+		Help: "Network download rate in bytes per second (aggregated)",
 	})
 
 	goroutines = promauto.NewGauge(prometheus.GaugeOpts{
@@ -107,6 +120,11 @@ func Init() {
 	})
 }
 
+// previous values for calculating network speed
+var prevBytesSent uint64
+var prevBytesRecv uint64
+var prevTime time.Time
+
 // collectSystemMetrics periodically collects system metrics
 func collectSystemMetrics() {
 	for {
@@ -121,6 +139,22 @@ func collectSystemMetrics() {
 		if err == nil {
 			memoryUsage.Set(float64(memInfo.Used))
 			memoryTotal.Set(float64(memInfo.Total))
+		}
+
+		// Network upload/download rate
+		ioCounters, err := netio.IOCounters(false)
+		if err == nil && len(ioCounters) > 0 {
+			curr := ioCounters[0]
+			if !prevTime.IsZero() {
+				elapsed := time.Since(prevTime).Seconds()
+				if elapsed > 0 {
+					netUploadRate.Set(float64(curr.BytesSent-prevBytesSent) / elapsed)
+					netDownloadRate.Set(float64(curr.BytesRecv-prevBytesRecv) / elapsed)
+				}
+			}
+			prevBytesSent = curr.BytesSent
+			prevBytesRecv = curr.BytesRecv
+			prevTime = time.Now()
 		}
 
 		// Goroutines count
