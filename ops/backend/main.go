@@ -8,14 +8,9 @@ import (
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-)
 
-type Server struct {
-	ID      string `json:"id" gorm:"primaryKey"`
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	Status  string `json:"status"`
-}
+	"github.com/devatadev/ytlive/ops/backend/models"
+)
 
 func main() {
 	_ = godotenv.Load()
@@ -28,18 +23,18 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect database: ", err)
 	}
-	_ = db.AutoMigrate(&Server{})
+	_ = db.AutoMigrate(&models.Server{})
 
 	r := gin.Default()
 
 	r.GET("/servers", func(c *gin.Context) {
-		var servers []Server
+		var servers []models.Server
 		db.Find(&servers)
 		c.JSON(200, servers)
 	})
 
 	r.POST("/servers", func(c *gin.Context) {
-		var s Server
+		var s models.Server
 		if err := c.ShouldBindJSON(&s); err != nil {
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
