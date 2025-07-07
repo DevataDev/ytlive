@@ -195,6 +195,7 @@ cat <<'CFG' > config.yaml
 CFG
 
 docker compose pull
+docker compose down
 docker compose up -d
 `, string(caBytes), tmplData["DOCKER_USERNAME"], tmplData["DOCKER_PASSWORD"], string(composeBytes), envRendered.String(), cfgRendered.String())
 
