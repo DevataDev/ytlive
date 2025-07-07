@@ -75,6 +75,17 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 			log.Println("shell_session missing channel")
 			return
 		}
+		// update task result
+		_, _ = cli.R().
+			SetHeader("X-Agent-Key", key).
+			SetHeader("X-Agent-Name", AgentName).
+			SetHeader("X-Agent-Version", AgentVersion).
+			SetBody(map[string]interface{}{
+				"task_id": t.ID,
+				"status":  "running",
+				"output":  "",
+			}).
+			Post(backend + "/agent/tasks/result")
 		log.Println("shell_session channel:", ch)
 		var wsURL string
 		if strings.HasPrefix(backend, "https://") {
@@ -91,6 +102,17 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 		conn, _, err := dialer.Dial(wsURL, header)
 		if err != nil {
 			log.Println("ws dial err:", err)
+			// update task result
+			_, _ = cli.R().
+				SetHeader("X-Agent-Key", key).
+				SetHeader("X-Agent-Name", AgentName).
+				SetHeader("X-Agent-Version", AgentVersion).
+				SetBody(map[string]interface{}{
+					"task_id": t.ID,
+					"status":  "error",
+					"output":  err.Error(),
+				}).
+				Post(backend + "/agent/tasks/result")
 			return
 		}
 		cmd := exec.Command("bash")
@@ -98,12 +120,34 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 		log.Println("pty started")
 		if errP != nil {
 			log.Println("pty start error:", errP)
+			// update task result
+			_, _ = cli.R().
+				SetHeader("X-Agent-Key", key).
+				SetHeader("X-Agent-Name", AgentName).
+				SetHeader("X-Agent-Version", AgentVersion).
+				SetBody(map[string]interface{}{
+					"task_id": t.ID,
+					"status":  "error",
+					"output":  errP.Error(),
+				}).
+				Post(backend + "/agent/tasks/result")
 			conn.Close()
 			return
 		}
 		// Ensure the PTY is closed when done.
 		defer func() {
 			_ = ptmx.Close()
+			// update task result
+			_, _ = cli.R().
+				SetHeader("X-Agent-Key", key).
+				SetHeader("X-Agent-Name", AgentName).
+				SetHeader("X-Agent-Version", AgentVersion).
+				SetBody(map[string]interface{}{
+					"task_id": t.ID,
+					"status":  "ok",
+					"output":  "finished",
+				}).
+				Post(backend + "/agent/tasks/result")
 			conn.Close()
 		}()
 		// Pipe data between websocket and PTY
