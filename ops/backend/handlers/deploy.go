@@ -119,10 +119,26 @@ func (h *DeployHandler) runDeployment(depID string, srv models.Server) {
 	pwd, _ := srv.GetPassword(h.EncryptionKey)
 
 	// read template files
-	caBytes, _ := os.ReadFile("ops/backend/install/ca.crt")
-	composeBytes, _ := os.ReadFile("ops/backend/install/docker-compose.yml")
-	envBytes, _ := os.ReadFile("ops/backend/install/.env.tmpl")
-	cfgBytes, _ := os.ReadFile("ops/backend/install/config.yaml.tmpl")
+	caBytes, err := os.ReadFile("install/ca.crt")
+	if err != nil {
+		log("read ca.crt error: " + err.Error())
+		return
+	}
+	composeBytes, err := os.ReadFile("install/docker-compose.yml")
+	if err != nil {
+		log("read docker-compose.yml error: " + err.Error())
+		return
+	}
+	envBytes, err := os.ReadFile("install/.env.tmpl")
+	if err != nil {
+		log("read .env.tmpl error: " + err.Error())
+		return
+	}
+	cfgBytes, err := os.ReadFile("install/config.yaml.tmpl")
+	if err != nil {
+		log("read config.yaml.tmpl error: " + err.Error())
+		return
+	}
 
 	// fetch secrets from DB
 	tmplData := make(map[string]string)
@@ -131,6 +147,7 @@ func (h *DeployHandler) runDeployment(depID string, srv models.Server) {
 	for _, sec := range secrets {
 		if val, err := sec.Get(h.EncryptionKey); err == nil {
 			tmplData[sec.Key] = val
+			fmt.Println("added secret: " + sec.Key + "=" + val)
 		}
 	}
 
@@ -142,6 +159,9 @@ func (h *DeployHandler) runDeployment(depID string, srv models.Server) {
 	cfgRendered := bytes.Buffer{}
 	cfgTpl, _ := template.New("cfg").Parse(string(cfgBytes))
 	_ = cfgTpl.Execute(&cfgRendered, tmplData)
+
+	fmt.Println("env rendered: " + envRendered.String())
+	fmt.Println("cfg rendered: " + cfgRendered.String())
 
 	// build remote script
 	script := fmt.Sprintf(`set -e

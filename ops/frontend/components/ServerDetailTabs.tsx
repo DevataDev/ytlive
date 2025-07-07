@@ -1,6 +1,8 @@
 "use client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsRoot, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useState } from "react";
+import DeploymentModal from "@/components/DeploymentModal";
 
 type Server = {
   id: string;
@@ -10,6 +12,7 @@ type Server = {
 };
 
 export default function ServerDetailTabs({ server }: { server: Server }) {
+  const [depOpen, setDepOpen] = useState(false);
   return (
     <TabsRoot defaultValue="overview">
       <TabsList>
@@ -23,7 +26,7 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
       <TabsContent value="overview">
         <Card className="mt-4">
           <CardHeader>
-            <CardTitle>Overview</CardTitle>
+            <CardTitle className="flex justify-between items-center">Overview <button onClick={() => setDepOpen(true)} className="text-sm underline">Deploy</button></CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="grid grid-cols-2 gap-y-1">
@@ -160,6 +163,7 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
           </CardContent>
         </Card>
       </TabsContent>
+          <DeploymentModal open={depOpen} onOpenChange={setDepOpen} serverId={server.id} />
     </TabsRoot>
   );
 }
