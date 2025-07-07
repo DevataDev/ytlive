@@ -120,6 +120,7 @@ func main() {
 	deHandler := handlers.NewDockerEnvHandler(db)
 	api.GET("/servers/:id/docker", deHandler.ListContainers)
 	api.GET("/servers/:id/env", deHandler.ListEnv)
+    api.POST("/servers/:id/containers/update", deHandler.UpdateContainer)
 
 	// deployment routes
 	depHandler := handlers.NewDeployHandler(db, encKey)

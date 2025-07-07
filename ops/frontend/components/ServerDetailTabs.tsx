@@ -60,7 +60,8 @@ type Server = {
 };
 
 function DockerTable({ serverId }: { serverId: string }) {
-  const { data, isLoading, error } = useSWR(backend + `/servers/${serverId}/docker`, fetcher, { refreshInterval: 30000 });
+  const { data, isLoading, error, mutate } = useSWR(backend + `/servers/${serverId}/docker`, fetcher, { refreshInterval: 30000 });
+  const [updating, setUpdating] = useState<string | null>(null);
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p className="text-red-500">Failed to load</p>;
   return (
@@ -72,6 +73,7 @@ function DockerTable({ serverId }: { serverId: string }) {
           <th className="py-1">Status</th>
           <th className="py-1">Ports</th>
           <th className="py-1">Uptime</th>
+          <th className="py-1">Action</th>
         </tr>
       </thead>
       <tbody>
@@ -82,6 +84,41 @@ function DockerTable({ serverId }: { serverId: string }) {
             <td className="py-1 capitalize">{c.status}</td>
             <td className="py-1">{c.ports}</td>
             <td className="py-1">{c.uptime}</td>
+            <td className="py-1">
+              <button
+                className="text-blue-600 hover:underline disabled:opacity-50"
+                disabled={updating === c.name}
+                onClick={async () => {
+                  if (!backend) return;
+                  if (!confirm(`Pull latest image and restart container '${c.name}'?`)) return;
+                  setUpdating(c.name);
+                  try {
+                    const token = getToken();
+                    const res = await fetch(`${backend}/servers/${serverId}/containers/update`, {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                      },
+                      credentials: "include",
+                      body: JSON.stringify({ image: c.image, container: c.name }),
+                    });
+                    if (!res.ok) {
+                      const txt = await res.text();
+                      throw new Error(txt || res.statusText);
+                    }
+                    alert(`Update task for '${c.name}' triggered`);
+                    await mutate(); // refresh docker list
+                  } catch (err: any) {
+                    alert(`Error: ${err.message}`);
+                  } finally {
+                    setUpdating(null);
+                  }
+                }}
+              >
+                {updating === c.name ? "Updating..." : "Update"}
+              </button>
+            </td>
           </tr>
         ))}
       </tbody>

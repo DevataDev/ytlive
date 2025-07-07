@@ -207,6 +207,7 @@ func updateDockerContainer(image, container string) (string, error) {
 			return output.String(), err
 		}
 	}
+	log.Println("Response update : ", output.String())
 	return output.String(), nil
 }
 
