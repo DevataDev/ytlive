@@ -20,10 +20,10 @@ type Props = { params: { serverId: string } };
 export const metadata = { title: "Server Details" };
 
 export default async function ServerPage({ params }: Props) {
-  const { serverId } = await params;
-  const cookieStore = await cookies();
+  const { serverId } = params;
+  const cookieStore = cookies();
   const jwt = cookieStore.get('ops_jwt')?.value || getToken();
-  const res = await fetch(`${process.env.NEXT_PUBLIC_OPS_API_URL ?? 'http://localhost:8080'}/servers/${serverId}`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_OPS_BACKEND_URL ?? 'http://localhost:8080'}/servers/${serverId}`, {
     cache: 'no-store',
     headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
     credentials: 'include',
