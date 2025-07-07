@@ -1,0 +1,38 @@
+app:
+  port: 8080
+  host: "0.0.0.0"
+  mode: "production"
+  sql: "mysql"
+
+mysql:
+  user: "root"
+  password: "{{ .MYSQL_PASSWORD }}"
+  host: "mysql"
+  port: 3306
+  dbname: "ytlive"
+  params: "parseTime=true"
+
+
+sqlite:
+  db: "ytlive.db"
+
+default:
+  password: "{{ .DEFAULT_PASSWORD }}"
+
+google:
+  apiKey: "{{ .GOOGLE_API_KEY }}"
+
+tiktok:
+  userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+  cookie: "_ttp=2RXXS98uv8ncnof1n6vKoBOxd86; uid_tt=e2cbefe681f1984db548da6a2e8e94f564984e89e143dd03677c8da264cafc65; uid_tt_ss=e2cbefe681f1984db548da6a2e8e94f564984e89e143dd03677c8da264cafc65; sid_tt=5c988c6c78e2480c2327cc31c7e5477a; sessionid=5c988c6c78e2480c2327cc31c7e5477a; sessionid_ss=5c988c6c78e2480c2327cc31c7e5477a; store-idc=alisg; store-country-code=sg; store-country-code-src=uid; tt-target-idc=alisg; tt-target-idc-sign=Wl_MMyb3O-ibTt87T7P81W24Pa7IAzkbhLDhqGAI2YPqI-sjU0NYihxBtUWd4KU6hKquUx_1eWDPcjFnr_8DTTVD6UDLR50qQDUuLOkwod7oD9OC-LAsiiC1LLpUr1TodauIypiDjirY9HZzvTg3tblNgbXm0L8W6mrT24M5YgYakogsEMErYGzK2rBeYm5BHTC0TnaxDa1kJk8eDz9xuKH-arNJgt_7UURe7vAkrJ9zChgF84qqxtCd-WbN-U4m_zZb416KxHbplmjpx0jM69tqPcvOo_UcACRa9UppzoTxzKjmy0WEJFSJFMARWrDudcMxKIZAtmeLmsCqXd7x_KTqIw_Ez_EJ7MQQJIUBfMtR-lwMrvLu3j2CTwjyG6X1jpYXQ0X-aWz-jIG4GSoxpXqEodYptiaKZmJ0Ul8DBPF4dD2JeGCDKAU7LfqMWfSgHIVSA1HCQYvf-QTMAqtPxYm9bNmqRHAhBwLs1xGsfaHKzrVGPfrR5XYZ70L_4A10; cookie-consent={%22ga%22:false%2C%22af%22:false%2C%22fbp%22:false%2C%22lip%22:false%2C%22bing%22:false%2C%22ttads%22:false%2C%22reddit%22:false%2C%22hubspot%22:false%2C%22version%22:%22v10%22}; sid_guard=5c988c6c78e2480c2327cc31c7e5477a%7C1743846715%7C15552000%7CThu%2C+02-Oct-2025+09%3A51%3A55+GMT; sid_ucp_v1=1.0.0-KDY1MTdmY2NhNTE4OTM3ZTMzNjE5YTliMTc2YWM5ZmU2MjNjZTRhOTAKIQiGiLyQk5jA1mYQu_rDvwYYswsgDDDegbS1BjgIQBJIBBADGgJteSIgNWM5ODhjNmM3OGUyNDgwYzIzMjdjYzMxYzdlNTQ3N2E; ssid_ucp_v1=1.0.0-KDY1MTdmY2NhNTE4OTM3ZTMzNjE5YTliMTc2YWM5ZmU2MjNjZTRhOTAKIQiGiLyQk5jA1mYQu_rDvwYYswsgDDDegbS1BjgIQBJIBBADGgJteSIgNWM5ODhjNmM3OGUyNDgwYzIzMjdjYzMxYzdlNTQ3N2E; tt_chain_token=dyxVZ1iE8lBMbKiCjcXomA==; tt_csrf_token=1KnqNjcZ-QhSJ7KT8ORkqP8og8FLHUWywfRc; csrf_session_id=c956da3baecacb4607f8954167c21789; csrfToken=MMD4coMg-9rf9zr9Nq-aaekqkceme8rb92Rw; s_v_web_id=verify_ma77nsaf_mdGnKeO6_F70F_40GO_AfyC_QctUcllQD6Lz; ttwid=1%7C9dJ8467F4wdFJocWRlAD_LAgZ5C9dXfIgA7uG4OMYzo%7C1746218214%7Cdc6b012e94b03fd3fd83b8ca45d76866929df86be15915eec0fce2974cc95282; store-country-sign=MEIEDPEsOBo7pHtdg2__9gQg7Ej_xwQovZ-_35AJTcDxH_kEyB24dMvnETW9XvEYANwEEONEK-4PTWAAYQtRKEJ7R9Q; odin_tt=b92b4e8138a1ba8ef9404e4fa23e43f3576489a3a2341e6878a09eba6bd42a113d1dcb9251453c4f8b465615124b0b096586aa37d8ec396b479301fa735b9f942c17ad7627350c11d023754e76f028a7; msToken=wE4f4j5CaOpHQ7hggc3TI5gYO4-V_BtEMRCzsi6mkbilZn-uDBLWEg4w23bzyWjfOUFCc84Dov66GJuF8YP-xqr9aJD6g0NbxCgnTdDjA3Lj3cCs53PtNa9dtiebOg2fM8IqqJqhjir-hTppgvQpN0hg"
+
+youtube:
+  redirectUrl: "https://{DOMAIN}/youtube/callback"
+  clientId: "625756580611-96upqga5fb3cj3h2vgj3p6rdvgfm299i.apps.googleusercontent.com"
+  clientSecret: "{{ .YOUTUBE_CLIENT_SECRET }}"
+
+redis:
+  host: "redis"
+  port: 6379
+  db: 0
+  password: "{{ .REDIS_PASSWORD }}"

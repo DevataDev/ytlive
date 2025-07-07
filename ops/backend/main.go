@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect database: ", err)
 	}
-	_ = db.AutoMigrate(&models.Server{}, &models.User{}, &models.Deployment{})
+	_ = db.AutoMigrate(&models.Server{}, &models.User{}, &models.Deployment{}, &models.Secret{})
 
 	r := gin.Default()
 

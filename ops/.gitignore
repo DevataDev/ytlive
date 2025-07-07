@@ -12,7 +12,12 @@ frontend/out/
 backend/bin/
 backend/build/
 backend/coverage.out
-backend/.env*
+backend/.env
+backend/.env.local
+backend/.env.production
+backend/.env.staging
+backend/.env.test
+backend/.env.test.*
 
 # Agent (Go)
 agent/bin/
@@ -24,7 +29,12 @@ agent/coverage.out
 .DS_Store
 .idea/
 .vscode/
-.env*
+.env
+.env.local
+.env.production
+.env.staging
+.env.test
+.env.test.*
 *.local
 npm-debug.log*
 
