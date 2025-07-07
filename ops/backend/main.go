@@ -1,17 +1,20 @@
 package main
 
 import (
-	"log"
-	"os"
+    "log"
+    "os"
+    "strings"
 
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+    "github.com/gin-contrib/cors"
+    "github.com/gin-gonic/gin"
+    "github.com/joho/godotenv"
+    "gorm.io/driver/postgres"
+    "gorm.io/gorm"
 
-	"github.com/devatadev/ytlive/ops/backend/auth"
-	"github.com/devatadev/ytlive/ops/backend/middleware"
-	"github.com/devatadev/ytlive/ops/backend/models"
+    "github.com/devatadev/ytlive/ops/backend/auth"
+    "github.com/devatadev/ytlive/ops/backend/handlers"
+    "github.com/devatadev/ytlive/ops/backend/middleware"
+    "github.com/devatadev/ytlive/ops/backend/models"
 )
 
 func main() {
@@ -28,6 +31,20 @@ func main() {
 	_ = db.AutoMigrate(&models.Server{}, &models.User{})
 
 	r := gin.Default()
+
+    // --- CORS configuration ---
+    corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
+    corsConfig := cors.Config{
+        AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+        AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+        AllowCredentials: true,
+    }
+    if len(corsOrigins) == 1 && corsOrigins[0] == "" {
+        corsConfig.AllowAllOrigins = true
+    } else {
+        corsConfig.AllowOrigins = corsOrigins
+    }
+    r.Use(cors.New(corsConfig))
 
 	// --- Auth routes ---
 	authGroup := r.Group("/auth")
@@ -50,7 +67,9 @@ func main() {
 			return
 		}
 		token, _ := auth.Generate(u.ID, u.Role)
-		c.JSON(200, gin.H{"token": token})
+        // 24h cookie
+        c.SetCookie("ops_jwt", token, 86400, "/", "", false, true)
+        c.JSON(200, gin.H{"token": token})
 	})
 
 	// --- Protected routes ---
@@ -63,19 +82,13 @@ func main() {
 		c.JSON(200, servers)
 	})
 
-	api.POST("/servers", func(c *gin.Context) {
-		var s models.Server
-		if err := c.ShouldBindJSON(&s); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
-			return
-		}
-		if s.ID == "" {
-			c.JSON(400, gin.H{"error": "id is required"})
-			return
-		}
-		db.Create(&s)
-		c.JSON(201, s)
-	})
+	
+    // --- Server routes ---
+    encKey := os.Getenv("ENCRYPTION_KEY")
+    srvHandler := handlers.NewServerHandler(db, encKey)
+
+    api.POST("/servers", srvHandler.Create)
+        api.GET("/servers/:id", srvHandler.Get)
 
 	r.Run() // default :8080
 }

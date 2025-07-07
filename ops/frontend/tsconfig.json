@@ -20,7 +20,8 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],          // leave as-is for generic root alias
+      "@lib/*": ["lib/*"]      // add this line
     },
     "types": [
       "node",
