@@ -114,6 +114,7 @@ func main() {
 
 	api.POST("/servers", srvHandler.Create)
 	api.GET("/servers/:id", srvHandler.Get)
+    api.GET("/servers/:id/sys", srvHandler.Sys)
 
 	// docker & env routes
 	deHandler := handlers.NewDockerEnvHandler(db)

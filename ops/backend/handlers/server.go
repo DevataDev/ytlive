@@ -3,6 +3,10 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
+	"strconv"
+
+	"github.com/devatadev/ytlive/ops/backend/utils/sshutil"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -176,4 +180,60 @@ func (h *ServerHandler) Get(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, srv)
+}
+
+// Sys handles GET /servers/:id/sys and returns basic system info via SSH
+func (h *ServerHandler) Sys(c *gin.Context) {
+    id := c.Param("id")
+    if id == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+        return
+    }
+    var srv models.Server
+    if err := h.DB.First(&srv, "id = ?", id).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        }
+        return
+    }
+
+    client, err := sshutil.DialWithServer(&srv, h.EncryptionKey)
+    if err != nil {
+        c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+        return
+    }
+    defer client.Close()
+
+    // Gather OS name, uptime, and load averages (1,5,15)
+    cmd := `awk -F= '/^PRETTY_NAME/{print $2}' /etc/os-release && uptime -p && awk '{print $1" "$2" "$3}' /proc/loadavg`
+    out, err := sshutil.RunCommand(client, cmd)
+    if err != nil {
+        c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+        return
+    }
+    lines := strings.Split(strings.TrimSpace(out), "\n")
+    if len(lines) < 3 {
+        c.JSON(http.StatusBadGateway, gin.H{"error": "unexpected output"})
+        return
+    }
+    osName := strings.Trim(lines[0], "\"")
+    uptimeStr := lines[1]
+    loadParts := strings.Fields(lines[2])
+    if len(loadParts) < 3 {
+        c.JSON(http.StatusBadGateway, gin.H{"error": "unexpected loadavg"})
+        return
+    }
+    load1, _ := strconv.ParseFloat(loadParts[0], 64)
+    load5, _ := strconv.ParseFloat(loadParts[1], 64)
+    load15, _ := strconv.ParseFloat(loadParts[2], 64)
+
+    c.JSON(http.StatusOK, gin.H{
+        "os":      osName,
+        "uptime":  uptimeStr,
+        "load1":   load1,
+        "load5":   load5,
+        "load15":  load15,
+    })
 }
