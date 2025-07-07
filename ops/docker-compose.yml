@@ -58,7 +58,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ops-backend.rule=Host(`${API_DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.ops-backend.rule=Host(`${API_DOMAIN}`)"
       - "traefik.http.routers.ops-backend.entrypoints=websecure"
       - "traefik.http.routers.ops-backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.ops-backend.loadbalancer.server.port=8080"
