@@ -73,7 +73,6 @@ func (h *ShellWSHandler) Client(c *gin.Context) {
 		for {
 			br.mutex.Lock()
 			a := br.agent
-			_ = conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Agent Connected .... %s\r\n", taskId)))
 			br.mutex.Unlock()
 			if a != nil {
 				close(waitChan)
