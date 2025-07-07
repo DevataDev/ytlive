@@ -30,6 +30,7 @@ type createServerRequest struct {
 	SSHUser     string `json:"ssh_user"    binding:"required"`
 	SSHPort     int    `json:"ssh_port"    binding:"omitempty,min=1,max=65535"`
 	SSHPassword string `json:"ssh_password"` // optional, will be encrypted
+	Domain      string `json:"domain" binding:"required,hostname"`
 	SSHKeyPath  string `json:"ssh_key_path"` // optional alternative auth
 }
 
@@ -59,6 +60,7 @@ func (h *ServerHandler) Create(c *gin.Context) {
 		Status:     "unknown", // will be updated by agent heartbeat
 		SSHUser:    req.SSHUser,
 		SSHPort:    req.SSHPort,
+		Domain:     req.Domain,
 		SSHKeyPath: req.SSHKeyPath,
 	}
 

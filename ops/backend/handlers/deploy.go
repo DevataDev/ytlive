@@ -140,8 +140,8 @@ func (h *DeployHandler) runDeployment(depID string, srv models.Server) {
 		return
 	}
 
-	// fetch secrets from DB
 	tmplData := make(map[string]string)
+	tmplData["DOMAIN"] = srv.Domain
 	var secrets []models.Secret
 	h.DB.Find(&secrets)
 	for _, sec := range secrets {

@@ -13,6 +13,7 @@ export type Server = {
   status: "online" | "offline" | "unknown";
   ssh_user?: string;
   ssh_port?: number;
+  domain?: string;
 };
 
 interface AddServerModalProps {
@@ -24,6 +25,7 @@ interface AddServerModalProps {
 export default function AddServerModal({ open, onOpenChange, onCreated }: AddServerModalProps) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
+  const [domain,setDomain]=useState("");
   const [sshUser, setSshUser] = useState("root");
   const [sshPort, setSshPort] = useState(22);
   const [sshPassword, setSshPassword] = useState("");
@@ -34,6 +36,7 @@ export default function AddServerModal({ open, onOpenChange, onCreated }: AddSer
   const reset = () => {
     setName("");
     setAddress("");
+    setDomain("");
     setSshUser("root");
     setSshPort(22);
     setSshPassword("");
@@ -59,7 +62,8 @@ export default function AddServerModal({ open, onOpenChange, onCreated }: AddSer
           address,
           ssh_user: sshUser,
           ssh_port: sshPort,
-          ssh_password: sshPassword,
+          domain,
+        ssh_password: sshPassword,
           ssh_key_path: sshKeyPath,
         }),
         headers: { "Content-Type": "application/json" },
@@ -78,7 +82,7 @@ export default function AddServerModal({ open, onOpenChange, onCreated }: AddSer
     }
   };
 
-  const disabled = submitting || !name || !address || !sshUser || (!sshPassword && !sshKeyPath);
+  const disabled = !name || !address || !domain || (!sshPassword && !sshKeyPath) || submitting;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -86,7 +90,11 @@ export default function AddServerModal({ open, onOpenChange, onCreated }: AddSer
         <DialogHeader>
           <DialogTitle>Add Server</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="domain" className="block text-sm font-medium">Domain</label>
+            <Input id="domain" value={domain} onChange={e => setDomain(e.target.value)} required />
+          </div>
           <div>
             <label className="block text-sm font-medium text-muted-foreground" htmlFor="name">Name</label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />

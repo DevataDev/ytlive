@@ -25,6 +25,7 @@ type Server struct {
 	Name           string `json:"name" gorm:"size:128"`
 	Address        string `json:"address" gorm:"size:64"`
 	Status         string `json:"status" gorm:"size:32"`
+	Domain         string `json:"domain" gorm:"size:128"`
 	SSHUser        string `json:"ssh_user" gorm:"size:64"`
 	SSHPort        int    `json:"ssh_port"`
 	SSHKeyPath     string `json:"ssh_key_path" gorm:"size:255"`
