@@ -72,6 +72,7 @@ services:
     container_name: ops-frontend
     environment:
       NEXT_PUBLIC_OPS_BACKEND_URL: ${OPS_BACKEND_URL:-http://localhost:8080}
+      NEXT_PUBLIC_OPS_API_URL: ${OPS_API_URL:-http://localhost:8080}
       NODE_ENV: production
     depends_on:
       - backend
