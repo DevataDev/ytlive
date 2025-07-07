@@ -33,6 +33,14 @@ type Server = {
   address: string;
   status: string;
   domain?: string;
+  // metrics (optional)
+  cpu_percent?: number;
+  mem_used_mb?: number;
+  net_mbps?: number;
+  disk_used_mb?: number;
+  streams_active?: number;
+  streams_total?: number;
+  streams_sched?: number;
 };
 
 function DockerTable({ serverId }: { serverId: string }) {
