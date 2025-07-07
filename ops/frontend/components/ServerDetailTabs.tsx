@@ -2,7 +2,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsRoot, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import DeploymentModal from "@/components/DeploymentModal";
+const Terminal = dynamic(() => import("@/components/terminal/Terminal"), { ssr: false });
+
+function ShellTerminal({ serverId }: { serverId: string }) {
+  const backend = process.env.NEXT_PUBLIC_OPS_BACKEND_URL || "";
+  if (!backend) return <p className="text-red-500">Backend URL not set</p>;
+  const wsUrl = backend.replace(/^http/, "ws") + `/ws/shell?server=${serverId}`;
+  return <Terminal wsUrl={wsUrl} />;
+}
 
 type Server = {
   id: string;
@@ -58,15 +67,15 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
             <CardTitle>Interactive Shell</CardTitle>
           </CardHeader>
           <CardContent>
+            {/* live terminal */}
+            <ShellTerminal serverId={server.id} />
             <div className="border rounded-md bg-black text-green-500 p-2 text-xs h-64 overflow-y-auto mb-2">
               user@{server.name}:~$&nbsp;_ <span className="opacity-75">(live shell coming soon)</span>
             </div>
-            <input
-              type="text"
+            
               placeholder="Enter command"
               className="w-full rounded-md border px-3 py-1 text-sm"
-              disabled
-            />
+              
           </CardContent>
         </Card>
       </TabsContent>
