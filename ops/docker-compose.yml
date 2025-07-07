@@ -1,0 +1,55 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ops-postgres
+    environment:
+      POSTGRES_DB: ops
+      POSTGRES_USER: ops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - ops_postgres_data:/var/lib/postgresql/data
+    networks:
+      - ops-net
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ops-backend
+    environment:
+      # Example DSN: host=db user=ops password=changeme dbname=ops port=5432 sslmode=disable
+      POSTGRES_DSN: "${POSTGRES_DSN:-host=db user=ops password=changeme dbname=ops port=5432 sslmode=disable}"
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-supersecretkey}
+      OPS_BACKEND_URL: http://backend:8080
+      GIN_MODE: release
+    depends_on:
+      - db
+    networks:
+      - ops-net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ops-frontend
+    environment:
+      NEXT_PUBLIC_OPS_BACKEND_URL: http://localhost:8080
+      NODE_ENV: production
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    networks:
+      - ops-net
+    restart: unless-stopped
+
+volumes:
+  ops_postgres_data:
+
+networks:
+  ops-net:
+    driver: bridge
