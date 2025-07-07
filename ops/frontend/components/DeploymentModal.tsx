@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { getToken } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 
 interface Props {
@@ -54,7 +55,8 @@ export default function DeploymentModal({ open, onOpenChange, serverId }: Props)
   useEffect(() => {
     if (!deployId) return;
     const base = process.env.NEXT_PUBLIC_OPS_BACKEND_URL ?? "http://localhost:8080";
-    const es = new EventSource(`${base}/deployments/${deployId}/stream`, { withCredentials: true });
+    const token = getToken();
+    const es = new EventSource(`${base}/deployments/${deployId}/stream?token=${token}`, { withCredentials: true });
     es.onmessage = (ev) => {
       setLogs((prev) => [...prev, ev.data]);
       if (ev.data === "DONE") {
