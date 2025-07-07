@@ -86,6 +86,10 @@ func (h *DeployHandler) Stream(c *gin.Context) {
 		return
 	}
 
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+
 	// send existing logs
 	var dep models.Deployment
 	if err := h.DB.First(&dep, "id = ?", depID).Error; err == nil {
