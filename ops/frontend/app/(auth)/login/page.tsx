@@ -19,7 +19,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const apiBase = process.env.NEXT_PUBLIC_OPS_API_URL ?? 'http://localhost:8080';
+      const apiBase = process.env.NEXT_PUBLIC_OPS_BACKEND_URL ?? 'http://localhost:8080';
       const response = await fetch(apiBase + '/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -1,7 +1,7 @@
 import { getToken, logout } from './auth';
 
 export async function apiFetch(path: string, init: RequestInit = {}) {
-  const base = process.env.NEXT_PUBLIC_OPS_API_URL ?? 'http://localhost:8080';
+  const base = (process.env.NEXT_PUBLIC_OPS_BACKEND_URL ?? process.env.NEXT_PUBLIC_OPS_API_URL) ?? 'http://localhost:8080';
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
   const token = getToken();

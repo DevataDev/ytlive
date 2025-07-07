@@ -69,6 +69,7 @@ services:
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_OPS_BACKEND_URL=${OPS_BACKEND_URL:-http://localhost:8080}
+        - NEXT_PUBLIC_OPS_API_URL=${OPS_API_URL:-http://localhost:8080}
     container_name: ops-frontend
     environment:
       NEXT_PUBLIC_OPS_BACKEND_URL: ${OPS_BACKEND_URL:-http://localhost:8080}

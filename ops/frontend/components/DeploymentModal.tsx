@@ -53,7 +53,7 @@ export default function DeploymentModal({ open, onOpenChange, serverId }: Props)
   // Stream logs
   useEffect(() => {
     if (!deployId) return;
-    const base = process.env.NEXT_PUBLIC_OPS_API_URL ?? "http://localhost:8080";
+    const base = process.env.NEXT_PUBLIC_OPS_BACKEND_URL ?? "http://localhost:8080";
     const es = new EventSource(`${base}/deployments/${deployId}/stream`, { withCredentials: true });
     es.onmessage = (ev) => {
       setLogs((prev) => [...prev, ev.data]);
