@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect database: ", err)
 	}
-	_ = db.AutoMigrate(&models.Server{}, &models.User{})
+	_ = db.AutoMigrate(&models.Server{}, &models.User{}, &models.Deployment{})
 
 	r := gin.Default()
 
@@ -88,7 +88,12 @@ func main() {
     srvHandler := handlers.NewServerHandler(db, encKey)
 
     api.POST("/servers", srvHandler.Create)
-        api.GET("/servers/:id", srvHandler.Get)
+    api.GET("/servers/:id", srvHandler.Get)
+
+        // deployment routes
+        depHandler := handlers.NewDeployHandler(db, encKey)
+        api.POST("/servers/:id/deploy", depHandler.Start)
+        api.GET("/deployments/:id/stream", depHandler.Stream)
 
 	r.Run() // default :8080
 }
