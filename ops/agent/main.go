@@ -102,6 +102,7 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 		}
 		header := http.Header{"X-Agent-Key": []string{key}, "X-Agent-Name": []string{AgentName}, "X-Agent-Version": []string{AgentVersion}}
 		conn, _, err := dialer.Dial(wsURL, header)
+		conn.EnableWriteCompression(false)
 		if err != nil {
 			log.Println("ws dial err:", err)
 			// update task result
