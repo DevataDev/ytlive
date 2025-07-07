@@ -339,6 +339,9 @@ func main() {
 				go handleTask(client, backend, agentKey, t)
 			}
 		} else {
+			if err != nil {
+				log.Println("tasks error:", err)
+			}
 			log.Println("no tasks")
 		}
 
