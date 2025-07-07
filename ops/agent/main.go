@@ -31,13 +31,13 @@ var (
 // Metrics represents the minimal set of stats we ship to /agent/heartbeat.
 // Task returned by panel
 type Task struct {
-	ID        string         `json:"id"`
-	Type      string         `json:"type"`
-	Data      map[string]any `json:"data"`
-	Status    string         `json:"status"`
-	Output    string         `json:"output"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
+	ID        string                 `json:"id"`
+	Type      string                 `json:"type"`
+	Data      map[string]interface{} `json:"data"`
+	Status    string                 `json:"status"`
+	Output    string                 `json:"output"`
+	CreatedAt time.Time              `json:"created_at"`
+	UpdatedAt time.Time              `json:"updated_at"`
 }
 
 // handleTask executes a single task in a goroutine.
@@ -63,7 +63,7 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 			SetHeader("X-Agent-Key", key).
 			SetHeader("X-Agent-Name", AgentName).
 			SetHeader("X-Agent-Version", AgentVersion).
-			SetBody(map[string]any{
+			SetBody(map[string]interface{}{
 				"task_id": t.ID,
 				"status":  status,
 				"output":  output,
