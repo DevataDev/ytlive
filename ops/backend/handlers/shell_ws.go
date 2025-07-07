@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -130,7 +131,7 @@ func pipe(p connections) {
 	relay := func(srcName string, src, dst *websocket.Conn) {
 		defer wg.Done()
 		for {
-			mt, msg, err := src.ReadMessage()
+			mt, r, err := src.NextReader()
 			if err != nil {
 				if ce, ok := err.(*websocket.CloseError); ok {
 					log.Printf("%s closed: %d %s", srcName, ce.Code, ce.Text)
@@ -140,10 +141,17 @@ func pipe(p connections) {
 				_ = dst.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second))
 				return
 			}
-			if err := dst.WriteMessage(mt, msg); err != nil {
-				log.Printf("write err: %v", err)
+			w, err := dst.NextWriter(mt)
+			if err != nil {
+				log.Printf("nextWriter err: %v", err)
+				_ = dst.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second))
 				return
 			}
+			if _, err := io.Copy(w, r); err != nil {
+				// ignore short writes, still try to close writer gracefully
+				log.Printf("io.Copy(%s) err: %v", srcName, err)
+			}
+			_ = w.Close()
 		}
 	}
 

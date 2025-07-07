@@ -115,8 +115,11 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 				Post(backend + "/agent/tasks/result")
 			return
 		}
-		cmd := exec.Command("bash")
+		cmd := exec.Command("bash", "--login")
+		cmd.Env = append(os.Environ(), "TERM=xterm-256color")
 		ptmx, errP := pty.Start(cmd)
+		// set a sane initial window size so full-screen programs don't exit
+		_ = pty.Setsize(ptmx, &pty.Winsize{Rows: 24, Cols: 80})
 		log.Println("pty started")
 		if errP != nil {
 			log.Println("pty start error:", errP)
@@ -150,6 +153,13 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 				Post(backend + "/agent/tasks/result")
 			conn.Close()
 		}()
+		// monitor shell exit – if bash dies, close websocket to inform backend
+		go func() {
+			_ = cmd.Wait()
+			// send close to backend side
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "shell exited"), time.Now().Add(time.Second))
+		}()
+
 		// Pipe data between websocket and PTY
 		go func() { _, _ = io.Copy(ptmx, &wsReader{c: conn}) }()
 		_, _ = io.Copy(&wsWriter{c: conn}, ptmx)

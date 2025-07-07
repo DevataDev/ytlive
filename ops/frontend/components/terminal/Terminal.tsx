@@ -38,6 +38,7 @@ export default function Terminal({ wsUrl, className }: Props) {
       term.write(data);
     };
     ws.onclose = () => term.write("\r\n\x1b[31m[ disconnected ]\x1b[0m\r\n");
+    ws.addEventListener('close', e => console.log('ws closed', e.code, e.reason));
 
     term.onData((d: string) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(d);
