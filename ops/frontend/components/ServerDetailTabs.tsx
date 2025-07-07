@@ -9,6 +9,7 @@ type Server = {
   name: string;
   address: string;
   status: string;
+  domain?: string;
 };
 
 export default function ServerDetailTabs({ server }: { server: Server }) {
@@ -32,6 +33,12 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
             <div className="grid grid-cols-2 gap-y-1">
               <span className="font-medium">Address:</span>
               <span>{server.address}</span>
+              {server.domain && (
+              <>
+                <span className="font-medium">Domain:</span>
+                <span>{server.domain}</span>
+              </>
+            )}
               <span className="font-medium">Status:</span>
               <span className="capitalize">{server.status}</span>
               <span className="font-medium">OS:</span>
