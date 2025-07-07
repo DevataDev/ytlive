@@ -346,6 +346,7 @@ func main() {
 			if err != nil {
 				log.Println("tasks error:", err)
 			}
+			log.Println("response 	: ", resp)
 			log.Println("no tasks")
 		}
 
