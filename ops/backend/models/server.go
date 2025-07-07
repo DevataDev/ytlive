@@ -37,6 +37,7 @@ type Server struct {
 	StreamsSched   int       `json:"streams_scheduled"`
 	Domain         string    `json:"domain" gorm:"size:128"`
 	OSName         string    `json:"os_name" gorm:"size:64"`
+	AgentVersion   string    `json:"agent_version" gorm:"size:32"`
 	SSHUser        string    `json:"ssh_user" gorm:"size:64"`
 	SSHPort        int       `json:"ssh_port"`
 	SSHKeyPath     string    `json:"ssh_key_path" gorm:"size:255"`

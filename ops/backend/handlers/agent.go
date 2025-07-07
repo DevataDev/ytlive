@@ -72,6 +72,7 @@ func (h *AgentHandler) Heartbeat(c *gin.Context) {
 			"streams_active": req.StreamsActive,
 			"streams_sched":  req.StreamsSched,
             "os_name":       req.OSName,
+            "agent_version": c.GetHeader("X-Agent-Version"),
 			"status":         "online",
 		})
 

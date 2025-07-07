@@ -56,6 +56,7 @@ type Server = {
   streams_active?: number;
   streams_total?: number;
   streams_sched?: number;
+  agent_version?: string;
 };
 
 function DockerTable({ serverId }: { serverId: string }) {
@@ -146,7 +147,9 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
               <span>{sys?.os ?? '-'}</span>
               <span className="font-medium">Uptime:</span>
               <span>{sys?.uptime ?? '-'}</span>
-              <span className="font-medium">Load Avg:</span>
+              <span className="font-medium">Agent Version:</span>
+               <span>{server.agent_version ?? '-'}</span>
+               <span className="font-medium">Load Avg:</span>
               <span>{sys ? `${sys.load1} / ${sys.load5} / ${sys.load15}` : '-'}</span>
             </div>
           </CardContent>
