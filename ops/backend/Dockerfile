@@ -10,5 +10,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ops-backend ./
 FROM gcr.io/distroless/base-debian12
 WORKDIR /app
 COPY --from=builder /app/ops-backend /app/ops-backend
+# agent binaries used by download endpoint
+COPY agent_bins /app/agent_bins
 EXPOSE 8080
 ENTRYPOINT ["/app/ops-backend"]
