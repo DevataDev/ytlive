@@ -39,6 +39,11 @@ func main() {
     agent.GET("/tasks", agentHandler.Tasks)
     agent.POST("/tasks/result", agentHandler.TaskResult)
 
+    // websocket bridge
+    shellWS := handlers.ShellWSHandler{DB: db}
+    r.GET("/ws/shell", shellWS.Client) // JWT middleware could wrap externally
+    r.GET("/agent/ws/shell", shellWS.Agent)
+
     // --- CORS configuration ---
     corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
     corsConfig := cors.Config{

@@ -4,12 +4,19 @@ import (
 	"net/http"
 	"sync"
 
+	"encoding/json"
+
+	"github.com/devatadev/ytlive/ops/backend/models"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"gorm.io/gorm"
 )
 
 // Bridge stores paired client and agent websocket connections.
+
+type ShellWSHandler struct{ DB *gorm.DB }
+
 type Bridge struct {
 	client *websocket.Conn
 	agent  *websocket.Conn
@@ -23,7 +30,12 @@ var (
 )
 
 // ShellClientWS upgrades client HTTP to WS, creates channel, returns channel ID, and waits for agent.
-func ShellClientWS(c *gin.Context) {
+func (h *ShellWSHandler) Client(c *gin.Context) {
+	serverID := c.Query("server")
+	if serverID == "" {
+		c.JSON(400, gin.H{"error": "missing server"})
+		return
+	}
 	channelID := uuid.NewString()
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -37,6 +49,16 @@ func ShellClientWS(c *gin.Context) {
 
 	// Send initial message containing channelID so frontend knows.
 	_ = conn.WriteJSON(map[string]string{"channel": channelID})
+
+	// enqueue task for agent
+	data, _ := json.Marshal(map[string]string{"channel": channelID})
+	h.DB.Create(&models.Task{
+		ID:       uuid.NewString(),
+		ServerID: serverID,
+		Type:     "shell_session",
+		Data:     string(data),
+		Status:   "pending",
+	})
 
 	// Wait until agent connects
 	waitChan := make(chan struct{})
@@ -59,7 +81,7 @@ func ShellClientWS(c *gin.Context) {
 }
 
 // AgentShellWS called by agent with ?channel=<id>. It upgrades and pairs.
-func AgentShellWS(c *gin.Context) {
+func (h *ShellWSHandler) Agent(c *gin.Context) {
 	channelID := c.Query("channel")
 	if channelID == "" {
 		c.AbortWithStatus(http.StatusBadRequest)

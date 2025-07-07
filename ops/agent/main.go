@@ -1,19 +1,23 @@
 package main
 
 import (
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/gorilla/websocket"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/joho/godotenv"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/host"
+	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
-    "github.com/shirou/gopsutil/v3/host"
-    "github.com/shirou/gopsutil/v3/load"
 )
 
 // Metrics represents the minimal set of stats we ship to /agent/heartbeat.
@@ -51,6 +55,31 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 				"output":  output,
 			}).
 			Post(backend + "/agent/tasks/result")
+	case "shell_session":
+		ch, ok := t.Data["channel"].(string)
+		if !ok {
+			log.Println("shell_session missing channel")
+			return
+		}
+		wsURL := backend + "/agent/ws/shell?channel=" + ch
+		dialer := websocket.Dialer{}
+		header := http.Header{"X-Agent-Key": []string{key}}
+		conn, _, err := dialer.Dial(wsURL, header)
+		if err != nil {
+			log.Println("ws dial err:", err)
+			return
+		}
+		cmd := exec.Command("bash")
+		stdin, _ := cmd.StdinPipe()
+		stdout, _ := cmd.StdoutPipe()
+		stderr, _ := cmd.StderrPipe()
+		_ = cmd.Start()
+		// copy data
+		go io.Copy(stdin, &wsReader{c: conn})
+		go io.Copy(&wsWriter{c: conn}, stdout)
+		go io.Copy(&wsWriter{c: conn}, stderr)
+		cmd.Wait()
+		conn.Close()
 	default:
 		log.Printf("unknown task type %s", t.Type)
 	}
@@ -70,11 +99,11 @@ type Metrics struct {
 	StreamsTotal  int     `json:"streams_total"`
 	StreamsActive int     `json:"streams_active"`
 	StreamsSched  int     `json:"streams_scheduled"`
-    OSName        string  `json:"os_name"`
-    UptimeSec     uint64  `json:"uptime_sec"`
-    Load1         float64 `json:"load_1"`
-    Load5         float64 `json:"load_5"`
-    Load15        float64 `json:"load_15"`
+	OSName        string  `json:"os_name"`
+	UptimeSec     uint64  `json:"uptime_sec"`
+	Load1         float64 `json:"load_1"`
+	Load5         float64 `json:"load_5"`
+	Load15        float64 `json:"load_15"`
 }
 
 func collectMetrics(prevBytes uint64, intervalSec float64) (Metrics, uint64) {
@@ -86,10 +115,10 @@ func collectMetrics(prevBytes uint64, intervalSec float64) (Metrics, uint64) {
 	totalBytes := io[0].BytesRecv + io[0].BytesSent
 	diff := totalBytes - prevBytes
 	hInfo, _ := host.Info()
-    uptime := hInfo.Uptime
-    loadAvg, _ := load.Avg()
+	uptime := hInfo.Uptime
+	loadAvg, _ := load.Avg()
 
-    mbps := 0.0
+	mbps := 0.0
 	if intervalSec > 0 {
 		mbps = float64(diff*8) / 1_000_000 / intervalSec
 	}
@@ -102,11 +131,11 @@ func collectMetrics(prevBytes uint64, intervalSec float64) (Metrics, uint64) {
 		StreamsTotal:  0,
 		StreamsActive: 0,
 		StreamsSched:  0,
-        OSName:       hInfo.Platform + " " + hInfo.PlatformVersion,
-        UptimeSec:    uptime,
-        Load1:        loadAvg.Load1,
-        Load5:        loadAvg.Load5,
-        Load15:       loadAvg.Load15,
+		OSName:        hInfo.Platform + " " + hInfo.PlatformVersion,
+		UptimeSec:     uptime,
+		Load1:         loadAvg.Load1,
+		Load5:         loadAvg.Load5,
+		Load15:        loadAvg.Load15,
 	}, totalBytes
 }
 
