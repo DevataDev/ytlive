@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"math/rand"
 	"net/http"
 	"time"
@@ -234,12 +235,10 @@ func (h *AgentHandler) Tasks(c *gin.Context) {
 	taskMapped := make([]AgentTask, len(tasks))
 	for i, t := range tasks {
 		// convert string to map[string]interface{}
-		jsonData, err := json.Marshal(t.Data)
-		if err != nil {
-			continue
-		}
+		jsonData := []byte(t.Data)
 		var data map[string]interface{}
 		if err := json.Unmarshal(jsonData, &data); err != nil {
+			log.Println("error unmarshalling task data: ", err)
 			continue
 		}
 
