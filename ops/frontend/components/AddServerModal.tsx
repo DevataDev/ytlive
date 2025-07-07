@@ -38,6 +38,16 @@ export default function AddServerModal({ open, onOpenChange, onCreated }: AddSer
       apiFetch('/cloudflare/zones').then(r=>r.json()).then(setZones).catch(()=>{});
     }
   },[open]);
+
+  // dynamic search
+  useEffect(()=>{
+    if(zoneName.length>=2){
+      const timer=setTimeout(()=>{
+        apiFetch(`/cloudflare/zones?search=${encodeURIComponent(zoneName)}`).then(r=>r.json()).then(setZones).catch(()=>{});
+      },300);
+      return ()=>clearTimeout(timer);
+    }
+  }, [zoneName]);
   const [sshPort, setSshPort] = useState(22);
   const [sshPassword, setSshPassword] = useState("");
   const [sshKeyPath, setSshKeyPath] = useState("");
@@ -120,7 +130,22 @@ export default function AddServerModal({ open, onOpenChange, onCreated }: AddSer
             <label htmlFor="sub" className="block text-sm font-medium">Sub-domain</label>
             <div className="flex space-x-2">
               <Input id="sub" className="flex-1" value={subdomain} onChange={e=>setSubdomain(e.target.value)} required />
-              <Button type="button" variant="outline" onClick={()=>setSubdomain(`${name.replace(/\s+/g,'-').toLowerCase()}-${Math.random().toString(36).slice(2,6)}`)}>Generate</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const slug = name
+                    .trim()
+                    .toLowerCase()
+                    .replace(/[^a-z0-9-]/g, "-") // keep alphanum & hyphen
+                    .replace(/^-+|-+$/g, "") // trim leading/trailing hyphens
+                    .replace(/--+/g, "-"); // collapse multiple
+                  const rand = Math.random().toString(36).substring(2, 10); // 8 chars
+                  setSubdomain(slug ? `${slug}-${rand}` : rand);
+                }}
+              >
+                Generate
+              </Button>
             </div>
           </div>
           <div>

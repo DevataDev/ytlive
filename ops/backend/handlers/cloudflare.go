@@ -85,7 +85,10 @@ func (h *CloudflareHandler) ListZones(c *gin.Context) {
     }
 
     query := c.Query("search")
-    apiURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones?account.id=%s&status=active&per_page=50", accountID)
+    apiURL := "https://api.cloudflare.com/client/v4/zones?status=active&per_page=50"
+    if accountID != "" {
+        apiURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/zones?account.id=%s&status=active&per_page=50", accountID)
+    }
     if query != "" {
         apiURL += "&name=" + url.QueryEscape(query)
     }

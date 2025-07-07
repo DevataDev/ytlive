@@ -147,7 +147,6 @@ func (h *DeployHandler) runDeployment(depID string, srv models.Server) {
 	for _, sec := range secrets {
 		if val, err := sec.Get(h.EncryptionKey); err == nil {
 			tmplData[sec.Key] = val
-			fmt.Println("added secret: " + sec.Key + "=" + val)
 		}
 	}
 
@@ -159,9 +158,6 @@ func (h *DeployHandler) runDeployment(depID string, srv models.Server) {
 	cfgRendered := bytes.Buffer{}
 	cfgTpl, _ := template.New("cfg").Parse(string(cfgBytes))
 	_ = cfgTpl.Execute(&cfgRendered, tmplData)
-
-	fmt.Println("env rendered: " + envRendered.String())
-	fmt.Println("cfg rendered: " + cfgRendered.String())
 
 	// build remote script
 	script := fmt.Sprintf(`set -e
