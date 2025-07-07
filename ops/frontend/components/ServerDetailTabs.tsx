@@ -6,10 +6,12 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import DeploymentModal from "@/components/DeploymentModal";
 import AgentDeployModal from "@/components/AgentDeployModal";
+import { getToken } from "@/lib/auth";
 const Terminal = dynamic(() => import("@/components/terminal/Terminal"), { ssr: false });
 const backend = process.env.NEXT_PUBLIC_OPS_BACKEND_URL || "";
 const fetcher = async (url: string) => {
-  const res = await fetch(url, { credentials: "include" });
+  const token = getToken();
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, credentials: "include" });
   if (!res.ok) throw new Error(res.statusText);
   return res.json();
 };
