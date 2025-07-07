@@ -64,7 +64,7 @@ func (h *ShellWSHandler) Client(c *gin.Context) {
 
 	// send back task id to client
 	// _ = conn.WriteJSON(map[string]string{"task_id": taskId})
-	_ = conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Establishing Session .... %s\r\n", taskId)))
+	_ = conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Establishing Session %s Please Wait ....\r\n", taskId)))
 
 	// Wait until agent connects
 	waitChan := make(chan struct{})
