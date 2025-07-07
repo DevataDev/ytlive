@@ -170,35 +170,31 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
               <div className="p-4 border rounded-md">
                 <p className="font-medium">CPU Usage</p>
-                <p className="text-2xl font-semibold">12%</p>
+                <p className="text-2xl font-semibold">{server.cpu_percent?.toFixed(1) ?? '-'}%</p>
               </div>
               <div className="p-4 border rounded-md">
                 <p className="font-medium">Memory Used</p>
-                <p className="text-2xl font-semibold">2.1&nbsp;GB</p>
-              </div>
-              <div className="p-4 border rounded-md">
-                <p className="font-medium">Disk I/O</p>
-                <p className="text-2xl font-semibold">150&nbsp;MB/s</p>
+                <p className="text-2xl font-semibold">{(server.mem_used_mb ? (server.mem_used_mb/1024).toFixed(1) : '-')}&nbsp;GB</p>
               </div>
               <div className="p-4 border rounded-md">
                 <p className="font-medium">Network</p>
-                <p className="text-2xl font-semibold">32&nbsp;Mbps</p>
+                <p className="text-2xl font-semibold">{server.net_mbps?.toFixed(1) ?? '-'}&nbsp;Mbps</p>
               </div>
               <div className="p-4 border rounded-md">
                 <p className="font-medium">Active Streams</p>
-                <p className="text-2xl font-semibold">4</p>
+                <p className="text-2xl font-semibold">{server.streams_active}</p>
               </div>
               <div className="p-4 border rounded-md">
                 <p className="font-medium">Total Streams</p>
-                <p className="text-2xl font-semibold">128</p>
+                <p className="text-2xl font-semibold">{server.streams_total}</p>
               </div>
               <div className="p-4 border rounded-md">
                 <p className="font-medium">Scheduled Streams</p>
-                <p className="text-2xl font-semibold">12</p>
+                <p className="text-2xl font-semibold">{server.streams_sched}</p>
               </div>
               <div className="p-4 border rounded-md">
                 <p className="font-medium">Storage Used</p>
-                <p className="text-2xl font-semibold">420&nbsp;GB</p>
+                <p className="text-2xl font-semibold">{(server.disk_used_mb ? (server.disk_used_mb/1024).toFixed(1) : '-')}&nbsp;GB</p>
               </div>
             </div>
           </CardContent>
