@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import DeploymentModal from "@/components/DeploymentModal";
+import AgentDeployModal from "@/components/AgentDeployModal";
 const Terminal = dynamic(() => import("@/components/terminal/Terminal"), { ssr: false });
 const backend = process.env.NEXT_PUBLIC_OPS_BACKEND_URL || "";
 const fetcher = async (url: string) => {
@@ -78,6 +79,7 @@ function EnvTable({ serverId }: { serverId: string }) {
 
 export default function ServerDetailTabs({ server }: { server: Server }) {
   const [depOpen, setDepOpen] = useState(false);
+  const [agentDepOpen, setAgentDepOpen] = useState(false);
   return (
     <TabsRoot defaultValue="overview">
       <TabsList>
@@ -91,7 +93,12 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
       <TabsContent value="overview">
         <Card className="mt-4">
           <CardHeader>
-            <CardTitle className="flex justify-between items-center">Overview <button onClick={() => setDepOpen(true)} className="text-sm underline">Deploy</button></CardTitle>
+            <CardTitle className="flex justify-between items-center">Overview
+              <span className="space-x-2">
+                <button onClick={() => setDepOpen(true)} className="text-sm underline">Deploy App</button>
+                <button onClick={() => setAgentDepOpen(true)} className="text-sm underline">Deploy Agent</button>
+              </span>
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="grid grid-cols-2 gap-y-1">
@@ -198,6 +205,7 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
         </Card>
       </TabsContent>
           <DeploymentModal open={depOpen} onOpenChange={setDepOpen} serverId={server.id} />
+      <AgentDeployModal open={agentDepOpen} onOpenChange={setAgentDepOpen} serverId={server.id} />
     </TabsRoot>
   );
 }

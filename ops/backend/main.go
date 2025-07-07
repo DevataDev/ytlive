@@ -123,6 +123,7 @@ func main() {
 	adHandler := handlers.NewAgentDeployHandler(root)
 	r.GET("/downloads/agent/:arch", adHandler.Download)
 	r.POST("/servers/:id/agent/deploy", adHandler.Deploy)
+    r.GET("/agent-deploys/:id/stream", adHandler.Stream)
 	api.POST("/cloudflare/zones/:id/dns", cfHandler.CreateDNS)
 
 	// secret routes
