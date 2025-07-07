@@ -232,6 +232,11 @@ WantedBy=multi-user.target`
 	_ = sessEnable.Run("sudo systemctl enable --now ops-agent")
 	sessEnable.Close()
 
+	// restart service
+	sessRestart, _ := client.NewSession()
+	_ = sessRestart.Run("sudo systemctl restart ops-agent")
+	sessRestart.Close()
+
 	log("DONE")
 }
 
