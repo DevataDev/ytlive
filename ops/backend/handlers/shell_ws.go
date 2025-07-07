@@ -179,7 +179,7 @@ func pipe(p connections) {
 
 // setupWS configures ping/pong keep-alive and close logging.
 func setupWS(c *websocket.Conn, label string) {
-    c.EnableWriteCompression(false)
+	c.EnableWriteCompression(false)
 	c.SetReadLimit(1 << 20)
 	c.SetReadDeadline(time.Now().Add(pongWait))
 	c.SetPongHandler(func(string) error {
