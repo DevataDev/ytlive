@@ -187,6 +187,11 @@ func (h *AgentDeployHandler) runAgentDeploy(jobID, srvID string) {
 		return
 	}
 
+	// remove old binary
+	sessRemove, _ := client.NewSession()
+	_ = sessRemove.Run("sudo rm -rf /usr/local/bin/ops-agent")
+	sessRemove.Close()
+
 	log("Uploading binary…")
 	sessUpload, _ := client.NewSession()
 	w, _ := sessUpload.StdinPipe()
