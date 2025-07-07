@@ -1,9 +1,13 @@
 import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { logout } from "@/lib/auth";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const handleLogout = async () => {
+    await logout();
+  };
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -16,7 +20,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <Link href="/secrets" className={cn("block px-3 py-2 rounded-md hover:bg-accent")}>Secrets</Link>
         </nav>
         <div className="p-4 border-t">
-          <Button variant="outline" className="w-full">Logout</Button>
+          <Button variant="outline" className="w-full" onClick={handleLogout}>Logout</Button>
         </div>
       </aside>
 
