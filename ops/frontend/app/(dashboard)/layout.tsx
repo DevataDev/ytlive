@@ -13,7 +13,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
         <nav className="flex-1 p-4 space-y-2 text-sm">
           <Link href="/dashboard" className={cn("block px-3 py-2 rounded-md hover:bg-accent")}>Servers</Link>
-          {/* Future nav items */}
+          <Link href="/secrets" className={cn("block px-3 py-2 rounded-md hover:bg-accent")}>Secrets</Link>
         </nav>
         <div className="p-4 border-t">
           <Button variant="outline" className="w-full">Logout</Button>

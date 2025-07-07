@@ -152,7 +152,7 @@ func (h *SecretHandler) Update(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         return
     }
-    c.JSON(http.StatusOK, gin.H{"id": sec.ID, "key": sec.Key, "updated_at": sec.UpdatedAt})
+    c.JSON(http.StatusOK, gin.H{"id": sec.ID, "key": sec.Key})
 }
 
 // Delete removes a secret.

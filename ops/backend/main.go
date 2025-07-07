@@ -95,5 +95,12 @@ func main() {
         api.POST("/servers/:id/deploy", depHandler.Start)
         api.GET("/deployments/:id/stream", depHandler.Stream)
 
+        // secret routes
+        secretHandler := handlers.NewSecretHandler(db, encKey)
+        api.GET("/secrets", secretHandler.List)
+        api.POST("/secrets", secretHandler.Create)
+        api.PUT("/secrets/:id", secretHandler.Update)
+        api.DELETE("/secrets/:id", secretHandler.Delete)
+
 	r.Run() // default :8080
 }
