@@ -71,7 +71,16 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 			log.Println("shell_session missing channel")
 			return
 		}
-		wsURL := backend + "/agent/ws/shell?channel=" + ch
+		var wsURL string
+		if strings.HasPrefix(backend, "https://") {
+			wsURL = "wss://" + strings.TrimPrefix(backend, "https://") + "/agent/ws/shell?channel=" + ch
+		} else if strings.HasPrefix(backend, "http://") {
+			wsURL = "ws://" + strings.TrimPrefix(backend, "http://") + "/agent/ws/shell?channel=" + ch
+		} else {
+			wsURL = backend + "/agent/ws/shell?channel=" + ch
+		}
+
+		log.Println("ws url:", wsURL)
 		dialer := websocket.Dialer{}
 		header := http.Header{"X-Agent-Key": []string{key}, "X-Agent-Name": []string{AgentName}, "X-Agent-Version": []string{AgentVersion}}
 		conn, _, err := dialer.Dial(wsURL, header)
@@ -81,6 +90,7 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 		}
 		cmd := exec.Command("bash")
 		ptmx, errP := pty.Start(cmd)
+		log.Println("pty started")
 		if errP != nil {
 			log.Println("pty start error:", errP)
 			conn.Close()
