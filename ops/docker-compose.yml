@@ -84,6 +84,18 @@ services:
       - "traefik.http.routers.ops-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.ops-frontend.loadbalancer.server.port=3100"
 
+  createsuper:
+    image: golang:1.24-alpine
+    profiles: ["utility"]        # won’t start with `up` by default
+    working_dir: /src
+    volumes:
+      - ./backend:/src
+    networks:
+      - ops-net
+    environment:
+      POSTGRES_DSN: ${POSTGRES_DSN}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+
 volumes:
   ops_postgres_data:
   traefik_letsencrypt:
