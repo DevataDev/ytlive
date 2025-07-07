@@ -84,7 +84,9 @@ func main() {
 		}
 		token, _ := auth.Generate(u.ID, u.Role)
 		// 24h cookie
-		c.SetCookie("ops_jwt", token, 86400, "/", "", false, true)
+		// c.SetCookie("ops_jwt", token, 86400, "/", "", false, true)
+		// set cookie for https
+		c.SetCookie("ops_jwt", token, 86400, "/", ".yuklive.com", true, true)
 		c.JSON(200, gin.H{"token": token})
 	})
 
@@ -121,12 +123,12 @@ func main() {
 
 	// Agent binary download & deploy
 	adHandler := handlers.NewAgentDeployHandler(root)
-    adHandler.DB = db
-    adHandler.EncKey = encKey
-    adHandler.BackendURL = os.Getenv("OPS_BACKEND_URL")
+	adHandler.DB = db
+	adHandler.EncKey = encKey
+	adHandler.BackendURL = os.Getenv("OPS_BACKEND_URL")
 	r.GET("/downloads/agent/:arch", adHandler.Download)
 	r.POST("/servers/:id/agent/deploy", adHandler.Deploy)
-    r.GET("/agent-deploys/:id/stream", adHandler.Stream)
+	r.GET("/agent-deploys/:id/stream", adHandler.Stream)
 	api.POST("/cloudflare/zones/:id/dns", cfHandler.CreateDNS)
 
 	// secret routes
