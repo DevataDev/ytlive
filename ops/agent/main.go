@@ -71,6 +71,7 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 			log.Println("shell_session missing channel")
 			return
 		}
+		log.Println("shell_session channel:", ch)
 		var wsURL string
 		if strings.HasPrefix(backend, "https://") {
 			wsURL = "wss://" + strings.TrimPrefix(backend, "https://") + "/agent/ws/shell?channel=" + ch
