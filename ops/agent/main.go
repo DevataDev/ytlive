@@ -97,7 +97,9 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 		}
 
 		log.Println("ws url:", wsURL)
-		dialer := websocket.Dialer{}
+		dialer := websocket.Dialer{
+			EnableCompression: false,
+		}
 		header := http.Header{"X-Agent-Key": []string{key}, "X-Agent-Name": []string{AgentName}, "X-Agent-Version": []string{AgentVersion}}
 		conn, _, err := dialer.Dial(wsURL, header)
 		if err != nil {

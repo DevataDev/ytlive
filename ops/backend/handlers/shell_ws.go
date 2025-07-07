@@ -28,9 +28,10 @@ type Bridge struct {
 
 var (
 	upgrader = websocket.Upgrader{
-		ReadBufferSize:  32 * 1024,
-		WriteBufferSize: 32 * 1024,
-		CheckOrigin:     func(r *http.Request) bool { return true }}
+		ReadBufferSize:    32 * 1024,
+		WriteBufferSize:   32 * 1024,
+		EnableCompression: false, // <— add this
+		CheckOrigin:       func(r *http.Request) bool { return true }}
 	bridges      = make(map[string]*Bridge) // key: channelID
 	bridgesMu    sync.Mutex
 	pingInterval = 15 * time.Second
