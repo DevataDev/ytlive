@@ -240,6 +240,8 @@ func main() {
 
 	backend := os.Getenv("OPS_BACKEND_URL")
 	agentKey := os.Getenv("AGENT_KEY")
+
+	log.Println("Agent : ", AgentName, "Version : ", AgentVersion, "Backend : ", backend, " Started...")
 	if backend == "" || agentKey == "" {
 		log.Fatal("OPS_BACKEND_URL and AGENT_KEY must be set")
 	}
@@ -249,8 +251,6 @@ func main() {
 	startReportLoops(client, backend, agentKey)
 	interval := 30 * time.Second
 	var lastBytes uint64
-
-	log.Println("Agent : ", AgentName, "Version : ", AgentVersion, "Backend : ", backend, " Started...")
 
 	for {
 		start := time.Now()
