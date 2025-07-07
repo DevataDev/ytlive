@@ -86,6 +86,18 @@ func (h *DeployHandler) Stream(c *gin.Context) {
 		return
 	}
 
+	// send existing logs
+	var dep models.Deployment
+	if err := h.DB.First(&dep, "id = ?", depID).Error; err == nil {
+		for _, ln := range bytes.Split([]byte(dep.Logs), []byte("\n")) {
+			if len(ln) > 0 {
+				fmt.Fprintf(c.Writer, "data: %s\n\n", ln)
+			}
+		}
+		c.Writer.Flush()
+	}
+
+	// live updates
 	ch := addListener(depID)
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
