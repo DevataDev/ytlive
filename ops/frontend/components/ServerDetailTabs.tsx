@@ -3,12 +3,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsRoot, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import useSWR from "swr";
 import { useState } from "react";
+import useSWRImmutable from "swr/immutable";
 import dynamic from "next/dynamic";
 import DeploymentModal from "@/components/DeploymentModal";
 import AgentDeployModal from "@/components/AgentDeployModal";
 import { getToken } from "@/lib/auth";
 const Terminal = dynamic(() => import("@/components/terminal/Terminal"), { ssr: false });
 const backend = process.env.NEXT_PUBLIC_OPS_BACKEND_URL || "";
+// fetch system info (os, uptime, load) once per minute
+const sysFetcher = async (serverId: string) => {
+  if (!backend) return null;
+  const token = getToken();
+  const res = await fetch(`${backend}/servers/${serverId}/sys`, {
+    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
+  });
+  if (!res.ok) return null;
+  return res.json();
+};
+
 const fetcher = async (url: string) => {
   const token = getToken();
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, credentials: "include" });
@@ -94,6 +107,7 @@ function EnvTable({ serverId }: { serverId: string }) {
 }
 
 export default function ServerDetailTabs({ server }: { server: Server }) {
+  const { data: sys } = useSWRImmutable(server.id + "-sys", () => sysFetcher(server.id), { refreshInterval: 60000 });
   const [depOpen, setDepOpen] = useState(false);
   const [agentDepOpen, setAgentDepOpen] = useState(false);
   return (
@@ -129,11 +143,11 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
               <span className="font-medium">Status:</span>
               <span className="capitalize">{server.status}</span>
               <span className="font-medium">OS:</span>
-              <span>Ubuntu 22.04</span>
+              <span>{sys?.os ?? '-'}</span>
               <span className="font-medium">Uptime:</span>
-              <span>34&nbsp;days</span>
+              <span>{sys?.uptime ?? '-'}</span>
               <span className="font-medium">Load Avg:</span>
-              <span>0.24&nbsp;/&nbsp;0.31&nbsp;/&nbsp;0.28</span>
+              <span>{sys ? `${sys.load1} / ${sys.load5} / ${sys.load15}` : '-'}</span>
             </div>
           </CardContent>
         </Card>
