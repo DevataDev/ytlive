@@ -15,13 +15,13 @@ type Server = {
   ssh_port?: number;
 };
 
-type Props = { params: { serverId: string } };
+type Props = { params: Promise<{ serverId: string }> };
 
 export const metadata = { title: "Server Details" };
 
 export default async function ServerPage({ params }: Props) {
-  const { serverId } = params;
-  const cookieStore = cookies();
+  const { serverId } = await params;
+  const cookieStore = await cookies();
   const jwt = cookieStore.get('ops_jwt')?.value || getToken();
   const res = await fetch(`${process.env.NEXT_PUBLIC_OPS_BACKEND_URL ?? 'http://localhost:8080'}/servers/${serverId}`, {
     cache: 'no-store',
