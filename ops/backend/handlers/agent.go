@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
+	"math/rand"
 	"net/http"
-    "math/rand"
-    ulid "github.com/oklog/ulid/v2"
 	"time"
+
+	ulid "github.com/oklog/ulid/v2"
 
 	"github.com/devatadev/ytlive/ops/backend/models"
 	"github.com/gin-gonic/gin"
@@ -32,18 +34,18 @@ type heartbeatRequest struct {
 	StreamsTotal  int     `json:"streams_total"`
 	StreamsActive int     `json:"streams_active"`
 	StreamsSched  int     `json:"streams_scheduled"`
-    OSName        string  `json:"os_name"`
-    UptimeSec     uint64  `json:"uptime_sec"`
-    Load1         float64 `json:"load_1"`
-    Load5         float64 `json:"load_5"`
-    Load15        float64 `json:"load_15"`
+	OSName        string  `json:"os_name"`
+	UptimeSec     uint64  `json:"uptime_sec"`
+	Load1         float64 `json:"load_1"`
+	Load5         float64 `json:"load_5"`
+	Load15        float64 `json:"load_15"`
 }
 
 // Heartbeat ingests metrics from an agent and updates the server row.
 // Header: X-Agent-Key => maps to models.Server.AgentKey
 // ulidString returns a new ULID string.
 func ulidString() string {
-    return ulid.MustNew(ulid.Now(), rand.New(rand.NewSource(time.Now().UnixNano()))).String()
+	return ulid.MustNew(ulid.Now(), rand.New(rand.NewSource(time.Now().UnixNano()))).String()
 }
 
 func (h *AgentHandler) Heartbeat(c *gin.Context) {
@@ -71,8 +73,8 @@ func (h *AgentHandler) Heartbeat(c *gin.Context) {
 			"streams_total":  req.StreamsTotal,
 			"streams_active": req.StreamsActive,
 			"streams_sched":  req.StreamsSched,
-            "os_name":       req.OSName,
-            "agent_version": c.GetHeader("X-Agent-Version"),
+			"os_name":        req.OSName,
+			"agent_version":  c.GetHeader("X-Agent-Version"),
 			"status":         "online",
 		})
 
@@ -107,94 +109,94 @@ type task struct {
 }
 
 // TaskResultRequest is payload sent by agent after executing a task
- type TaskResultRequest struct {
-     TaskID string `json:"task_id" binding:"required"`
-     Status string `json:"status" binding:"required"` // ok or error
-     Output string `json:"output"`
- }
+type TaskResultRequest struct {
+	TaskID string `json:"task_id" binding:"required"`
+	Status string `json:"status" binding:"required"` // ok or error
+	Output string `json:"output"`
+}
 
- // TaskResult stores execution result from agent
- func (h *AgentHandler) TaskResult(c *gin.Context) {
-     key := c.GetHeader("X-Agent-Key")
-     if key == "" {
-         c.JSON(http.StatusUnauthorized, gin.H{"error": "missing agent key"})
-         return
-     }
-     var srv models.Server
-     if err := h.DB.First(&srv, "agent_key = ?", key).Error; err != nil {
-         c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid agent key"})
-         return
-     }
-     var req TaskResultRequest
-     if err := c.ShouldBindJSON(&req); err != nil {
-         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-         return
-     }
-     h.DB.Model(&models.Task{}).Where("id = ? AND server_id = ?", req.TaskID, srv.ID).Updates(map[string]any{
-         "status": req.Status,
-         "output": req.Output,
-     })
-     c.JSON(http.StatusOK, gin.H{"ok": true})
- }
+// TaskResult stores execution result from agent
+func (h *AgentHandler) TaskResult(c *gin.Context) {
+	key := c.GetHeader("X-Agent-Key")
+	if key == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing agent key"})
+		return
+	}
+	var srv models.Server
+	if err := h.DB.First(&srv, "agent_key = ?", key).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid agent key"})
+		return
+	}
+	var req TaskResultRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	h.DB.Model(&models.Task{}).Where("id = ? AND server_id = ?", req.TaskID, srv.ID).Updates(map[string]any{
+		"status": req.Status,
+		"output": req.Output,
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
 
- // ReportDocker ingests docker container list from agent
+// ReportDocker ingests docker container list from agent
 func (h *AgentHandler) ReportDocker(c *gin.Context) {
-    key := c.GetHeader("X-Agent-Key")
-    if key == "" {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "missing agent key"})
-        return
-    }
-    var srv models.Server
-    if err := h.DB.First(&srv, "agent_key = ?", key).Error; err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid agent key"})
-        return
-    }
-    var containers []models.Container
-    if err := c.ShouldBindJSON(&containers); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-    // attach server id, reset IDs if empty
-    for i := range containers {
-        containers[i].ServerID = srv.ID
-        if containers[i].ID == "" {
-            containers[i].BeforeCreate(nil)
-        }
-    }
-    // replace rows for this server
-    h.DB.Where("server_id = ?", srv.ID).Delete(&models.Container{})
-    if len(containers) > 0 {
-        h.DB.Create(&containers)
-    }
-    c.JSON(http.StatusOK, gin.H{"ok": true})
+	key := c.GetHeader("X-Agent-Key")
+	if key == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing agent key"})
+		return
+	}
+	var srv models.Server
+	if err := h.DB.First(&srv, "agent_key = ?", key).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid agent key"})
+		return
+	}
+	var containers []models.Container
+	if err := c.ShouldBindJSON(&containers); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// attach server id, reset IDs if empty
+	for i := range containers {
+		containers[i].ServerID = srv.ID
+		if containers[i].ID == "" {
+			containers[i].BeforeCreate(nil)
+		}
+	}
+	// replace rows for this server
+	h.DB.Where("server_id = ?", srv.ID).Delete(&models.Container{})
+	if len(containers) > 0 {
+		h.DB.Create(&containers)
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 // ReportEnv ingests env vars from agent
 func (h *AgentHandler) ReportEnv(c *gin.Context) {
-    key := c.GetHeader("X-Agent-Key")
-    if key == "" {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "missing agent key"})
-        return
-    }
-    var srv models.Server
-    if err := h.DB.First(&srv, "agent_key = ?", key).Error; err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid agent key"})
-        return
-    }
-    var kv map[string]string
-    if err := c.ShouldBindJSON(&kv); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-    h.DB.Where("server_id = ?", srv.ID).Delete(&models.EnvVar{})
-    envs := make([]models.EnvVar, 0, len(kv))
-    for k, v := range kv {
-        envs = append(envs, models.EnvVar{ServerID: srv.ID, Key: k, Value: v})
-    }
-    if len(envs) > 0 {
-        h.DB.Create(&envs)
-    }
-    c.JSON(http.StatusOK, gin.H{"ok": true})
+	key := c.GetHeader("X-Agent-Key")
+	if key == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing agent key"})
+		return
+	}
+	var srv models.Server
+	if err := h.DB.First(&srv, "agent_key = ?", key).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid agent key"})
+		return
+	}
+	var kv map[string]string
+	if err := c.ShouldBindJSON(&kv); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	h.DB.Where("server_id = ?", srv.ID).Delete(&models.EnvVar{})
+	envs := make([]models.EnvVar, 0, len(kv))
+	for k, v := range kv {
+		envs = append(envs, models.EnvVar{ServerID: srv.ID, Key: k, Value: v})
+	}
+	if len(envs) > 0 {
+		h.DB.Create(&envs)
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 func (h *AgentHandler) Tasks(c *gin.Context) {
@@ -211,12 +213,45 @@ func (h *AgentHandler) Tasks(c *gin.Context) {
 	}
 
 	var tasks []models.Task
-    h.DB.Where("server_id = ? AND status = ?", srv.ID, "pending").Find(&tasks)
-    // mark as sent
-    if len(tasks) > 0 {
-        ids := make([]string, 0, len(tasks))
-        for _, t := range tasks { ids = append(ids, t.ID) }
-        h.DB.Model(&models.Task{}).Where("id IN ?", ids).Update("status", "sent")
-    }
-    c.JSON(http.StatusOK, gin.H{"tasks": tasks})
+	h.DB.Where("server_id = ? AND status = ?", srv.ID, "pending").Find(&tasks)
+	// mark as sent
+	if len(tasks) > 0 {
+		ids := make([]string, 0, len(tasks))
+		for _, t := range tasks {
+			ids = append(ids, t.ID)
+		}
+		h.DB.Model(&models.Task{}).Where("id IN ?", ids).Update("status", "sent")
+	}
+	type AgentTask struct {
+		ID        string                 `json:"id"`
+		Type      string                 `json:"type"`
+		Data      map[string]interface{} `json:"data"`
+		Status    string                 `json:"status"`
+		Output    string                 `json:"output"`
+		CreatedAt time.Time              `json:"created_at"`
+		UpdatedAt time.Time              `json:"updated_at"`
+	}
+	taskMapped := make([]AgentTask, len(tasks))
+	for i, t := range tasks {
+		// convert string to map[string]interface{}
+		jsonData, err := json.Marshal(t.Data)
+		if err != nil {
+			continue
+		}
+		var data map[string]interface{}
+		if err := json.Unmarshal(jsonData, &data); err != nil {
+			continue
+		}
+
+		taskMapped[i] = AgentTask{
+			ID:        t.ID,
+			Type:      t.Type,
+			Data:      data,
+			Status:    t.Status,
+			Output:    t.Output,
+			CreatedAt: t.CreatedAt,
+			UpdatedAt: t.UpdatedAt,
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"tasks": taskMapped})
 }
