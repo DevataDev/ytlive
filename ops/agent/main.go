@@ -12,6 +12,8 @@ import (
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
+    "github.com/shirou/gopsutil/v3/host"
+    "github.com/shirou/gopsutil/v3/load"
 )
 
 // Metrics represents the minimal set of stats we ship to /agent/heartbeat.
@@ -68,6 +70,11 @@ type Metrics struct {
 	StreamsTotal  int     `json:"streams_total"`
 	StreamsActive int     `json:"streams_active"`
 	StreamsSched  int     `json:"streams_scheduled"`
+    OSName        string  `json:"os_name"`
+    UptimeSec     uint64  `json:"uptime_sec"`
+    Load1         float64 `json:"load_1"`
+    Load5         float64 `json:"load_5"`
+    Load15        float64 `json:"load_15"`
 }
 
 func collectMetrics(prevBytes uint64, intervalSec float64) (Metrics, uint64) {
@@ -78,7 +85,11 @@ func collectMetrics(prevBytes uint64, intervalSec float64) (Metrics, uint64) {
 	io, _ := net.IOCounters(false)
 	totalBytes := io[0].BytesRecv + io[0].BytesSent
 	diff := totalBytes - prevBytes
-	mbps := 0.0
+	hInfo, _ := host.Info()
+    uptime := hInfo.Uptime
+    loadAvg, _ := load.Avg()
+
+    mbps := 0.0
 	if intervalSec > 0 {
 		mbps = float64(diff*8) / 1_000_000 / intervalSec
 	}
@@ -91,6 +102,11 @@ func collectMetrics(prevBytes uint64, intervalSec float64) (Metrics, uint64) {
 		StreamsTotal:  0,
 		StreamsActive: 0,
 		StreamsSched:  0,
+        OSName:       hInfo.Platform + " " + hInfo.PlatformVersion,
+        UptimeSec:    uptime,
+        Load1:        loadAvg.Load1,
+        Load5:        loadAvg.Load5,
+        Load15:       loadAvg.Load15,
 	}, totalBytes
 }
 

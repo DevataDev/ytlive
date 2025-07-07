@@ -2,7 +2,8 @@ package handlers
 
 import (
 	"net/http"
-    "log"
+    "math/rand"
+    ulid "github.com/oklog/ulid/v2"
 	"time"
 
 	"github.com/devatadev/ytlive/ops/backend/models"
@@ -31,10 +32,20 @@ type heartbeatRequest struct {
 	StreamsTotal  int     `json:"streams_total"`
 	StreamsActive int     `json:"streams_active"`
 	StreamsSched  int     `json:"streams_scheduled"`
+    OSName        string  `json:"os_name"`
+    UptimeSec     uint64  `json:"uptime_sec"`
+    Load1         float64 `json:"load_1"`
+    Load5         float64 `json:"load_5"`
+    Load15        float64 `json:"load_15"`
 }
 
 // Heartbeat ingests metrics from an agent and updates the server row.
 // Header: X-Agent-Key => maps to models.Server.AgentKey
+// ulidString returns a new ULID string.
+func ulidString() string {
+    return ulid.MustNew(ulid.Now(), rand.New(rand.NewSource(time.Now().UnixNano()))).String()
+}
+
 func (h *AgentHandler) Heartbeat(c *gin.Context) {
 	key := c.GetHeader("X-Agent-Key")
 	if key == "" {
@@ -60,12 +71,27 @@ func (h *AgentHandler) Heartbeat(c *gin.Context) {
 			"streams_total":  req.StreamsTotal,
 			"streams_active": req.StreamsActive,
 			"streams_sched":  req.StreamsSched,
+            "os_name":       req.OSName,
 			"status":         "online",
 		})
 
 	if result.Error != nil || result.RowsAffected == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid agent key"})
 		return
+	}
+
+	// store per-heartbeat stats row
+	var sid string
+	h.DB.Raw("SELECT id FROM servers WHERE agent_key = ? LIMIT 1", key).Scan(&sid)
+	if sid != "" {
+		h.DB.Create(&models.ServerStat{
+			ID:        ulidString(),
+			ServerID:  sid,
+			UptimeSec: req.UptimeSec,
+			Load1:     req.Load1,
+			Load5:     req.Load5,
+			Load15:    req.Load15,
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -103,8 +129,10 @@ type task struct {
          c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
          return
      }
-     // TODO: save result to DB table; for now just log
-     log.Printf("task result server=%s task=%s status=%s", srv.ID, req.TaskID, req.Status)
+     h.DB.Model(&models.Task{}).Where("id = ? AND server_id = ?", req.TaskID, srv.ID).Updates(map[string]any{
+         "status": req.Status,
+         "output": req.Output,
+     })
      c.JSON(http.StatusOK, gin.H{"ok": true})
  }
 
@@ -121,6 +149,13 @@ type task struct {
 		return
 	}
 
-	// TODO: fetch real tasks. Empty list for now.
-	c.JSON(http.StatusOK, gin.H{"tasks": []task{}})
+	var tasks []models.Task
+    h.DB.Where("server_id = ? AND status = ?", srv.ID, "pending").Find(&tasks)
+    // mark as sent
+    if len(tasks) > 0 {
+        ids := make([]string, 0, len(tasks))
+        for _, t := range tasks { ids = append(ids, t.ID) }
+        h.DB.Model(&models.Task{}).Where("id IN ?", ids).Update("status", "sent")
+    }
+    c.JSON(http.StatusOK, gin.H{"tasks": tasks})
 }
