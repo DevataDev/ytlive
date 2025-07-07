@@ -11,6 +11,7 @@ import (
     "time"
 
 	"github.com/gorilla/websocket"
+	"github.com/creack/pty"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/joho/godotenv"
@@ -72,16 +73,20 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 			return
 		}
 		cmd := exec.Command("bash")
-		stdin, _ := cmd.StdinPipe()
-		stdout, _ := cmd.StdoutPipe()
-		stderr, _ := cmd.StderrPipe()
-		_ = cmd.Start()
-		// copy data
-		go io.Copy(stdin, &wsReader{c: conn})
-		go io.Copy(&wsWriter{c: conn}, stdout)
-		go io.Copy(&wsWriter{c: conn}, stderr)
-		cmd.Wait()
-		conn.Close()
+        ptmx, errP := pty.Start(cmd)
+        if errP != nil {
+            log.Println("pty start error:", errP)
+            conn.Close()
+            return
+        }
+        // Ensure the PTY is closed when done.
+        defer func() {
+            _ = ptmx.Close()
+            conn.Close()
+        }()
+        // Pipe data between websocket and PTY
+        go func() { _, _ = io.Copy(ptmx, &wsReader{c: conn}) }()
+        _, _ = io.Copy(&wsWriter{c: conn}, ptmx)
 	default:
 		log.Printf("unknown task type %s", t.Type)
 	}

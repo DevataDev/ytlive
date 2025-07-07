@@ -3,6 +3,7 @@ module github.com/devatadev/ytlive/ops/agent
 go 1.24
 
 require (
+	github.com/creack/pty v1.1.11
 	github.com/go-resty/resty/v2 v2.10.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
