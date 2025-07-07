@@ -49,6 +49,8 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-supersecretkey}
       OPS_BACKEND_URL: ${OPS_BACKEND_URL:-http://localhost:8080}
       GIN_MODE: release
+      JWT_SECRET: ${JWT_SECRET:-supersecretkey}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3100}
     depends_on:
       - db
     networks:
