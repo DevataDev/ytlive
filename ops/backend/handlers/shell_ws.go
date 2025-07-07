@@ -1,11 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
-
-	"encoding/json"
+	"time"
 
 	"github.com/devatadev/ytlive/ops/backend/models"
 	"github.com/gin-gonic/gin"
@@ -25,9 +26,11 @@ type Bridge struct {
 }
 
 var (
-	upgrader  = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-	bridges   = make(map[string]*Bridge) // key: channelID
-	bridgesMu sync.Mutex
+	upgrader     = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	bridges      = make(map[string]*Bridge) // key: channelID
+	bridgesMu    sync.Mutex
+	pingInterval = 15 * time.Second
+	pongWait     = 30 * time.Second
 )
 
 // ShellClientWS upgrades client HTTP to WS, creates channel, returns channel ID, and waits for agent.
@@ -42,6 +45,7 @@ func (h *ShellWSHandler) Client(c *gin.Context) {
 	if err != nil {
 		return
 	}
+	setupWS(conn, "client")
 
 	bridgesMu.Lock()
 	br := &Bridge{client: conn}
@@ -97,6 +101,7 @@ func (h *ShellWSHandler) Agent(c *gin.Context) {
 	if err != nil {
 		return
 	}
+	setupWS(conn, "agent")
 
 	bridgesMu.Lock()
 	br, ok := bridges[channelID]
@@ -119,23 +124,59 @@ type connections struct {
 }
 
 func pipe(p connections) {
-	// relay data both directions
+	log.Println("pipe started")
 	var wg sync.WaitGroup
-	copy := func(src, dst *websocket.Conn) {
+
+	relay := func(srcName string, src, dst *websocket.Conn) {
 		defer wg.Done()
 		for {
 			mt, msg, err := src.ReadMessage()
 			if err != nil {
-				dst.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				if ce, ok := err.(*websocket.CloseError); ok {
+					log.Printf("%s closed: %d %s", srcName, ce.Code, ce.Text)
+				} else {
+					log.Printf("%s read err: %v", srcName, err)
+				}
+				_ = dst.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second))
 				return
 			}
-			_ = dst.WriteMessage(mt, msg)
+			if err := dst.WriteMessage(mt, msg); err != nil {
+				log.Printf("write err: %v", err)
+				return
+			}
 		}
 	}
+
 	wg.Add(2)
-	go copy(p.client, p.agent)
-	go copy(p.agent, p.client)
+	go relay("client", p.client, p.agent)
+	go relay("agent", p.agent, p.client)
 	wg.Wait()
-	p.client.Close()
-	p.agent.Close()
+	_ = p.client.Close()
+	_ = p.agent.Close()
+	log.Println("pipe ended")
+}
+
+// setupWS configures ping/pong keep-alive and close logging.
+func setupWS(c *websocket.Conn, label string) {
+	c.SetReadLimit(1 << 20)
+	c.SetReadDeadline(time.Now().Add(pongWait))
+	c.SetPongHandler(func(string) error {
+		c.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+	c.SetCloseHandler(func(code int, text string) error {
+		log.Printf("ws %s closed: %d %s", label, code, text)
+		return nil
+	})
+	// periodic ping
+	ticker := time.NewTicker(pingInterval)
+	go func() {
+		for range ticker.C {
+			if err := c.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+				log.Printf("ping %s err: %v", label, err)
+				c.Close()
+				return
+			}
+		}
+	}()
 }
