@@ -31,7 +31,7 @@ type Server struct {
 	CPUPercent     float64   `json:"cpu_percent" gorm:"type:decimal(5,2)"`
 	MemUsedMB      uint64    `json:"mem_used_mb"`
 	DiskUsedMB     uint64    `json:"disk_used_mb"`
-	NetMbps        float64   `json:"net_mbps" gorm:"type:decimal(10,2)"`
+	NetMbps        float64   `json:"net_mbps"`
 	StreamsTotal   int       `json:"streams_total"`
 	StreamsActive  int       `json:"streams_active"`
 	StreamsSched   int       `json:"streams_scheduled"`

@@ -249,7 +249,13 @@ func collectMetrics(prevBytes uint64, intervalSec float64) (Metrics, uint64) {
 
 	io, _ := net.IOCounters(false)
 	totalBytes := io[0].BytesRecv + io[0].BytesSent
-	diff := totalBytes - prevBytes
+	var diff uint64
+	if totalBytes >= prevBytes {
+		diff = totalBytes - prevBytes
+	} else {
+		// counter wrapped or reset
+		diff = 0
+	}
 	hInfo, _ := host.Info()
 	uptime := hInfo.Uptime
 	loadAvg, _ := load.Avg()
