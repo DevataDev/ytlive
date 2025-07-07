@@ -316,6 +316,7 @@ func main() {
 			SetHeader("X-Agent-Version", AgentVersion).
 			SetBody(metrics).
 			Post(backend + "/agent/heartbeat")
+		log.Println("heartbeat sent")
 		if err != nil {
 			log.Println("heartbeat error:", err)
 		}
@@ -324,12 +325,14 @@ func main() {
 		var resp struct {
 			Tasks []Task `json:"tasks"`
 		}
+		log.Println("polling tasks")
 		_, err = client.R().
 			SetHeader("X-Agent-Key", agentKey).
 			SetHeader("X-Agent-Name", AgentName).
 			SetHeader("X-Agent-Version", AgentVersion).
 			SetResult(&resp).
 			Get(backend + "/agent/tasks")
+		log.Println("tasks polled")
 		if err == nil && len(resp.Tasks) > 0 {
 			log.Printf("received %d tasks\n", len(resp.Tasks))
 			for _, t := range resp.Tasks {
