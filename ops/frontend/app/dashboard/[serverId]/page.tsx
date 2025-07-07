@@ -23,7 +23,6 @@ export default async function ServerPage({ params }: Props) {
   const { serverId } = params;
   const cookieStore = await cookies();
   const jwt = cookieStore.get('ops_jwt')?.value || getToken();
-  console.log(`jwt: ${jwt}`);
   const res = await fetch(`${process.env.NEXT_PUBLIC_OPS_API_URL ?? 'http://localhost:8080'}/servers/${serverId}`, {
     cache: 'no-store',
     headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},

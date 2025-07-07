@@ -121,6 +121,9 @@ func main() {
 
 	// Agent binary download & deploy
 	adHandler := handlers.NewAgentDeployHandler(root)
+    adHandler.DB = db
+    adHandler.EncKey = encKey
+    adHandler.BackendURL = os.Getenv("OPS_BACKEND_URL")
 	r.GET("/downloads/agent/:arch", adHandler.Download)
 	r.POST("/servers/:id/agent/deploy", adHandler.Deploy)
     r.GET("/agent-deploys/:id/stream", adHandler.Stream)
