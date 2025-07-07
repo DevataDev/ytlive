@@ -24,16 +24,20 @@ import (
 )
 
 var (
-	AgentVersion = "1.0.2"
+	AgentVersion = "1.0.3"
 	AgentName    = "ops-agent"
 )
 
 // Metrics represents the minimal set of stats we ship to /agent/heartbeat.
 // Task returned by panel
 type Task struct {
-	ID   string         `json:"id"`
-	Type string         `json:"type"`
-	Data map[string]any `json:"data"`
+	ID        string         `json:"id"`
+	Type      string         `json:"type"`
+	Data      map[string]any `json:"data"`
+	Status    string         `json:"status"`
+	Output    string         `json:"output"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
 }
 
 // handleTask executes a single task in a goroutine.
