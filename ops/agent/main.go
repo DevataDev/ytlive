@@ -1,12 +1,14 @@
 package main
 
 import (
-	"io"
-	"log"
-	"net/http"
-	"os"
-	"os/exec"
-	"time"
+    "bufio"
+    "io"
+    "log"
+    "net/http"
+    "os"
+    "os/exec"
+    "strings"
+    "time"
 
 	"github.com/gorilla/websocket"
 
@@ -91,6 +93,16 @@ func runShell(cmd string) (string, error) {
 	return string(out), err
 }
 
+// Container mirrors backend models.Container (json subset)
+type Container struct {
+    ID     string `json:"id,omitempty"`
+    Name   string `json:"name"`
+    Image  string `json:"image"`
+    Status string `json:"status"`
+    Ports  string `json:"ports"`
+    Uptime string `json:"uptime"`
+}
+
 type Metrics struct {
 	CPUPercent    float64 `json:"cpu_percent"`
 	MemUsedMB     uint64  `json:"mem_used_mb"`
@@ -139,6 +151,74 @@ func collectMetrics(prevBytes uint64, intervalSec float64) (Metrics, uint64) {
 	}, totalBytes
 }
 
+// collectDocker runs `docker ps` and converts output into Container slice
+func collectDocker() []Container {
+    cmd := exec.Command("docker", "ps", "--format", "{{.ID}};;{{.Names}};;{{.Image}};;{{.Status}};;{{.Ports}};;{{.RunningFor}}")
+    out, err := cmd.Output()
+    if err != nil {
+        return nil
+    }
+    var list []Container
+    scanner := bufio.NewScanner(strings.NewReader(string(out)))
+    for scanner.Scan() {
+        parts := strings.SplitN(scanner.Text(), ";;", 6)
+        if len(parts) < 6 {
+            continue
+        }
+        list = append(list, Container{
+            Name:   parts[1],
+            Image:  parts[2],
+            Status: parts[3],
+            Ports:  parts[4],
+            Uptime: parts[5],
+        })
+    }
+    return list
+}
+
+func collectEnv() map[string]string {
+    kv := make(map[string]string)
+    for _, e := range os.Environ() {
+        parts := strings.SplitN(e, "=", 2)
+        if len(parts) == 2 {
+            kv[parts[0]] = parts[1]
+        }
+    }
+    return kv
+}
+
+func startReportLoops(cli *resty.Client, backend, key string) {
+    go func() {
+        dockerTicker := time.NewTicker(60 * time.Second)
+        envTicker := time.NewTicker(300 * time.Second)
+        for {
+            select {
+            case <-dockerTicker.C:
+                containers := collectDocker()
+                if containers == nil {
+                    continue
+                }
+                _, err := cli.R().
+                    SetHeader("X-Agent-Key", key).
+                    SetBody(containers).
+                    Post(backend + "/agent/report/docker")
+                if err != nil {
+                    log.Println("docker report err:", err)
+                }
+            case <-envTicker.C:
+                envs := collectEnv()
+                _, err := cli.R().
+                    SetHeader("X-Agent-Key", key).
+                    SetBody(envs).
+                    Post(backend + "/agent/report/env")
+                if err != nil {
+                    log.Println("env report err:", err)
+                }
+            }
+        }
+    }()
+}
+
 func main() {
 	_ = godotenv.Load()
 
@@ -149,6 +229,8 @@ func main() {
 	}
 
 	client := resty.New()
+    // start reporting loops
+    startReportLoops(client, backend, agentKey)
 	interval := 30 * time.Second
 	var lastBytes uint64
 

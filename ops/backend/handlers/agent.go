@@ -136,7 +136,67 @@ type task struct {
      c.JSON(http.StatusOK, gin.H{"ok": true})
  }
 
- func (h *AgentHandler) Tasks(c *gin.Context) {
+ // ReportDocker ingests docker container list from agent
+func (h *AgentHandler) ReportDocker(c *gin.Context) {
+    key := c.GetHeader("X-Agent-Key")
+    if key == "" {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "missing agent key"})
+        return
+    }
+    var srv models.Server
+    if err := h.DB.First(&srv, "agent_key = ?", key).Error; err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid agent key"})
+        return
+    }
+    var containers []models.Container
+    if err := c.ShouldBindJSON(&containers); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    // attach server id, reset IDs if empty
+    for i := range containers {
+        containers[i].ServerID = srv.ID
+        if containers[i].ID == "" {
+            containers[i].BeforeCreate(nil)
+        }
+    }
+    // replace rows for this server
+    h.DB.Where("server_id = ?", srv.ID).Delete(&models.Container{})
+    if len(containers) > 0 {
+        h.DB.Create(&containers)
+    }
+    c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// ReportEnv ingests env vars from agent
+func (h *AgentHandler) ReportEnv(c *gin.Context) {
+    key := c.GetHeader("X-Agent-Key")
+    if key == "" {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "missing agent key"})
+        return
+    }
+    var srv models.Server
+    if err := h.DB.First(&srv, "agent_key = ?", key).Error; err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid agent key"})
+        return
+    }
+    var kv map[string]string
+    if err := c.ShouldBindJSON(&kv); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    h.DB.Where("server_id = ?", srv.ID).Delete(&models.EnvVar{})
+    envs := make([]models.EnvVar, 0, len(kv))
+    for k, v := range kv {
+        envs = append(envs, models.EnvVar{ServerID: srv.ID, Key: k, Value: v})
+    }
+    if len(envs) > 0 {
+        h.DB.Create(&envs)
+    }
+    c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *AgentHandler) Tasks(c *gin.Context) {
 	key := c.GetHeader("X-Agent-Key")
 	if key == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing agent key"})

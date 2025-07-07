@@ -38,6 +38,8 @@ func main() {
     agent.POST("/heartbeat", agentHandler.Heartbeat)
     agent.GET("/tasks", agentHandler.Tasks)
     agent.POST("/tasks/result", agentHandler.TaskResult)
+    agent.POST("/report/docker", agentHandler.ReportDocker)
+    agent.POST("/report/env", agentHandler.ReportEnv)
 
     // websocket bridge
     shellWS := handlers.ShellWSHandler{DB: db}

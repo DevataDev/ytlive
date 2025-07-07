@@ -1,10 +1,17 @@
 "use client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsRoot, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import useSWR from "swr";
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import DeploymentModal from "@/components/DeploymentModal";
 const Terminal = dynamic(() => import("@/components/terminal/Terminal"), { ssr: false });
+const backend = process.env.NEXT_PUBLIC_OPS_BACKEND_URL || "";
+const fetcher = async (url: string) => {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(res.statusText);
+  return res.json();
+};
 
 function ShellTerminal({ serverId }: { serverId: string }) {
   const backend = process.env.NEXT_PUBLIC_OPS_BACKEND_URL || "";
@@ -20,6 +27,54 @@ type Server = {
   status: string;
   domain?: string;
 };
+
+function DockerTable({ serverId }: { serverId: string }) {
+  const { data, isLoading, error } = useSWR(backend + `/servers/${serverId}/docker`, fetcher, { refreshInterval: 30000 });
+  if (isLoading) return <p>Loading...</p>;
+  if (error) return <p className="text-red-500">Failed to load</p>;
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="text-left border-b">
+          <th className="py-1">Name</th>
+          <th className="py-1">Image</th>
+          <th className="py-1">Status</th>
+          <th className="py-1">Ports</th>
+          <th className="py-1">Uptime</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data?.map((c: any) => (
+          <tr key={c.name} className="border-b last:border-0">
+            <td className="py-1">{c.name}</td>
+            <td className="py-1">{c.image}</td>
+            <td className="py-1 capitalize">{c.status}</td>
+            <td className="py-1">{c.ports}</td>
+            <td className="py-1">{c.uptime}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function EnvTable({ serverId }: { serverId: string }) {
+  const { data, isLoading, error } = useSWR(backend + `/servers/${serverId}/env`, fetcher, { refreshInterval: 60000 });
+  if (isLoading) return <p>Loading...</p>;
+  if (error) return <p className="text-red-500">Failed to load</p>;
+  return (
+    <table className="w-full text-sm">
+      <tbody>
+        {Object.entries(data || {}).map(([k, v]) => (
+          <tr key={k} className="border-b last:border-0">
+            <td className="py-1 font-medium">{k}</td>
+            <td className="py-1 break-all">{v as string}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 export default function ServerDetailTabs({ server }: { server: Server }) {
   const [depOpen, setDepOpen] = useState(false);
@@ -79,28 +134,10 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
             <CardTitle>Docker Containers</CardTitle>
           </CardHeader>
           <CardContent>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b">
-                  <th className="py-1">Name</th>
-                  <th className="py-1">Image</th>
-                  <th className="py-1">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { name: "nginx-proxy", image: "nginx:1.25", status: "running" },
-                  { name: "redis", image: "redis:7", status: "running" },
-                  { name: "video-transcoder", image: "ffmpeg:latest", status: "exited" },
-                ].map((c) => (
-                  <tr key={c.name} className="border-b last:border-0">
-                    <td className="py-1">{c.name}</td>
-                    <td className="py-1">{c.image}</td>
-                    <td className="py-1 capitalize">{c.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {!backend && (<p className="text-red-500">Backend URL not set</p>)}
+            {backend && (
+              <DockerTable serverId={server.id} />
+            )}
           </CardContent>
         </Card>
       </TabsContent>
@@ -111,20 +148,8 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
             <CardTitle>Environment &amp; Config</CardTitle>
           </CardHeader>
           <CardContent>
-            <table className="w-full text-sm">
-              <tbody>
-                {[
-                  { key: "NODE_ENV", value: "production" },
-                  { key: "PORT", value: "8080" },
-                  { key: "TZ", value: "UTC" },
-                ].map((v) => (
-                  <tr key={v.key} className="border-b last:border-0">
-                    <td className="py-1 font-medium">{v.key}</td>
-                    <td className="py-1">{v.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {!backend && (<p className="text-red-500">Backend URL not set</p>)}
+            {backend && (<EnvTable serverId={server.id} />)}
           </CardContent>
         </Card>
       </TabsContent>
