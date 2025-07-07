@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ export type Server = {
   ssh_user?: string;
   ssh_port?: number;
   domain?: string;
+  zone_id?: string;
+  subdomain?: string;
 };
 
 interface AddServerModalProps {
@@ -25,8 +27,17 @@ interface AddServerModalProps {
 export default function AddServerModal({ open, onOpenChange, onCreated }: AddServerModalProps) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
-  const [domain,setDomain]=useState("");
+  const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
+  const [zoneId, setZoneId] = useState("");
+  const [zoneName, setZoneName] = useState("");
+  const [subdomain,setSubdomain]=useState("");
   const [sshUser, setSshUser] = useState("root");
+  // fetch zones when modal opens
+  useEffect(()=>{
+    if(open){
+      apiFetch('/cloudflare/zones').then(r=>r.json()).then(setZones).catch(()=>{});
+    }
+  },[open]);
   const [sshPort, setSshPort] = useState(22);
   const [sshPassword, setSshPassword] = useState("");
   const [sshKeyPath, setSshKeyPath] = useState("");
@@ -36,7 +47,9 @@ export default function AddServerModal({ open, onOpenChange, onCreated }: AddSer
   const reset = () => {
     setName("");
     setAddress("");
-    setDomain("");
+    setZoneId("");
+    setZoneName("");
+    setSubdomain("");
     setSshUser("root");
     setSshPort(22);
     setSshPassword("");
@@ -62,7 +75,8 @@ export default function AddServerModal({ open, onOpenChange, onCreated }: AddSer
           address,
           ssh_user: sshUser,
           ssh_port: sshPort,
-          domain,
+          zone_id: zoneId,
+        subdomain,
         ssh_password: sshPassword,
           ssh_key_path: sshKeyPath,
         }),
@@ -82,7 +96,7 @@ export default function AddServerModal({ open, onOpenChange, onCreated }: AddSer
     }
   };
 
-  const disabled = !name || !address || !domain || (!sshPassword && !sshKeyPath) || submitting;
+  const disabled = submitting || !name || !address || !zoneId || !subdomain || (!sshPassword && !sshKeyPath);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -92,8 +106,22 @@ export default function AddServerModal({ open, onOpenChange, onCreated }: AddSer
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <label htmlFor="domain" className="block text-sm font-medium">Domain</label>
-            <Input id="domain" value={domain} onChange={e => setDomain(e.target.value)} required />
+            <label className="block text-sm font-medium" htmlFor="zone">Root Domain</label>
+            <Input id="zone" list="zone-list" value={zoneName} onChange={e=>{
+              const val=e.target.value;setZoneName(val);
+              const found=zones.find(z=>z.name===val);
+              setZoneId(found?found.id:"");
+            }} placeholder="Search domain..." required />
+            <datalist id="zone-list">
+              {zones.map(z=> <option key={z.id} value={z.name} />)}
+            </datalist>
+          </div>
+          <div>
+            <label htmlFor="sub" className="block text-sm font-medium">Sub-domain</label>
+            <div className="flex space-x-2">
+              <Input id="sub" className="flex-1" value={subdomain} onChange={e=>setSubdomain(e.target.value)} required />
+              <Button type="button" variant="outline" onClick={()=>setSubdomain(`${name.replace(/\s+/g,'-').toLowerCase()}-${Math.random().toString(36).slice(2,6)}`)}>Generate</Button>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-muted-foreground" htmlFor="name">Name</label>

@@ -95,6 +95,11 @@ func main() {
         api.POST("/servers/:id/deploy", depHandler.Start)
         api.GET("/deployments/:id/stream", depHandler.Stream)
 
+        // cloudflare routes
+        cfHandler := handlers.NewCloudflareHandler(db, encKey)
+        api.GET("/cloudflare/zones", cfHandler.ListZones)
+        api.POST("/cloudflare/zones/:id/dns", cfHandler.CreateDNS)
+
         // secret routes
         secretHandler := handlers.NewSecretHandler(db, encKey)
         api.GET("/secrets", secretHandler.List)
