@@ -27,11 +27,12 @@ type Bridge struct {
 }
 
 var (
-	upgrader     = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-	bridges      = make(map[string]*Bridge) // key: channelID
-	bridgesMu    sync.Mutex
+	upgrader  = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	bridges   = make(map[string]*Bridge) // key: channelID
+	bridgesMu sync.Mutex
 	pingInterval = 15 * time.Second
 	pongWait     = 30 * time.Second
+	connMu sync.Map // *websocket.Conn -> *sync.Mutex
 )
 
 // ShellClientWS upgrades client HTTP to WS, creates channel, returns channel ID, and waits for agent.
@@ -129,6 +130,8 @@ func pipe(p connections) {
 	var wg sync.WaitGroup
 
 	relay := func(srcName string, src, dst *websocket.Conn) {
+            dmuI, _ := connMu.LoadOrStore(dst, &sync.Mutex{})
+            dmu := dmuI.(*sync.Mutex)
 		defer wg.Done()
 		for {
 			mt, r, err := src.NextReader()
@@ -141,7 +144,8 @@ func pipe(p connections) {
 				_ = dst.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second))
 				return
 			}
-			w, err := dst.NextWriter(mt)
+			dmu.Lock()
+                w, err := dst.NextWriter(mt)
 			if err != nil {
 				log.Printf("nextWriter err: %v", err)
 				_ = dst.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second))
@@ -152,6 +156,7 @@ func pipe(p connections) {
 				log.Printf("io.Copy(%s) err: %v", srcName, err)
 			}
 			_ = w.Close()
+                dmu.Unlock()
 		}
 	}
 
@@ -177,14 +182,19 @@ func setupWS(c *websocket.Conn, label string) {
 		return nil
 	})
 	// periodic ping
-	ticker := time.NewTicker(pingInterval)
-	go func() {
-		for range ticker.C {
-			if err := c.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
-				log.Printf("ping %s err: %v", label, err)
-				c.Close()
-				return
-			}
-		}
-	}()
+	muI, _ := connMu.LoadOrStore(c, &sync.Mutex{})
+    mu := muI.(*sync.Mutex)
+    ticker := time.NewTicker(pingInterval)
+    go func() {
+        for range ticker.C {
+            mu.Lock()
+            err := c.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second))
+            mu.Unlock()
+            if err != nil {
+                log.Printf("ping %s err: %v", label, err)
+                c.Close()
+                return
+            }
+        }
+    }()
 }
