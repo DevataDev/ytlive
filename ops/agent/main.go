@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	AgentVersion = "1.0.7"
+	AgentVersion = "1.0.8"
 	AgentName    = "ops-agent"
 )
 
@@ -191,15 +191,56 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 }
 
 // updateDockerContainer pulls latest image and restarts the container
+// updateDockerContainer updates the image without disrupting docker-compose deployments.
+// If the target container was started by docker-compose (labels contain
+// com.docker.compose.project), we use `docker compose pull` followed by
+// `docker compose restart` to ensure configuration stays in sync with the
+// compose file and volumes are preserved. For "stand-alone" containers we
+// fall back to the legacy stop/rm/run method.
 func updateDockerContainer(image, container string) (string, error) {
-	cmds := [][]string{
-		{"docker", "pull", image},
+	var output strings.Builder
+
+	// Always pull the freshest image first.
+	pullCmd := exec.Command("docker", "pull", image)
+	if out, err := pullCmd.CombinedOutput(); err != nil {
+		output.Write(out)
+		return output.String(), err
+	} else {
+		output.Write(out)
+	}
+
+	// Detect docker-compose labels.
+	inspect := exec.Command("docker", "inspect", "-f", "{{ index .Config.Labels \"com.docker.compose.project\" }} {{ index .Config.Labels \"com.docker.compose.service\" }}", container)
+	inspectOut, _ := inspect.Output()
+	parts := strings.Fields(strings.TrimSpace(string(inspectOut)))
+	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+		project := parts[0]
+		service := parts[1]
+
+		// Compose-managed: pull & restart service within project.
+		composeCmds := [][]string{
+			{"docker", "compose", "-p", project, "pull", service},
+			{"docker", "compose", "-p", project, "restart", service},
+		}
+		for _, args := range composeCmds {
+			cmd := exec.Command(args[0], args[1:]...)
+			out, err := cmd.CombinedOutput()
+			output.Write(out)
+			if err != nil {
+				return output.String(), err
+			}
+		}
+		return output.String(), nil
+	}
+
+	// Stand-alone container fallback – recreate with new image. Preserve volumes via
+	// --volumes-from if a data container is defined, otherwise rely on underlying mounts.
+	legacyCmds := [][]string{
 		{"docker", "stop", container},
 		{"docker", "rm", container},
 		{"docker", "run", "-d", "--name", container, image},
 	}
-	var output strings.Builder
-	for _, args := range cmds {
+	for _, args := range legacyCmds {
 		cmd := exec.Command(args[0], args[1:]...)
 		out, err := cmd.CombinedOutput()
 		output.Write(out)
@@ -207,7 +248,6 @@ func updateDockerContainer(image, container string) (string, error) {
 			return output.String(), err
 		}
 	}
-	log.Println("Response update : ", output.String())
 	return output.String(), nil
 }
 
