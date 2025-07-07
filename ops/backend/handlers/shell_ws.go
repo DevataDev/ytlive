@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -47,8 +48,8 @@ func (h *ShellWSHandler) Client(c *gin.Context) {
 	bridges[channelID] = br
 	bridgesMu.Unlock()
 
-	// Send initial message containing channelID so frontend knows.
-	_ = conn.WriteJSON(map[string]string{"channel": channelID})
+	// // Send initial message containing channelID so frontend knows.
+	// _ = conn.WriteJSON(map[string]string{"channel": channelID})
 
 	// enqueue task for agent
 	data, _ := json.Marshal(map[string]string{"channel": channelID})
@@ -62,7 +63,8 @@ func (h *ShellWSHandler) Client(c *gin.Context) {
 	})
 
 	// send back task id to client
-	_ = conn.WriteJSON(map[string]string{"task_id": taskId})
+	// _ = conn.WriteJSON(map[string]string{"task_id": taskId})
+	_ = conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Establishing Session .... %s\r\n", taskId)))
 
 	// Wait until agent connects
 	waitChan := make(chan struct{})
@@ -71,7 +73,7 @@ func (h *ShellWSHandler) Client(c *gin.Context) {
 		for {
 			br.mutex.Lock()
 			a := br.agent
-
+			_ = conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Agent Connected .... %s\r\n", taskId)))
 			br.mutex.Unlock()
 			if a != nil {
 				close(waitChan)
