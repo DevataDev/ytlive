@@ -335,6 +335,8 @@ func main() {
 			for _, t := range resp.Tasks {
 				go handleTask(client, backend, agentKey, t)
 			}
+		} else {
+			log.Println("no tasks")
 		}
 
 		// wait exactly interval duration
