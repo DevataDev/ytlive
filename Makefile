@@ -55,3 +55,8 @@ docker-push:
 docker-build-push:
 	@echo "Building and pushing Docker images..."
 	@./build-and-push.sh
+
+# Build cross-compiled agent binaries into ops/backend/agent_bins
+.PHONY: release-agent
+release-agent:
+	@./scripts/build_agent_bins.sh

@@ -256,6 +256,9 @@ Icon
 ._*
 
 # Files that might appear in the root of a volume
+
+# Ops agent build artefacts
+ops/backend/agent_bins/
 .DocumentRevisions-V100
 .fseventsd
 .Spotlight-V100
