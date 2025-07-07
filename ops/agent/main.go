@@ -104,9 +104,48 @@ func handleTask(cli *resty.Client, backend, key string, t Task) {
 		// Pipe data between websocket and PTY
 		go func() { _, _ = io.Copy(ptmx, &wsReader{c: conn}) }()
 		_, _ = io.Copy(&wsWriter{c: conn}, ptmx)
+	case "docker_update":
+		img, _ := t.Data["image"].(string)
+		ctr, _ := t.Data["container"].(string)
+		if img == "" || ctr == "" {
+			log.Println("docker_update missing image or container")
+			return
+		}
+		out, err := updateDockerContainer(img, ctr)
+		status := "ok"
+		if err != nil {
+			status = "error"
+			out = err.Error()
+		}
+		_, _ = cli.R().
+			SetHeader("X-Agent-Key", key).
+			SetHeader("X-Agent-Name", AgentName).
+			SetHeader("X-Agent-Version", AgentVersion).
+			SetBody(map[string]any{"task_id": t.ID, "status": status, "output": out}).
+			Post(backend + "/agent/tasks/result")
 	default:
 		log.Printf("unknown task type %s", t.Type)
 	}
+}
+
+// updateDockerContainer pulls latest image and restarts the container
+func updateDockerContainer(image, container string) (string, error) {
+	cmds := [][]string{
+		{"docker", "pull", image},
+		{"docker", "stop", container},
+		{"docker", "rm", container},
+		{"docker", "run", "-d", "--name", container, image},
+	}
+	var output strings.Builder
+	for _, args := range cmds {
+		cmd := exec.Command(args[0], args[1:]...)
+		out, err := cmd.CombinedOutput()
+		output.Write(out)
+		if err != nil {
+			return output.String(), err
+		}
+	}
+	return output.String(), nil
 }
 
 func runShell(cmd string) (string, error) {
