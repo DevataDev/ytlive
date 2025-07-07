@@ -69,13 +69,6 @@ export default function ServerDetailTabs({ server }: { server: Server }) {
           <CardContent>
             {/* live terminal */}
             <ShellTerminal serverId={server.id} />
-            <div className="border rounded-md bg-black text-green-500 p-2 text-xs h-64 overflow-y-auto mb-2">
-              user@{server.name}:~$&nbsp;_ <span className="opacity-75">(live shell coming soon)</span>
-            </div>
-            
-              placeholder="Enter command"
-              className="w-full rounded-md border px-3 py-1 text-sm"
-              
           </CardContent>
         </Card>
       </TabsContent>

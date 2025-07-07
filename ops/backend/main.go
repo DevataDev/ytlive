@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect database: ", err)
 	}
-	_ = db.AutoMigrate(&models.Server{}, &models.User{}, &models.Deployment{}, &models.Secret{}, &models.Task{}, &models.ServerStat{})
+	_ = db.AutoMigrate(&models.Server{}, &models.User{}, &models.Deployment{}, &models.Secret{}, &models.Task{}, &models.ServerStat{}, &models.Container{}, &models.EnvVar{})
 
 	r := gin.Default()
 
@@ -102,7 +102,12 @@ func main() {
     api.POST("/servers", srvHandler.Create)
     api.GET("/servers/:id", srvHandler.Get)
 
-        // deployment routes
+        // docker & env routes
+    deHandler := handlers.NewDockerEnvHandler(db)
+    api.GET("/servers/:id/docker", deHandler.ListContainers)
+    api.GET("/servers/:id/env", deHandler.ListEnv)
+
+    // deployment routes
         depHandler := handlers.NewDeployHandler(db, encKey)
         api.POST("/servers/:id/deploy", depHandler.Start)
         api.GET("/deployments/:id/stream", depHandler.Stream)

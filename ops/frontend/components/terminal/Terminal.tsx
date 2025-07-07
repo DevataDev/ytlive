@@ -26,7 +26,7 @@ export default function Terminal({ wsUrl, className }: Props) {
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(containerRef.current);
-    fitAddon.fit();
+    // initial fit deferred until element has size via ResizeObserver
     termRef.current = term;
 
     const ws = new WebSocket(wsUrl);
@@ -45,9 +45,17 @@ export default function Terminal({ wsUrl, className }: Props) {
 
     const resize = () => fitAddon.fit();
     window.addEventListener("resize", resize);
+    // ResizeObserver to react to parent size changes
+    const ro = new ResizeObserver((entries) => {
+      if (entries[0].contentRect.width > 0 && entries[0].contentRect.height > 0) {
+        fitAddon.fit();
+      }
+    });
+    ro.observe(containerRef.current);
 
     return () => {
       window.removeEventListener("resize", resize);
+      ro.disconnect();
       ws.close();
       term.dispose();
     };
