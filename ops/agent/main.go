@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	AgentVersion = "1.0.3"
+	AgentVersion = "1.0.4"
 	AgentName    = "ops-agent"
 )
 
