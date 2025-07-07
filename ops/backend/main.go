@@ -32,6 +32,13 @@ func main() {
 
 	r := gin.Default()
 
+    // agent endpoints (no JWT)
+    agentHandler := handlers.NewAgentHandler(db)
+    agent := r.Group("/agent")
+    agent.POST("/heartbeat", agentHandler.Heartbeat)
+    agent.GET("/tasks", agentHandler.Tasks)
+    agent.POST("/tasks/result", agentHandler.TaskResult)
+
     // --- CORS configuration ---
     corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
     corsConfig := cors.Config{
