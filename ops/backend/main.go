@@ -90,6 +90,14 @@ func main() {
 		c.JSON(200, gin.H{"token": token})
 	})
 
+	// logout – clears JWT cookie on api domain
+	authGroup.POST("/logout", func(c *gin.Context) {
+		// expire cookie immediately
+		domain := ".yuklive.com"
+		c.SetCookie("ops_jwt", "", -1, "/", domain, true, true)
+		c.JSON(200, gin.H{"message": "logged out"})
+	})
+
 	// --- Protected routes ---
 	api := r.Group("/")
 	api.Use(middleware.RequireAuth())
