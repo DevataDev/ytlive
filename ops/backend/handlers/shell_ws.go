@@ -52,13 +52,17 @@ func (h *ShellWSHandler) Client(c *gin.Context) {
 
 	// enqueue task for agent
 	data, _ := json.Marshal(map[string]string{"channel": channelID})
+	taskId := ulidString()
 	h.DB.Create(&models.Task{
-		ID:       uuid.NewString(),
+		ID:       taskId,
 		ServerID: serverID,
 		Type:     "shell_session",
 		Data:     string(data),
 		Status:   "pending",
 	})
+
+	// send back task id to client
+	_ = conn.WriteJSON(map[string]string{"task_id": taskId})
 
 	// Wait until agent connects
 	waitChan := make(chan struct{})
@@ -67,6 +71,7 @@ func (h *ShellWSHandler) Client(c *gin.Context) {
 		for {
 			br.mutex.Lock()
 			a := br.agent
+
 			br.mutex.Unlock()
 			if a != nil {
 				close(waitChan)
