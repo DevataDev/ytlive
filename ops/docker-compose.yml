@@ -78,7 +78,7 @@ services:
       - "traefik.http.routers.ops-frontend.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.ops-frontend.entrypoints=websecure"
       - "traefik.http.routers.ops-frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.ops-frontend.loadbalancer.server.port=3000"
+      - "traefik.http.services.ops-frontend.loadbalancer.server.port=3100"
 
 volumes:
   ops_postgres_data:
