@@ -17,7 +17,13 @@ const fetcher = async (url: string) => {
 function ShellTerminal({ serverId }: { serverId: string }) {
   const backend = process.env.NEXT_PUBLIC_OPS_BACKEND_URL || "";
   if (!backend) return <p className="text-red-500">Backend URL not set</p>;
-  const wsUrl = backend.replace(/^http/, "ws") + `/ws/shell?server=${serverId}`;
+  let origin: string;
+  try {
+    origin = new URL(backend).origin; // strip any path like /api
+  } catch {
+    origin = backend;
+  }
+  const wsUrl = origin.replace(/^http/, "ws") + `/ws/shell?server=${serverId}`;
   return <Terminal wsUrl={wsUrl} />;
 }
 
