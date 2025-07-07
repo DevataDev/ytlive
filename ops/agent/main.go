@@ -250,6 +250,8 @@ func main() {
 	interval := 30 * time.Second
 	var lastBytes uint64
 
+	log.Println("Agent : ", AgentName, "Version : ", AgentVersion, "Backend : ", backend, " Started...")
+
 	for {
 		start := time.Now()
 
