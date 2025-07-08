@@ -18,8 +18,11 @@ COPY . .
 # This creates a build that includes the SALES_MODE setting
 ENV NODE_ENV=production
 ARG SALES_MODE
-ENV NEXT_PUBLIC_SALES_MODE=${SALES_MODE:-false}
+ARG NEXT_PUBLIC_SALES_MODE
+ENV NEXT_PUBLIC_SALES_MODE=${NEXT_PUBLIC_SALES_MODE:-false} \
+    SALES_MODE=${SALES_MODE:-false}
 RUN echo "Building with SALES_MODE=${SALES_MODE:-false}"
+RUN echo "Building with NEXT_PUBLIC_SALES_MODE=${NEXT_PUBLIC_SALES_MODE:-false}"
 RUN npm run build
 
 # --- Final stage: run optimized production build ---
@@ -33,7 +36,10 @@ COPY --from=builder /app ./
 
 # 8. Set env for production
 ARG SALES_MODE
-ENV NEXT_PUBLIC_SALES_MODE=${SALES_MODE:-false}
+ARG NEXT_PUBLIC_SALES_MODE
+ENV NEXT_PUBLIC_SALES_MODE=${NEXT_PUBLIC_SALES_MODE:-false} \
+    SALES_MODE=${SALES_MODE:-false}
+
 ENV NODE_ENV=production
 
 # 9. Create entrypoint script for runtime configuration
