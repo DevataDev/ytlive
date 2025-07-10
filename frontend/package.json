@@ -26,8 +26,6 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "xterm": "^5.5.0",
-    "xterm-addon-fit": "^0.8.0",
     "@fortawesome/fontawesome-svg-core": "^6.5.0",
     "@fortawesome/free-brands-svg-icons": "^6.5.0",
     "@fortawesome/free-regular-svg-icons": "^6.5.0",
