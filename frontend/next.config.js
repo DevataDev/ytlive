@@ -4,6 +4,7 @@ const nextConfig = {
     // Build-time variables
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+    NEXT_PUBLIC_SALES_MODE: process.env.NEXT_PUBLIC_SALES_MODE,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     // Runtime variables
     API_URL: process.env.API_URL,
