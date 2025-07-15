@@ -29,6 +29,9 @@ export COMMIT="$COMMIT"
 export BUILD_DATE="$BUILD_DATE"
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
 export NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-}"
+# Force sales mode to be enabled
+export SALES_MODE="false"
+export NEXT_PUBLIC_SALES_MODE="false" 
 
 echo -e "${GREEN}Building with docker-compose...${NC}"
 docker compose build --no-cache
