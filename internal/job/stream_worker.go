@@ -290,6 +290,7 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 
 	// get channel info
 	var channel models.Channels
+	log.Printf("Getting channel info for user_id: %s, channel_id: %s\n", stream.UserID, stream.ChannelID)
 	if err := database.Where("user_id = ? AND (channel_id = ? OR id = ?)", stream.UserID, stream.ChannelID, stream.ChannelID).Find(&channel).Error; err != nil {
 		return nil, 0, err
 	}
@@ -305,6 +306,7 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 			refreshToken = *channel.RefreshToken
 		}
 
+		// if description is nil, use the default description
 		var description string
 		if stream.Description != nil {
 			description = *stream.Description
@@ -313,6 +315,7 @@ func StartStreamWorkerWithDatabase(streamID, streamKey string, maxBitrate *int, 
 		}
 
 		if accessToken != "" && stream.Status == "stopped" {
+			log.Println("Broadcasting stream start event for stream", streamID)
 			broadcast.Bus.Broadcast(broadcast.CreateBroadcast, map[string]interface{}{
 				"stream_id":     streamID,
 				"stream_key":    streamKey,
