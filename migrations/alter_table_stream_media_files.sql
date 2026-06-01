@@ -18,8 +18,8 @@ CREATE TABLE stream_media_files_new (
 );
 
 -- 3. Copy data from old table (if it exists and has data)
--- INSERT INTO stream_media_files_new (stream_id, media_file_id, "order", is_primary, created_at, updated_at, deleted_at)
--- SELECT stream_id, media_file_id, "order", is_primary, created_at, updated_at, deleted_at FROM stream_media_files;
+INSERT INTO stream_media_files_new (stream_id, media_file_id, "order", is_primary, created_at, updated_at, deleted_at)
+SELECT stream_id, media_file_id, "order", is_primary, created_at, updated_at, deleted_at FROM stream_media_files;
 
 -- 4. Drop old table
 DROP TABLE IF EXISTS stream_media_files;

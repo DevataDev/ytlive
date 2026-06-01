@@ -1,15 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   env: {
-    // Build-time variables
+    // Build-time variables (client-safe only)
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-    // Runtime variables
+    // Runtime variables (client-safe only)
     API_URL: process.env.API_URL,
     API_BASE_URL: process.env.API_BASE_URL,
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-    JWT_SECRET: process.env.JWT_SECRET,
+    // NOTE: NEXTAUTH_SECRET and JWT_SECRET removed — they are server-only
+    // and are automatically available via process.env in server-side code.
+    // Exposing them here risks leaking to client bundles.
   },
   reactStrictMode: true,
   trailingSlash: true,

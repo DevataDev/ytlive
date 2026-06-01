@@ -3,10 +3,11 @@ package configuration
 // Config struct for MySQL and default
 type Config struct {
 	App struct {
-		Port int    `yaml:"port"`
-		Host string `yaml:"host"`
-		Mode string `yaml:"mode"`
-		Sql  string `yaml:"sql"`
+		Port        int      `yaml:"port"`
+		Host        string   `yaml:"host"`
+		Mode        string   `yaml:"mode"`
+		Sql         string   `yaml:"sql"`
+		CorsOrigins []string `yaml:"corsOrigins"`
 	} `yaml:"app"`
 	MySQL struct {
 		User     string `yaml:"user"`

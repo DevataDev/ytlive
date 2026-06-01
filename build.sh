@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Build Next.js application (regular build, not static export)
 cd frontend
