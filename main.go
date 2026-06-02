@@ -17,6 +17,7 @@ import (
 	config "windsorf-youtube-live/internal/configuration"
 	"windsorf-youtube-live/internal/handlers"
 	"windsorf-youtube-live/internal/job"
+	"windsorf-youtube-live/internal/middleware"
 	"windsorf-youtube-live/internal/models"
 	"windsorf-youtube-live/internal/redisutil"
 	"windsorf-youtube-live/internal/tiktok"
@@ -160,7 +161,7 @@ func main() {
 
 	if cfg.App.Sql == "mysql" {
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", cfg.MySQL.User, cfg.MySQL.Password, cfg.MySQL.Host, cfg.MySQL.Port, cfg.MySQL.DBName, cfg.MySQL.Params)
-		log.Println("Connecting to MySQL with DSN:", dsn)
+		log.Printf("Connecting to MySQL at %s:%d/%s", cfg.MySQL.Host, cfg.MySQL.Port, cfg.MySQL.DBName)
 		db, dbErr = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	} else if cfg.App.Sql == "sqlite3" {
 		// check if db file exists
@@ -327,11 +328,25 @@ func main() {
 		c.Set("redis", &redisPubSub)
 		// cors header
 		clientReqOrigin := c.Request.Header.Get("Origin")
-		c.Header("Access-Control-Allow-Origin", clientReqOrigin)
-		c.Header("Access-Control-Allow-Credentials", "true")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, tus-resumable, x-requested-with, x-tus-resumable, x-tus-version, x-tus-max-size, x-tus-offset, x-tus-checksum-algorithm, x-tus-checksum, x-tus-checksum-complete, x-tus-checksum-complete-defer-length, upload-metadata, upload-length, Location, upload-offset")
-		c.Header("Access-Control-Expose-Headers", "Location, tus-resumable, tus-version, tus-max-size, tus-extension, upload-offset, upload-length, upload-metadata, upload-offset")
+		allowed := false
+		if len(cfg.App.CorsOrigins) == 0 {
+			// No origins configured — allow only same-origin (no CORS header)
+			allowed = false
+		} else {
+			for _, origin := range cfg.App.CorsOrigins {
+				if origin == "*" || origin == clientReqOrigin {
+					allowed = true
+					break
+				}
+			}
+		}
+		if allowed && clientReqOrigin != "" {
+			c.Header("Access-Control-Allow-Origin", clientReqOrigin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, tus-resumable, x-requested-with, x-tus-resumable, x-tus-version, x-tus-max-size, x-tus-offset, x-tus-checksum-algorithm, x-tus-checksum, x-tus-checksum-complete, x-tus-checksum-complete-defer-length, upload-metadata, upload-length, Location, upload-offset")
+			c.Header("Access-Control-Expose-Headers", "Location, tus-resumable, tus-version, tus-max-size, tus-extension, upload-offset, upload-length, upload-metadata, upload-offset")
+		}
 		// return ok response for preflight request
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusOK)
@@ -343,11 +358,12 @@ func main() {
 	// serve uploads folder
 	r.StaticFS("/uploads", http.Dir("uploads"))
 
-	// Auth handler
+	// Auth handler with rate limiting (10 requests/min, burst of 5)
+	authLimiter := middleware.NewRateLimiter(10, 5)
 	authHandler := &handlers.AuthHandler{DB: db}
-	r.POST("/api/login", authHandler.Login)
+	r.POST("/api/login", authLimiter.Middleware(), authHandler.Login)
 	r.POST("/api/logout", authHandler.Logout)
-	r.POST("/api/refresh-token", authHandler.RefreshToken)
+	r.POST("/api/refresh-token", authLimiter.Middleware(), authHandler.RefreshToken)
 
 	// Stream handler
 	streamHandler := &handlers.StreamHandler{DB: db, Config: cfg, ActivityLogger: activityLogger, RedisPubSub: &redisPubSub}
